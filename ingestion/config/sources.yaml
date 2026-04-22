@@ -1,0 +1,124 @@
+# Per-source ingestion configuration.
+# Each key is the internal source name; the value declares the scraper to use,
+# the public URL (for live mode), the refresh cadence in days, and whatever
+# scraper-specific fields the parser needs (sheet names, column headers, etc.).
+#
+# The APRA scraper here expects a normalised tabular layout — in local fixture
+# mode, tests construct an XLSX that matches this shape. In live mode, a small
+# adapter in apra_adi.py can translate APRA's real sheet structure into this
+# canonical shape before the mapper runs.
+
+sources:
+
+  apra_adi_performance:
+    scraper: apra_adi
+    url: "https://www.apra.gov.au/quarterly-authorised-deposit-taking-institution-statistics"
+    frequency_days: 120
+    quality_score: HIGH
+    sheet: "Asset Quality"
+    period_column: "Period"
+    category_column: "Category"
+    asset_class_mapping:
+      "Residential": residential_mortgage
+      "Commercial": commercial_property_investment
+      "Corporate": corporate_sme
+    metrics:
+      - column: "90DPD_Rate"
+        metric: "90dpd"
+        data_type: impaired_ratio
+        unit: ratio
+        validation_range: [0.0, 0.20]
+      - column: "NPL_Rate"
+        metric: "npl"
+        data_type: impaired_ratio
+        unit: ratio
+        validation_range: [0.0, 0.30]
+
+  apra_qpex:
+    scraper: apra_adi
+    url: "https://www.apra.gov.au/quarterly-authorised-deposit-taking-institution-statistics"
+    frequency_days: 120
+    quality_score: HIGH
+    file_name: "Property Exposures"   # matches source_registry SOURCE_URLS['apra_adi']['files'][1]
+    sheet: "Property Exposures"
+    period_column: "Period"
+    category_column: "Category"
+    asset_class_mapping:
+      "Residential": residential_mortgage
+      "Commercial": commercial_property_investment
+    metrics:
+      - column: "Non_Performing_Ratio"
+        metric: "npl"
+        data_type: impaired_ratio
+        unit: ratio
+        validation_range: [0.0, 0.30]
+
+  # ------------------------------------------------------------------
+  # Pillar 3 — Big 4 (Phase 2; CBA implemented, others stubbed)
+  # ------------------------------------------------------------------
+
+  cba_pillar3:
+    scraper: pillar3_cba
+    url: "https://www.commbank.com.au/about-us/investors/regulatory-disclosure/pillar-3-capital-disclosures.html"
+    frequency_days: 180
+    quality_score: HIGH
+    source_name: "CBA_PILLAR3"
+    irb_sheet: "IRB Credit Risk"
+    portfolio_column: "Portfolio"
+    ead_column: "Exposure_EAD_Mn"
+    pd_column: "PD"
+    lgd_column: "LGD"
+    slotting_sheet: "Specialised Lending"
+    grade_column: "Grade"
+    slotting_pd_column: "PD"
+    asset_class_mapping:
+      "Residential Mortgage": residential_mortgage
+      "CRE Investment": commercial_property_investment
+      "Corporate SME": corporate_sme
+      "Specialised Lending": development
+
+  nab_pillar3:
+    scraper: pillar3_nab
+    url: "https://www.nab.com.au/about-us/shareholder-centre/financial-disclosures/pillar-3-disclosures"
+    frequency_days: 180
+    quality_score: HIGH
+    source_name: "NAB_PILLAR3"
+    # PDF parser stubbed — config kept for future pdfplumber implementation.
+
+  wbc_pillar3:
+    scraper: pillar3_wbc
+    url: "https://www.westpac.com.au/about-westpac/investor-centre/financial-information/pillar-3-disclosures/"
+    frequency_days: 180
+    quality_score: HIGH
+    source_name: "WBC_PILLAR3"
+
+  anz_pillar3:
+    scraper: pillar3_anz
+    url: "https://www.anz.com.au/shareholder/centre/reporting/pillar-3-disclosure/"
+    frequency_days: 180
+    quality_score: HIGH
+    source_name: "ANZ_PILLAR3"
+
+  # ------------------------------------------------------------------
+  # ICC Trade Register (Phase 3; manual-download)
+  # ------------------------------------------------------------------
+  icc_trade:
+    scraper: icc_trade
+    url: "https://iccwbo.org/news-publications/policies-reports/icc-trade-register-report/"
+    frequency_days: 395
+    quality_score: HIGH
+    source_name: "ICC_TRADE"
+
+  # ------------------------------------------------------------------
+  # ASIC insolvency + ABS business counts importer (Phase 6)
+  # Combined to produce failure_rate per ANZSIC division.
+  # ------------------------------------------------------------------
+  asic_abs:
+    scraper: asic_abs
+    url: "https://asic.gov.au/regulatory-resources/find-a-document/statistics/insolvency-statistics/"
+    asic_dir: "data/asic/"
+    abs_dir: "data/abs/"
+    frequency_days: 90
+    quality_score: MEDIUM
+    source_name: "asic_abs"
+    description: "ASIC insolvency counts + ABS business counts -> failure rates"

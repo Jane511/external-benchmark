@@ -1,0 +1,39 @@
+{
+  "bank": "WBC",
+  "reporting_date": "2025-06-30",
+  "notes": "Hand-extracted Westpac Pillar 3 canonical tables.",
+  "tables": [
+    {
+      "name": "IRB Credit Risk",
+      "rows": [
+        {
+          "asset_class_raw": "Housing",
+          "pd": 0.0088,
+          "lgd": 0.23,
+          "exposure_ead_mn": 470000
+        },
+        {
+          "asset_class_raw": "Commercial real estate",
+          "pd": 0.0260,
+          "lgd": 0.36,
+          "exposure_ead_mn": 82000
+        },
+        {
+          "asset_class_raw": "Corporate SME",
+          "pd": 0.0270,
+          "lgd": 0.43,
+          "exposure_ead_mn": 115000
+        }
+      ]
+    },
+    {
+      "name": "Specialised Lending",
+      "rows": [
+        {"grade": "Strong",       "pd": 0.004},
+        {"grade": "Good",         "pd": 0.008},
+        {"grade": "Satisfactory", "pd": 0.028},
+        {"grade": "Weak",         "pd": 0.080}
+      ]
+    }
+  ]
+}

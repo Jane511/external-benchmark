@@ -1,0 +1,39 @@
+{
+  "bank": "NAB",
+  "reporting_date": "2025-06-30",
+  "notes": "Hand-extracted NAB Pillar 3 canonical tables; values mirror seed_data.py.",
+  "tables": [
+    {
+      "name": "IRB Credit Risk",
+      "rows": [
+        {
+          "asset_class_raw": "Residential mortgage",
+          "pd": 0.0090,
+          "lgd": 0.24,
+          "exposure_ead_mn": 450000
+        },
+        {
+          "asset_class_raw": "Commercial property",
+          "pd": 0.0220,
+          "lgd": 0.32,
+          "exposure_ead_mn": 75000
+        },
+        {
+          "asset_class_raw": "Corporate (incl. SME corporate)",
+          "pd": 0.0320,
+          "lgd": 0.48,
+          "exposure_ead_mn": 125000
+        }
+      ]
+    },
+    {
+      "name": "Specialised Lending",
+      "rows": [
+        {"grade": "Strong",       "pd": 0.004},
+        {"grade": "Good",         "pd": 0.008},
+        {"grade": "Satisfactory", "pd": 0.028},
+        {"grade": "Weak",         "pd": 0.080}
+      ]
+    }
+  ]
+}

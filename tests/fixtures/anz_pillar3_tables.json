@@ -1,0 +1,39 @@
+{
+  "bank": "ANZ",
+  "reporting_date": "2025-06-30",
+  "notes": "Hand-extracted ANZ Pillar 3 canonical tables.",
+  "tables": [
+    {
+      "name": "IRB Credit Risk",
+      "rows": [
+        {
+          "asset_class_raw": "Retail residential mortgage",
+          "pd": 0.0080,
+          "lgd": 0.21,
+          "exposure_ead_mn": 460000
+        },
+        {
+          "asset_class_raw": "Commercial property",
+          "pd": 0.0210,
+          "lgd": 0.37,
+          "exposure_ead_mn": 78000
+        },
+        {
+          "asset_class_raw": "Corporate (incl. SME)",
+          "pd": 0.0340,
+          "lgd": 0.50,
+          "exposure_ead_mn": 118000
+        }
+      ]
+    },
+    {
+      "name": "Specialised Lending",
+      "rows": [
+        {"grade": "Strong",       "pd": 0.004},
+        {"grade": "Good",         "pd": 0.008},
+        {"grade": "Satisfactory", "pd": 0.028},
+        {"grade": "Weak",         "pd": 0.080}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage / type checkers
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.ruff_cache/
+
+# Jupyter / IPython
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+
+# pyenv / pipenv / poetry
+.python-version
+Pipfile.lock
+
+# Environments
+.env
+.env.*
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ---------------------------------------------------------------------------
+# IDE / OS
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# Project-specific: internal docs and planning (not for public GitHub)
+# ---------------------------------------------------------------------------
+# Exclude docs/ by default, but re-include the two extension references
+# that are genuinely useful for readers on GitHub.
+docs/*
+!docs/adapter_pattern.md
+!docs/pillar3_pdf_spec.md
+project guidence.md
+PROGRESS.md
+
+# ---------------------------------------------------------------------------
+# Project-specific: raw data and local DB
+# (too large and/or source-owned; reproducible via scripts/download_sources
+# and `python cli.py ingest ...`)
+# ---------------------------------------------------------------------------
+data/
+benchmarks.db
+
+# ---------------------------------------------------------------------------
+# Project-specific: generated outputs
+# ---------------------------------------------------------------------------
+# Default: outputs/ not tracked. Exception: the four Q3 2025 final
+# deliverables are committed so GitHub visitors can see example output
+# without having to run the pipeline themselves. Future cycles can either
+# add their period-specific whitelist entries or keep the deliverables
+# out of git.
+outputs/*
+!outputs/reports/
+outputs/reports/*
+!outputs/reports/Report_Q3_2025_final.docx
+!outputs/reports/Report_Q3_2025_final.html
+!outputs/reports/Report_Q3_2025_final_Board.md
+!outputs/reports/Report_Q3_2025_final_Technical.md
+!outputs/spot_check_verification.md
