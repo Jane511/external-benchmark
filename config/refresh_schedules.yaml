@@ -1,0 +1,26 @@
+# Refresh schedules for external benchmark sources (plan §8)
+# Values are days; any benchmark older than its source type's threshold is
+# flagged as stale by governance.stale_benchmark_report().
+#
+# Derivation:
+#   pillar3 / apra_adi : quarterly disclosure + 30-day grace          -> 120
+#   bureau             : quarterly update + grace                     -> 120
+#   rating_agency      : annual update + 30-day grace                 -> 395
+#   icc_trade          : annual publication + grace                   -> 395
+#   industry_body      : semi-annual (JLL, CoreLogic, AFIA)           -> 210
+#   listed_peer        : semi-annual investor reporting               -> 210
+#   rba               : semi-annual stability review                  -> 210
+#   insolvency (ASIC)  : semi-annual aggregate publication            -> 210
+#   regulatory (APS)   : infrequent structural updates (~2 yr)        -> 760
+
+refresh_schedules:
+  pillar3:       120
+  apra_adi:      120
+  rating_agency: 395
+  icc_trade:     395
+  industry_body: 210
+  listed_peer:   210
+  rba:           210
+  bureau:        120
+  insolvency:    210
+  regulatory:    760

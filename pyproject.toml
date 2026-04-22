@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "external-benchmark-engine"
+version = "0.1.0"
+description = "External Benchmark Engine for testing and evaluation"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    {name = "Jane", email = "wu.xiaqw@gmail.com"}
+]
+license = {text = "MIT"}
+
+dependencies = [
+    "pydantic>=2.0",
+    "sqlalchemy>=2.0",
+    "click>=8.0",
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "pyyaml>=6.0",
+    "pytest>=7.0",
+]
+
+[project.optional-dependencies]
+docs = [
+    "python-docx>=0.8.11",
+]
+viz = [
+    "matplotlib>=3.7",
+]
+reports = [
+    "python-docx>=1.0",      # Governance DOCX + Report 1 to_docx
+    "jinja2>=3.1",           # Reserved for future HTML templating (Report 1 currently inlines)
+]
+ingestion = [
+    "requests>=2.31",        # HTTP downloads (caching layer)
+    "openpyxl>=3.1",         # Excel parsing (APRA + CBA)
+    "pdfplumber>=0.10",      # PDF table extraction (NAB / WBC / ANZ Pillar 3)
+    "beautifulsoup4>=4.12",  # HTML parsing for download-page navigation
+    "lxml>=5.0",             # HTML/XML parser backend
+]
+download = [
+    "requests>=2.31",        # HTTP downloads
+    "beautifulsoup4>=4.12",  # Listing-page HTML parsing
+    "lxml>=5.0",             # HTML parser backend
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "isort>=5.0",
+    "flake8>=6.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v"
+
+[tool.black]
+line-length = 100
+target-version = ["py39"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
