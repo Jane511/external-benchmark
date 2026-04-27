@@ -1,119 +1,20 @@
-# Adjustment profiles for the External Benchmark Engine
-# All ranges from plan §4. Applied as a 2-stage chain for both institutions:
-#   Stage 1: definition_alignment (shared, source-type-driven)
-#   Stage 2: institution-specific (bank = peer_mix/geography; PC = per-product table)
-
-# ---------------------------------------------------------------------------
-# Stage 1 — Shared definition alignment
-# Applied FIRST for both bank and private credit. Keyed by source_type.
-# ---------------------------------------------------------------------------
-definition_alignment:
-  apra_impaired_to_pd:
-    multiplier: 1.5
-    source_reference: "APRA Prudential Practice Guide APG 113"
-    rationale: "APRA impaired loan ratio -> PD equivalent (APS 113)"
-  illion_bfri_to_default_rate:
-    min: 1.3
-    max: 1.5
-    default: 1.4
-    source_reference: "illion BFRI methodology"
-    rationale: "Bureau failure risk index -> default rate"
-  rating_agency_global_to_au_ig:
-    min: 0.8
-    max: 0.9
-    default: 0.85
-    source_reference: "S&P / Moody's methodology"
-    rationale: "Rating-agency global IG -> Australian IG"
-  rating_agency_global_to_au_sub_ig:
-    multiplier: 1.0
-    source_reference: "S&P / Moody's methodology"
-    rationale: "Rating-agency global sub-IG -> Australian sub-IG (no adj)"
-
-# ---------------------------------------------------------------------------
-# Stage 2 — Bank
-# ---------------------------------------------------------------------------
-bank_stage2:
-  peer_mix:
-    min: 0.95
-    max: 1.05
-    default: 1.00
-    source_reference: "Bank External Benchmarking Framework Section 4"
-    rationale: "Peer composition mix vs benchmark basket"
-  geography_ig:
-    min: 0.80
-    max: 0.90
-    default: 0.85
-    source_reference: "Bank External Benchmarking Framework Section 5"
-    rationale: "Global rating-agency IG -> AU IG"
-
-# ---------------------------------------------------------------------------
-# Stage 2 — Private credit by product
-# Products without an `industry` key below have no industry adjustment (1.0).
-# ---------------------------------------------------------------------------
-private_credit_stage2:
-
-  bridging_residential:
-    selection_bias:  {min: 1.5, max: 2.0, default: 1.75}
-    lvr:             {min: 1.10, max: 1.25, default: 1.15}
-
-  bridging_commercial:
-    selection_bias:  {min: 1.8, max: 2.5, default: 2.00}
-    lvr:             {min: 1.15, max: 1.30, default: 1.20}
-
-  development:
-    selection_bias:  {min: 2.0, max: 2.5, default: 2.25}
-    # no LVR — slotting grade used instead (per plan)
-
-  residual_stock:
-    selection_bias:  {min: 1.5, max: 2.0, default: 1.75}
-    lvr:             {min: 1.10, max: 1.20, default: 1.15}
-
-  trade_finance:
-    selection_bias:  {min: 1.2, max: 1.5, default: 1.35}
-    industry:        {min: 1.0, max: 1.2, default: 1.10}
-
-  invoice_finance:
-    selection_bias:  {min: 1.3, max: 1.5, default: 1.40}
-    # concentration overlay applied additionally (see below)
-
-  working_capital_secured:
-    selection_bias:  {min: 1.8, max: 2.5, default: 2.00}
-    industry:        {min: 0.5, max: 2.0, default: 1.00}   # ANZSIC-dependent
-
-  working_capital_unsecured:
-    selection_bias:  {min: 1.8, max: 2.5, default: 2.00}
-    industry:        {min: 0.5, max: 2.0, default: 1.00}   # ANZSIC-dependent
-    unsecured:       {min: 1.3, max: 1.3, default: 1.30}   # plan §4 PC table
-
-# ---------------------------------------------------------------------------
-# Additional PC adjustment (applied across any product when passed)
-# ---------------------------------------------------------------------------
-trading_history_adj:
-  min: 1.05
-  max: 1.15
-  default: 1.10
-  source_reference: "Plan §4 additional PC adjustments"
-  rationale: "Short operating history uplift (<3 years trading)"
-
-# ---------------------------------------------------------------------------
-# Invoice finance concentration overlay
-# Shares are fractions (0.30 = 30%).
-# default_when_absent applies when debtor_concentration is not passed.
-# ---------------------------------------------------------------------------
-invoice_concentration_overlay:
-  below_10pct: 1.00
-  10_to_25pct: 1.10
-  25_to_50pct: 1.25
-  above_50pct: 1.40
-  default_when_absent: 1.10
-
-# ---------------------------------------------------------------------------
-# LGD-specific adjustments (apply to both institution types; PC uses more aggressively)
-# Consumed by AdjustmentEngine.adjust() when caller passes the matching kwarg.
-# ---------------------------------------------------------------------------
-lgd_specific:
-  weaker_guarantor:      {min: 1.05, max: 1.15, default: 1.10}
-  smaller_workout_team:  {min: 1.05, max: 1.10, default: 1.075}
-  subordinated:          {min: 1.30, max: 1.80, default: 1.55}
-  higher_lvr:            {min: 1.10, max: 1.25, default: 1.175}
-  sector_concentration:  {min: 1.05, max: 1.15, default: 1.10}
+# DEPRECATED — file retained for archival reference only.
+#
+# All adjustment profiles (Stage 1 definition alignment, Stage 2
+# bank/private-credit adjustments, trading_history, invoice_concentration,
+# lgd_specific) have been moved to downstream consuming projects.
+#
+# Rationale: the external benchmark engine's responsibility is to publish
+# raw, source-attributable PD/LGD observations. Adjustments are use-case
+# specific (PD workbook applies different adjustments than LGD or stress
+# testing) and belong in the consuming project so each use case can manage
+# its own complete adjustment chain coherently.
+#
+# Where to find the adjustments now:
+#   * PD-related adjustments → Thin Data Workbook (PD model), Sheet 07 LRA
+#     calibration with EBA Margin of Conservatism categories A/B/C
+#   * LGD-related adjustments → LGD project (when built)
+#   * Stress testing overlays → Stress testing project (when built)
+#
+# Last engine commit using this file: <commit hash to be filled in>
+adjustment_profiles_deprecated: true

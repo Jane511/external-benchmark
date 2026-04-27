@@ -21,14 +21,18 @@ from typing import Optional
 
 import click
 
-from src.adjustments import AdjustmentEngine
-from src.calibration_feed import CalibrationFeed
 from src.db import create_engine_and_schema
 from src.governance import GovernanceReporter
-from src.models import InstitutionType
+from src.models import InstitutionType, SourceType
+from src.observations import PeerObservations
 from src.registry import BenchmarkRegistry
 from src.seed_data import load_seed_data
-from src.triangulation import BenchmarkTriangulator
+
+# NOTE (Brief 1):
+#   src.adjustments, src.calibration_feed, src.triangulation are now
+#   deprecation stubs that raise on import. The CLI no longer wires
+#   them up. The legacy `feed` and `--institution` flags emit a
+#   deprecation message and exit; use `observations` for the raw API.
 
 # Ingestion layer (lazy-imported by subcommands so missing extras don't break other commands).
 
@@ -41,18 +45,15 @@ def _get_registry(db_path: str) -> BenchmarkRegistry:
     return BenchmarkRegistry(engine, actor="cli")
 
 
-def _get_all(db_path: str, institution: str):
-    """Build registry + adjustment_engine + triangulator + calibration_feed."""
+def _get_governance(db_path: str, institution: str):
+    """Build registry + governance reporter (institution kept for governance only)."""
     engine = create_engine_and_schema(db_path)
     inst = (
         InstitutionType.BANK if institution == "bank"
         else InstitutionType.PRIVATE_CREDIT
     )
     registry = BenchmarkRegistry(engine, actor="cli")
-    adjuster = AdjustmentEngine(inst, engine, actor="cli")
-    triangulator = BenchmarkTriangulator(inst)
-    feed = CalibrationFeed(registry, adjuster, triangulator)
-    return registry, feed, inst
+    return registry, inst
 
 
 # ---------------------------------------------------------------------------
@@ -67,12 +68,25 @@ def _get_all(db_path: str, institution: str):
 @click.option(
     "--institution", type=click.Choice(["bank", "private_credit"]),
     default="bank", show_default=True,
+    help="[DEPRECATED — Brief 1] Engine outputs are institution-agnostic; "
+         "adjustments live in consuming projects. Retained for governance "
+         "report templating only.",
 )
 @click.pass_context
 def cli(ctx: click.Context, db: str, institution: str) -> None:
     ctx.ensure_object(dict)
     ctx.obj["db"] = db
     ctx.obj["institution"] = institution
+    if institution != "bank":
+        # Print on non-default value — the user explicitly opted in.
+        click.echo(
+            "NOTE: --institution is deprecated. The engine now publishes raw "
+            "observations only; adjustments are applied by consuming projects "
+            "(e.g. the PD workbook). The same engine output is consumed by all "
+            "institution types. The flag is still honoured for the governance "
+            "subreports, but its scope is shrinking.",
+            err=True,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +160,7 @@ def _run_governance(
     ctx: click.Context, report_type: str, segments: list[str],
 ) -> None:
     """Shared dispatch for the five governance subcommands."""
-    registry, _feed, inst = _get_all(ctx.obj["db"], ctx.obj["institution"])
+    registry, inst = _get_governance(ctx.obj["db"], ctx.obj["institution"])
     reporter = GovernanceReporter(registry, inst)
 
     if report_type == "stale":
@@ -210,100 +224,124 @@ def report_annual(ctx: click.Context, segment: tuple[str, ...]) -> None:
 # --- committee reports -----------------------------------------------------
 
 @report.command("benchmark",
-                help="Report 1 — External Benchmark Calibration Summary.")
+                help="Report 1 — External Benchmark RAW Observation Summary.")
 @click.option("--format", "fmt",
               type=click.Choice(["docx", "html", "markdown"]),
               required=True)
 @click.option("--institution-type",
               type=click.Choice(["bank", "private_credit"]),
-              default="bank", show_default=True)
+              default=None,
+              help="[DEPRECATED — Brief 1] Reports are now institution-agnostic. "
+                   "Accepted for backward compatibility but ignored.")
 @click.option("--output", type=click.Path(), default=None,
-              help="Output path. Defaults to "
-                   "outputs/reports/benchmark_{institution}_{period}.{ext}.")
+              help="Output path. Defaults to outputs/reports/Report_{period}_RawOnly.{ext}.")
 @click.option("--period-label", default=None,
               help="Period label (e.g. 'Q3 2025'). Derived from today if omitted.")
-@click.option("--compare-to", type=click.Path(exists=True), default=None,
-              help="Prior-period SQLite snapshot for delta reporting. "
-                   "(CLI-accepted; section 9 gracefully degrades if omitted.)")
+@click.option("--source-type", default=None,
+              help="Optional filter — only include this source_type "
+                   "(e.g. bank_pillar3, non_bank_listed, rating_agency_index).")
 @click.pass_context
 def report_benchmark(
     ctx: click.Context,
     fmt: str,
-    institution_type: str,
+    institution_type: Optional[str],
     output: Optional[str],
     period_label: Optional[str],
-    compare_to: Optional[str],
+    source_type: Optional[str],
 ) -> None:
     from reports.benchmark_report import BenchmarkCalibrationReport
 
-    # Build fresh engine components bound to the CLI's DB.
+    if institution_type is not None:
+        click.echo(
+            "NOTE: --institution-type is deprecated. The engine now publishes "
+            "raw observations only; the report is the same regardless of "
+            "consumer institution. Adjustments live in the consuming project.",
+            err=True,
+        )
+
     engine = create_engine_and_schema(ctx.obj["db"])
-    inst = (InstitutionType.BANK if institution_type == "bank"
-            else InstitutionType.PRIVATE_CREDIT)
     registry = BenchmarkRegistry(engine, actor="cli")
-    adjuster = AdjustmentEngine(inst, engine, actor="cli")
-    triangulator = BenchmarkTriangulator(inst)
-    feed = CalibrationFeed(registry, adjuster, triangulator)
-    from src.downturn import DownturnCalibrator
-    downturn = DownturnCalibrator(registry)
-    gov = GovernanceReporter(registry, inst)
-
-    prior_registry = None
-    if compare_to:
-        prior_engine = create_engine_and_schema(str(compare_to))
-        prior_registry = BenchmarkRegistry(prior_engine, actor="cli-prior")
-
+    peer = PeerObservations(registry)
     report_obj = BenchmarkCalibrationReport(
-        registry=registry, adjustment_engine=adjuster,
-        triangulator=triangulator, calibration_feed=feed,
-        downturn_calibrator=downturn, governance_reporter=gov,
-        institution_type=institution_type,
+        registry=registry,
+        peer_observations=peer,
         period_label=period_label,
-        prior_registry=prior_registry,
     )
 
-    # Resolve the output path.
     ext = {"docx": "docx", "html": "html", "markdown": "md"}[fmt]
     period_slug = (period_label or report_obj._period).replace(" ", "_")
     default_path = (
-        Path("outputs/reports")
-        / f"benchmark_{institution_type}_{period_slug}.{ext}"
+        Path("outputs/reports") / f"Report_{period_slug}_RawOnly.{ext}"
     )
     out_path = Path(output) if output else default_path
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     if fmt == "docx":
         report_obj.to_docx(out_path)
-        click.echo(f"Report written: {out_path} ({out_path.stat().st_size} bytes)")
     elif fmt == "html":
-        report_obj.to_html(out_path)
-        click.echo(f"Report written: {out_path} ({out_path.stat().st_size} bytes)")
-    elif fmt == "markdown":
-        # Markdown emits two variants: a concise Board summary and a
-        # full Technical Appendix. If the user supplied --output, we
-        # use it as the stem and derive the two siblings.
-        stem = out_path.with_suffix("")
-        board_path = stem.parent / f"{stem.name}_Board.md"
-        tech_path = stem.parent / f"{stem.name}_Technical.md"
-        report_obj.to_board_markdown(board_path)
-        report_obj.to_markdown(tech_path)
-        click.echo(f"Board report:     {board_path} ({board_path.stat().st_size} bytes)")
-        click.echo(f"Technical report: {tech_path} ({tech_path.stat().st_size} bytes)")
+        out_path.write_text(report_obj.to_html(), encoding="utf-8")
+    else:  # markdown
+        out_path.write_text(report_obj.to_markdown(), encoding="utf-8")
+    click.echo(f"Report written: {out_path} ({out_path.stat().st_size} bytes)")
+    if source_type:
+        click.echo(
+            f"NOTE: --source-type {source_type!r} was supplied but the report "
+            "currently emits all source types; pass the filter into "
+            "PeerObservations.for_segment(source_type=...) for programmatic use.",
+            err=True,
+        )
 
 
 @report.command("environment",
-                help="Report 2 — industry / property environment (requires "
-                     "industry-analysis sibling project; not yet implemented).")
+                help="Report 2 — industry / property environment. Sources "
+                     "data from the industry-analysis sibling project.")
+@click.option("--format", "fmt",
+              type=click.Choice(["docx", "html", "markdown", "all"]),
+              default="all", show_default=True)
+@click.option("--data-dir", type=click.Path(), default=None,
+              help="Path to industry-analysis/data/exports/. Defaults to "
+                   "$EXTERNAL_BENCHMARK_INDUSTRY_ANALYSIS_DIR, then the "
+                   "known-sibling-repo path.")
+@click.option("--output", type=click.Path(), default=None,
+              help="Output stem. Defaults to outputs/reports/"
+                   "Report_Environment_<period>.<ext>.")
+@click.option("--period-label", default=None)
+@click.option("--stale-days", type=int, default=90, show_default=True)
 @click.pass_context
-def report_environment(ctx: click.Context) -> None:
-    click.echo(
-        "Report 2 (Environment) is not yet implemented. It requires the "
-        "industry-analysis sibling project's `data/exports/*.parquet` "
-        "contracts, which haven't been synced. Build it when that project "
-        "is available.",
-        err=True,
-    )
-    ctx.exit(2)
+def report_environment(
+    ctx: click.Context,
+    fmt: str,
+    data_dir: Optional[str],
+    output: Optional[str],
+    period_label: Optional[str],
+    stale_days: int,
+) -> None:
+    """Generate Report 2 in the requested format(s).
+
+    This is a thin shim over `scripts/generate_reports.py environment`;
+    both entrypoints share the same underlying renderer.
+    """
+    # Forward to the standalone generator so there is exactly one
+    # implementation of the Report-2 emit logic. We re-invoke via the
+    # click runner so option parsing stays consistent.
+    from scripts.generate_reports import environment as env_cmd
+
+    argv: list[str] = ["--format", fmt]
+    if data_dir:
+        argv.extend(["--data-dir", data_dir])
+    if output:
+        argv.extend(["--output", output])
+    if period_label:
+        argv.extend(["--period-label", period_label])
+    if stale_days != 90:
+        argv.extend(["--stale-days", str(stale_days)])
+    ctx.invoke(env_cmd,
+               fmt=fmt,
+               data_dir=data_dir,
+               output=output,
+               period_label=period_label,
+               stale_days=stale_days,
+               verify=False)
 
 
 @report.command("combined",
@@ -324,34 +362,92 @@ def report_combined(ctx: click.Context) -> None:
 # feed (calibration feed)
 # ---------------------------------------------------------------------------
 
-@cli.command(help="Compute a calibration-feed output for a PD segment.")
-@click.argument("method", type=click.Choice([
-    "central_tendency", "logistic_recalibration",
-    "bayesian_blending", "external_blending", "pluto_tasche",
-]))
-@click.option("--segment", required=True, help="Asset class / segment name.")
-@click.option("--internal-years", type=float, default=5.0,
-              help="Internal data length (external_blending only).")
+@cli.command(help="[DEPRECATED — Brief 1] Use `observations` for the raw-only API.")
+@click.argument("method", required=False)
+@click.option("--segment", default=None)
 @click.pass_context
-def feed(
-    ctx: click.Context, method: str, segment: str, internal_years: float,
-) -> None:
-    _registry, calib, _inst = _get_all(ctx.obj["db"], ctx.obj["institution"])
-    try:
-        if method == "central_tendency":
-            out = calib.for_central_tendency(segment)
-        elif method == "logistic_recalibration":
-            out = calib.for_logistic_recalibration(segment)
-        elif method == "bayesian_blending":
-            out = calib.for_bayesian_blending(segment)
-        elif method == "external_blending":
-            out = calib.for_external_blending(segment, internal_years=internal_years)
-        else:  # pluto_tasche
-            out = calib.for_pluto_tasche(segment)
-    except ValueError as e:
-        raise click.ClickException(str(e))
+def feed(ctx: click.Context, method: Optional[str], segment: Optional[str]) -> None:
+    raise click.ClickException(
+        "The `feed` command is deprecated. The engine no longer triangulates "
+        "or applies adjustments — see Brief 1. Use:\n"
+        "    python cli.py observations --segment <segment>\n"
+        "for the raw per-source observations the consuming project now reads."
+    )
 
-    click.echo(json.dumps(out.model_dump(), indent=2, default=str))
+
+# ---------------------------------------------------------------------------
+# observations — raw per-source observation query (replaces `feed`)
+# ---------------------------------------------------------------------------
+
+@cli.command(help="List raw per-source observations for a segment.")
+@click.option("--segment", required=True, help="Canonical segment ID.")
+@click.option("--source-type", default=None,
+              help="Optional filter (bank_pillar3, non_bank_listed, "
+                   "rating_agency_index, rba_aggregate, ...).")
+@click.option("--include-non-banks/--exclude-non-banks", default=True,
+              show_default=True,
+              help="Whether to include non-bank ASX-listed sources.")
+@click.option("--format", "fmt", type=click.Choice(["json", "table"]),
+              default="table", show_default=True)
+@click.pass_context
+def observations(
+    ctx: click.Context, segment: str, source_type: Optional[str],
+    include_non_banks: bool, fmt: str,
+) -> None:
+    registry = _get_registry(ctx.obj["db"])
+    peer = PeerObservations(registry)
+    st: Optional[SourceType] = None
+    if source_type:
+        try:
+            st = SourceType(source_type)
+        except ValueError as exc:
+            raise click.ClickException(
+                f"Unknown source_type {source_type!r}. Valid: "
+                f"{[s.value for s in SourceType]}"
+            ) from exc
+
+    obs_set = peer.for_segment(segment, source_type=st)
+    rows = obs_set.observations
+    if not include_non_banks:
+        rows = obs_set.by_source_type(big4_only=True)
+
+    if not rows:
+        click.echo(f"No observations for segment={segment!r}.")
+        return
+
+    if fmt == "json":
+        payload = [o.model_dump(mode="json") for o in rows]
+        flags = obs_set.validation_flags
+        click.echo(json.dumps({
+            "segment": segment,
+            "observations": payload,
+            "validation_flags": {
+                "n_sources": flags.n_sources,
+                "spread_pct": flags.spread_pct,
+                "big4_spread_pct": flags.big4_spread_pct,
+                "bank_vs_nonbank_ratio": flags.bank_vs_nonbank_ratio,
+                "outlier_sources": flags.outlier_sources,
+                "stale_sources": flags.stale_sources,
+            },
+        }, indent=2, default=str))
+        return
+
+    click.echo(f"Segment: {segment}  ({len(rows)} observations)")
+    for o in rows:
+        click.echo(
+            f"  {o.source_id:<20} {o.source_type.value:<22} "
+            f"{o.parameter:<4} {o.value:.4%}  as_of={o.as_of_date.isoformat()}  "
+            f"basis={o.reporting_basis}"
+        )
+    flags = obs_set.validation_flags
+    click.echo("")
+    click.echo(
+        f"Flags: n={flags.n_sources}, "
+        f"spread={(flags.spread_pct or 0)*100:.1f}%, "
+        f"big4_spread={(flags.big4_spread_pct or 0)*100:.1f}%, "
+        f"nonbank/big4={flags.bank_vs_nonbank_ratio or '-'}, "
+        f"outliers={flags.outlier_sources or 'none'}"
+    )
 
 
 # ---------------------------------------------------------------------------

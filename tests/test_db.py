@@ -50,10 +50,14 @@ def _benchmark_row(**overrides) -> Benchmark:
 
 # ---------------------------------------------------------------------------
 
-def test_all_three_tables_created(session) -> None:
+def test_all_tables_created(session) -> None:
     inspector = inspect(session.bind)
     tables = set(inspector.get_table_names())
-    assert tables == {"benchmarks", "adjustments", "audit_log"}
+    # Brief 1: raw_observations is the new write target; benchmarks /
+    # adjustments / audit_log persist for backward-compatibility reads.
+    assert tables == {
+        "benchmarks", "adjustments", "audit_log", "raw_observations",
+    }
 
 
 def test_benchmark_insert_and_fetch_roundtrip(session) -> None:

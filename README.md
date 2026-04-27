@@ -1,18 +1,33 @@
 # External Benchmark Engine
 
-Generates external PD/LGD benchmarks for Australian credit  (Big 4 banks + APRA + ASIC/ABS) and produces a **Board report** and **Technical Appendix** per quarter.
+Publishes a **library of raw, source-attributable PD/LGD observations** for
+Australian credit — Big 4 Pillar 3, non-bank ASX-listed lenders (Judo,
+Liberty, Pepper, Resimac, MoneyMe, Plenti, Wisr), APRA / ASIC / ABS, and
+rating-agency / RBA aggregate indices — and produces a per-period
+**raw-only report** that downstream consumers (PD workbook, LGD project,
+stress testing) read from.
 
-This README is the operational run-book for: environment setup, data refresh schedule, CLI workflow, and the exact numbers to review before the report goes to the Model Risk Committee / Board.
+> **Brief 1 (2026-04-27):** the engine no longer applies definition
+> alignment, institution adjustments, downturn LGD overlays, or
+> cross-source triangulation. It publishes raw observations only. All
+> adjustment logic moved to consuming projects so each use case can
+> manage its own complete adjustment chain coherently. See
+> [`docs/migration_from_adjusted_to_raw.md`](docs/migration_from_adjusted_to_raw.md).
 
 ---
 
-## Deliverables (Q3 2025 cycle)
+## Deliverables (per quarter)
 
-- `outputs/reports/Report_Q3_2025_final.docx` — MRC-ready Word document
-- `outputs/reports/Report_Q3_2025_final.html` — browser view
-- `outputs/reports/Report_Q3_2025_final_Board.md` — board summary
-- `outputs/reports/Report_Q3_2025_final_Technical.md` — technical appendix
+- `outputs/reports/Report_<period>_RawOnly.md` — raw-only Markdown report
+- `outputs/reports/Report_<period>_RawOnly.html` — browser view
+- `outputs/reports/Report_<period>_RawOnly.docx` — Word version (optional, requires `[reports]` extras)
 - `outputs/spot_check_verification.md` — human-verified extraction QA
+
+The report has five sections: executive summary, per-source raw
+observations by segment, cross-source validation summary (spread,
+outliers, vintage), Big 4 vs non-bank disclosure spread (informational
+only), and provenance / methodology footnotes. **No adjusted or
+triangulated values appear anywhere.**
 
 ## Quarterly refresh (once your data is available)
 
@@ -36,16 +51,26 @@ This README is the operational run-book for: environment setup, data refresh sch
 
 ## 1. What this tool does
 
-The engine ingests public disclosures from four source types, normalises them into a single registry, runs adjustment and triangulation logic, and emits reports:
+The engine ingests public disclosures from many source types, maps each
+source's segment labels to a canonical segment ID
+([`ingestion/segment_mapping.yaml`](ingestion/segment_mapping.yaml)), and
+emits raw `RawObservation` rows into the registry. Consumers query via
+[`PeerObservations.for_segment()`](src/observations.py).
 
-| Source type       | Publisher(s)              | Cadence       | What we pull                                       |
-|-------------------|---------------------------|---------------|----------------------------------------------------|
-| `pillar3`         | ANZ, CBA, NAB, WBC        | Half-yearly   | PD/LGD per asset class × PD band (APS 330 CR6/CR10) |
-| `apra_adi`        | APRA                      | Quarterly     | ADI sector 90+ DPD / impaired exposure ratios      |
-| `insolvency`      | ASIC + ABS                | Annual/quarterly | Business failure & insolvency appointment rates |
-| `icc_trade`       | ICC Trade Register        | Annual (paid) | Trade-finance default & recovery — **manual only** |
+| Source type | Publisher(s) | Cadence | What we pull |
+| --- | --- | --- | --- |
+| `bank_pillar3` | ANZ, CBA, NAB, WBC | Half-yearly | PD/LGD per asset class × PD band (APS 330 CR6/CR10) |
+| `non_bank_listed` | Judo, Liberty, Pepper, Resimac, MoneyMe, Plenti, Wisr | Half-yearly / annual | Loan-book PD/LGD, arrears bands |
+| `apra_performance` | APRA | Quarterly | ADI sector 90+ DPD / impaired exposure ratios |
+| `apra_qpex` | APRA | Quarterly | Property exposures statistics |
+| `apra_non_adi` | APRA | Annual register | Non-ADI lender register entries that publish data |
+| `asic_insolvency` | ASIC | Quarterly / annual | Business insolvency appointments |
+| `abs_business_counts` | ABS | Annual | Business counts denominator (Cat 8165) |
+| `rating_agency_index` | S&P SPIN, Moody's AU RMBS Index, Fitch Dinkum | Monthly / quarterly | RMBS arrears, default, loss aggregates |
+| `rba_aggregate` | RBA Securitisation, RBA FSR | Irregular / semi-annual | Mortgage / business loan performance aggregates |
 
-Output: two markdown files per period (Board + Technical) plus optional DOCX/HTML.
+Output: a single raw-only Markdown report per period plus optional
+HTML / DOCX.
 
 ---
 

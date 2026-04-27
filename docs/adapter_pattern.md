@@ -1,5 +1,26 @@
 # Adapter Pattern for Live Publisher Files
 
+> **Brief 1 update (2026-04-27):** the engine now publishes raw,
+> source-attributable `RawObservation` rows (see [`src/models.py`](../src/models.py))
+> and consumers read them through `PeerObservations.for_segment()`. The
+> canonical DataFrame shape for new adapters is the
+> `CANONICAL_OBSERVATION_COLUMNS` list defined in
+> [`ingestion/adapters/non_bank_base.py`](../ingestion/adapters/non_bank_base.py):
+>
+>     ["source_id", "source_type", "segment", "product",
+>      "parameter", "value", "as_of_date", "reporting_basis",
+>      "methodology_note", "sample_size_n", "period_start",
+>      "period_end", "source_url", "page_or_table_ref"]
+>
+> NEW non-bank adapters should subclass `NonBankDisclosureAdapter` and
+> map their published segment labels via
+> [`ingestion/segment_mapping.yaml`](../ingestion/segment_mapping.yaml).
+> The legacy Big-4 Pillar 3 adapters keep their existing
+> `["asset_class", "metric_name", ...]` shape for the transitional
+> period — they continue to feed the legacy `BenchmarkEntry` table and
+> are migrated to `RawObservation` via
+> [`scripts/migrate_to_raw_observations.py`](../scripts/migrate_to_raw_observations.py).
+
 ## Why
 
 Every scraper in `ingestion/` was originally written against a **canonical

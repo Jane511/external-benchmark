@@ -73,17 +73,28 @@ def test_report_coverage_with_segment(db_path) -> None:
     assert "coverage" in result.output
 
 
-def test_feed_central_tendency(db_path) -> None:
+def test_feed_command_now_deprecated(db_path) -> None:
+    """The `feed` command was replaced by `observations` in Brief 1."""
     runner = CliRunner()
     _invoke(runner, db_path, "seed")
     result = _invoke(
         runner, db_path, "feed", "central_tendency",
         "--segment", "residential_mortgage",
     )
+    assert result.exit_code != 0
+    assert "deprecated" in (result.output + (result.stderr or "")).lower()
+
+
+def test_observations_command_runs(db_path) -> None:
+    runner = CliRunner()
+    _invoke(runner, db_path, "seed")
+    result = _invoke(
+        runner, db_path, "observations",
+        "--segment", "residential_mortgage",
+        "--format", "table",
+    )
+    # Empty seed (legacy BenchmarkEntry rows) is fine — exit must still be 0.
     assert result.exit_code == 0
-    payload = json.loads(result.output)
-    assert payload["method"] == "central_tendency"
-    assert payload["floor_triggered"] is False
 
 
 def test_export_json_stdout(db_path) -> None:
@@ -401,11 +412,42 @@ def test_ingest_asic_abs_help_shows_both_dir_flags(db_path) -> None:
 # Report 1 committee report CLI (Part 3)
 # ---------------------------------------------------------------------------
 
-def test_report_benchmark_markdown_writes_file(db_path, tmp_path) -> None:
-    """Markdown format emits two sibling files: {stem}_Board.md and
-    {stem}_Technical.md. The board file carries the exec summary; the
-    technical file carries the full audit trail (including the Bank vs
-    Private Credit section)."""
+def test_report_benchmark_markdown_writes_raw_only_file(db_path, tmp_path) -> None:
+    """Markdown emits a single raw-only file with the new section structure."""
+    runner = CliRunner()
+    _invoke(runner, db_path, "seed")
+    out = tmp_path / "report.md"
+    result = _invoke(
+        runner, db_path, "report", "benchmark",
+        "--format", "markdown",
+        "--output", str(out),
+        "--period-label", "Q3 2025",
+    )
+    assert result.exit_code == 0
+    text = out.read_text(encoding="utf-8")
+    assert "## 1. Executive Summary" in text
+    assert "## 2. Per-source raw observations by segment" in text
+    assert "raw, source-attributable observations only" in text
+
+
+def test_report_benchmark_html_writes_self_contained_file(db_path, tmp_path) -> None:
+    runner = CliRunner()
+    _invoke(runner, db_path, "seed")
+    out = tmp_path / "report.html"
+    result = _invoke(
+        runner, db_path, "report", "benchmark",
+        "--format", "html",
+        "--output", str(out),
+        "--period-label", "Q3 2025",
+    )
+    assert result.exit_code == 0
+    text = out.read_text(encoding="utf-8")
+    assert "<style>" in text
+    assert "raw, source-attributable observations only" in text
+
+
+def test_report_benchmark_institution_type_flag_is_deprecated(db_path, tmp_path) -> None:
+    """--institution-type is accepted for backward compatibility but warned."""
     runner = CliRunner()
     _invoke(runner, db_path, "seed")
     out = tmp_path / "report.md"
@@ -417,59 +459,84 @@ def test_report_benchmark_markdown_writes_file(db_path, tmp_path) -> None:
         "--period-label", "Q3 2025",
     )
     assert result.exit_code == 0
-    board = tmp_path / "report_Board.md"
-    technical = tmp_path / "report_Technical.md"
-    assert board.exists(), "Board variant must be emitted"
-    assert technical.exists(), "Technical variant must be emitted"
-    assert "## 1. Executive Summary" in board.read_text(encoding="utf-8")
-    assert "Bank vs Private Credit" in technical.read_text(encoding="utf-8")
+    assert "deprecated" in (result.output + (result.stderr or "")).lower()
 
 
-def test_report_benchmark_html_writes_self_contained_file(db_path, tmp_path) -> None:
+def test_report_environment_errors_when_data_dir_missing(tmp_path, db_path) -> None:
+    """With no sibling repo + no overrides, the CLI fails loudly rather than
+    silently producing an empty report."""
     runner = CliRunner()
-    _invoke(runner, db_path, "seed")
-    out = tmp_path / "report.html"
+    # Point at a guaranteed-missing path so neither default resolves.
+    missing = tmp_path / "no-such-exports"
     result = _invoke(
-        runner, db_path, "report", "benchmark",
-        "--format", "html",
-        "--institution-type", "private_credit",
-        "--output", str(out),
-        "--period-label", "Q3 2025",
+        runner, db_path,
+        "report", "environment",
+        "--data-dir", str(missing),
+        "--format", "markdown",
     )
-    assert result.exit_code == 0
-    text = out.read_text(encoding="utf-8")
-    assert "Credit Committee" in text
-    assert "<style>" in text   # self-contained (inline CSS)
+    assert result.exit_code != 0
+    assert "does not exist" in result.output.lower() or \
+           "missing" in result.output.lower()
 
 
-def test_report_benchmark_docx_writes_valid_document(db_path, tmp_path) -> None:
-    from docx import Document
+def test_report_environment_generates_markdown_from_fixture(tmp_path, db_path) -> None:
+    """End-to-end: point `report environment` at a synthetic exports dir
+    and confirm the markdown variants land in the chosen output dir."""
+    import pandas as pd
 
+    d = tmp_path / "exports"
+    d.mkdir()
+    pd.DataFrame({
+        "industry": ["Agriculture", "Construction"],
+        "classification_risk_score": [3.5, 2.75],
+        "macro_risk_score":          [3.2, 2.6],
+        "industry_base_risk_score":  [3.5, 2.68],
+        "industry_base_risk_level":  ["Elevated", "Medium"],
+        "cash_rate_latest_pct":      [3.85, 3.85],
+        "cash_rate_change_1y_pctpts":[-0.25, -0.25],
+    }).to_parquet(d / "industry_risk_scores.parquet", index=False)
+    pd.DataFrame({
+        "property_segment":     ["Offices", "Aged care"],
+        "cycle_stage":          ["downturn", "neutral"],
+        "market_softness_score":[4.3, 2.7],
+        "region_risk_score":    [4.0, 2.7],
+        "region_risk_band":     ["High", "Medium"],
+        "approvals_change_pct": [-35.0, 60.0],
+        "commencements_signal": ["Proxy"] * 2,
+        "completions_signal":   ["Proxy"] * 2,
+        "market_softness_band": ["soft", "normal"],
+    }).to_parquet(d / "property_market_overlays.parquet", index=False)
+    pd.DataFrame({
+        "scenario": ["base", "mild", "moderate", "severe"],
+        "pd_multiplier": [1.0, 1.2, 1.5, 2.0],
+        "lgd_multiplier": [1.0, 1.1, 1.2, 1.3],
+        "ccf_multiplier": [1.0, 1.05, 1.10, 1.20],
+        "property_value_haircut": [0.0, 0.05, 0.10, 0.20],
+        "notes":     ["b", "m", "mo", "s"],
+        "as_of_date":["2026-03-16"] * 4,
+    }).to_parquet(d / "downturn_overlay_table.parquet", index=False)
+    pd.DataFrame({
+        "as_of_date":                ["2026-03-16"],
+        "cash_rate_regime":          ["neutral_easing"],
+        "arrears_environment_level": ["Low"],
+        "arrears_trend":             ["Improving"],
+        "macro_regime_flag":         ["base"],
+        "source_dataset":            ["test"],
+    }).to_parquet(d / "macro_regime_flags.parquet", index=False)
+
+    out_stem = tmp_path / "out" / "Env_Q1_2026.md"
     runner = CliRunner()
-    _invoke(runner, db_path, "seed")
-    out = tmp_path / "report.docx"
     result = _invoke(
-        runner, db_path, "report", "benchmark",
-        "--format", "docx",
-        "--institution-type", "bank",
-        "--output", str(out),
-        "--period-label", "Q3 2025",
+        runner, db_path,
+        "report", "environment",
+        "--data-dir", str(d),
+        "--format", "markdown",
+        "--output", str(out_stem),
+        "--period-label", "Q1 2026",
     )
-    assert result.exit_code == 0
-    doc = Document(str(out))
-    # DOCX must contain at least the MRC framing
-    paras = "\n".join(p.text for p in doc.paragraphs)
-    assert "Model Risk Committee" in paras or "3 Lines of Defence" in "\n".join(
-        c.text for t in doc.tables for r in t.rows for c in r.cells
-    )
-
-
-def test_report_environment_returns_not_implemented(db_path) -> None:
-    runner = CliRunner()
-    result = _invoke(runner, db_path, "report", "environment")
-    assert result.exit_code == 2
-    assert "not yet implemented" in result.output.lower()
-    assert "industry-analysis" in result.output.lower()
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "out" / "Env_Q1_2026_Board.md").exists()
+    assert (tmp_path / "out" / "Env_Q1_2026_Technical.md").exists()
 
 
 def test_report_combined_returns_not_implemented(db_path) -> None:

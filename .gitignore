@@ -93,7 +93,8 @@ Thumbs.db
 docs/*
 !docs/adapter_pattern.md
 !docs/pillar3_pdf_spec.md
-project guidence.md
+!docs/migration_from_adjusted_to_raw.md
+!docs/INDUSTRY_ANALYSIS_INTEGRATION_SPEC.md
 PROGRESS.md
 
 # ---------------------------------------------------------------------------
@@ -107,16 +108,15 @@ benchmarks.db
 # ---------------------------------------------------------------------------
 # Project-specific: generated outputs
 # ---------------------------------------------------------------------------
-# Default: outputs/ not tracked. Exception: the four Q3 2025 final
-# deliverables are committed so GitHub visitors can see example output
-# without having to run the pipeline themselves. Future cycles can either
-# add their period-specific whitelist entries or keep the deliverables
-# out of git.
+# Default: outputs/ not tracked. Exception: the Brief 1 raw-only sample
+# report is committed so GitHub visitors can see example output without
+# having to run the pipeline themselves. Future cycles add their
+# period-specific whitelist entries.
 outputs/*
 !outputs/reports/
 outputs/reports/*
-!outputs/reports/Report_Q3_2025_final.docx
-!outputs/reports/Report_Q3_2025_final.html
-!outputs/reports/Report_Q3_2025_final_Board.md
-!outputs/reports/Report_Q3_2025_final_Technical.md
-!outputs/spot_check_verification.md
+!outputs/reports/Report_Q1_2026_RawOnly_sample.md
+# Environment reports (sibling industry-analysis project) — kept when present.
+!outputs/reports/Report_Environment_*.md
+!outputs/reports/Report_Environment_*.html
+!outputs/reports/Report_Environment_*.docx
