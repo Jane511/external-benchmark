@@ -1,0 +1,75 @@
+# Map each source's published segment names to canonical segment IDs.
+#
+# When a source uses a label that doesn't fit any canonical segment, add a
+# new canonical segment ID below — don't force-fit. The canonical ID is
+# what consumers query via PeerObservations.for_segment(...).
+#
+# Match is case-insensitive substring (the adapter is responsible for
+# normalising whitespace before lookup).
+
+canonical_segments:
+
+  commercial_property:
+    description: "Lending secured by income-producing commercial real estate."
+    aliases:
+      cba:      ["Commercial property", "CRE"]
+      nab:      ["Commercial real estate"]
+      wbc:      ["Commercial property"]
+      anz:      ["Commercial property"]
+      judo:     ["Commercial real estate", "CRE lending"]
+      liberty:  ["Commercial property loans"]
+      pepper:   ["Commercial loans"]
+      resimac:  ["Commercial real estate"]
+
+  commercial_property_investment:
+    description: "Investment-grade income-producing CRE (kept distinct from development)."
+    aliases:
+      cba:      ["Commercial property investment", "Investment property"]
+      nab:      ["Commercial property investment"]
+
+  development:
+    description: "Development / construction lending — speculative or take-out tied."
+    aliases:
+      cba:      ["Development", "Property development"]
+      nab:      ["Development"]
+      wbc:      ["Development"]
+      anz:      ["Development"]
+      judo:     ["Construction"]
+
+  sme_corporate:
+    description: "Small and medium enterprise corporate lending."
+    aliases:
+      cba:      ["SME corporate", "Small and medium enterprises"]
+      nab:      ["SME"]
+      wbc:      ["SME corporate"]
+      anz:      ["SME corporate"]
+      judo:     ["Small and medium business", "SME lending"]
+      liberty:  ["SME loans"]
+      pepper:   ["SME / business"]
+      moneyme:  ["SME / commercial loans"]
+      plenti:   ["SME automotive"]
+
+  residential_mortgage:
+    description: "Owner-occupied + investor residential mortgages."
+    aliases:
+      cba:      ["Residential mortgage", "Australian residential mortgages"]
+      nab:      ["Residential mortgage"]
+      wbc:      ["Residential mortgage"]
+      anz:      ["Residential mortgage"]
+      pepper:   ["Residential mortgages"]
+      resimac:  ["Residential mortgages", "Prime", "Specialist"]
+      liberty:  ["Residential mortgages"]
+
+  consumer_unsecured:
+    description: "Consumer personal loans / unsecured."
+    aliases:
+      moneyme:  ["Personal loan book"]
+      plenti:   ["Personal loans"]
+      wisr:     ["Personal loans", "Loan book"]
+      pepper:   ["Consumer loans"]
+
+  trade_finance:
+    description: "Trade finance / receivables."
+    aliases:
+      cba:      ["Trade finance"]
+      anz:      ["Trade finance"]

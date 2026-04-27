@@ -17,9 +17,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 class SourceType(str, Enum):
     """Publisher category for a benchmark source.
 
-    Drives confidence-N weighting in triangulation and refresh-schedule
-    lookup in governance. Values align with `refresh_schedules.yaml`.
+    Used by the registry / observations API for source-type filtering and
+    by the governance refresh-schedule lookup. Legacy values (PILLAR3,
+    APRA_ADI, RATING_AGENCY, ICC_TRADE, INDUSTRY_BODY, LISTED_PEER,
+    REGULATORY, RBA, BUREAU, INSOLVENCY) are retained for backward
+    compatibility with persisted BenchmarkEntry rows; new RawObservation
+    rows use the BANK_PILLAR3 / NON_BANK_LISTED / APRA_* / RATING_AGENCY_INDEX
+    / RBA_AGGREGATE family below.
     """
+    # ---- legacy (BenchmarkEntry rows) --------------------------------
     PILLAR3 = "pillar3"
     APRA_ADI = "apra_adi"
     RATING_AGENCY = "rating_agency"
@@ -30,6 +36,17 @@ class SourceType(str, Enum):
     RBA = "rba"
     BUREAU = "bureau"
     INSOLVENCY = "insolvency"
+
+    # ---- raw-observation taxonomy (Brief 1) --------------------------
+    BANK_PILLAR3 = "bank_pillar3"            # CBA, NAB, WBC, ANZ
+    NON_BANK_LISTED = "non_bank_listed"      # Judo, Liberty, Pepper, MoneyMe, etc.
+    APRA_QPEX = "apra_qpex"
+    APRA_PERFORMANCE = "apra_performance"
+    APRA_NON_ADI = "apra_non_adi"            # NEW — non-ADI lender register
+    ASIC_INSOLVENCY = "asic_insolvency"
+    ABS_BUSINESS_COUNTS = "abs_business_counts"
+    RATING_AGENCY_INDEX = "rating_agency_index"  # S&P SPIN, Moody's RMBS, Fitch Dinkum
+    RBA_AGGREGATE = "rba_aggregate"          # RBA Bulletin / FSR aggregates
 
 
 class DataType(str, Enum):
@@ -226,6 +243,67 @@ class TriangulationResult(BaseModel):
     @classmethod
     def _cap_confidence_at_500(cls, v: Any) -> int:
         return min(int(v), 500)
+
+
+# ---------------------------------------------------------------------------
+# Raw observation API (Brief 1) — what the engine publishes to consumers
+# ---------------------------------------------------------------------------
+
+class RawObservation(BaseModel):
+    """A single raw PD or LGD observation from one source for one segment.
+
+    The engine publishes these directly. No adjustment, no blending, no
+    triangulation — the source's published value with its full attribution.
+    Consumers (PD workbook, LGD project, stress testing) read these via
+    src.observations.PeerObservations and apply their own adjustments.
+    """
+
+    model_config = ConfigDict(frozen=True, str_strip_whitespace=True, extra="forbid")
+
+    source_id: str = Field(..., min_length=1)         # e.g. "cba", "judo", "liberty"
+    source_type: SourceType
+    segment: str = Field(..., min_length=1)           # canonical segment ID
+    product: Optional[str] = None                     # finer granularity if available
+    parameter: str = Field(..., min_length=1)         # "pd" or "lgd"
+    value: float = Field(..., ge=0.0)                 # raw published value (decimal)
+
+    # Vintage and methodology
+    as_of_date: date
+    reporting_basis: str = Field(..., min_length=1)   # e.g. "Pillar 3 quarterly"
+    methodology_note: str = Field(..., min_length=1)  # what the source says this means
+
+    # Optional metadata
+    sample_size_n: Optional[int] = Field(default=None, ge=0)
+    period_start: Optional[date] = None
+    period_end: Optional[date] = None
+    source_url: Optional[str] = None
+    page_or_table_ref: Optional[str] = None           # e.g. "Pillar 3 Table CR6 row 4"
+
+    @model_validator(mode="after")
+    def _validate_period_bounds(self) -> "RawObservation":
+        if (
+            self.period_start is not None
+            and self.period_end is not None
+            and self.period_start > self.period_end
+        ):
+            raise ValueError(
+                f"period_start ({self.period_start}) must be on or before "
+                f"period_end ({self.period_end})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_parameter(self) -> "RawObservation":
+        if self.parameter not in ("pd", "lgd"):
+            raise ValueError(
+                f"parameter must be 'pd' or 'lgd'; got {self.parameter!r}"
+            )
+        # PD/LGD are decimal proportions — clamp to [0, 1]
+        if not 0.0 <= self.value <= 1.0:
+            raise ValueError(
+                f"value={self.value} must be in [0, 1] for parameter={self.parameter!r}"
+            )
+        return self
 
 
 # ---------------------------------------------------------------------------

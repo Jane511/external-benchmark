@@ -86,6 +86,36 @@ class Adjustment(Base):
     applied_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
 
+class RawObservationRow(Base):
+    """Raw, source-attributable PD/LGD observation (Brief 1).
+
+    Append-only. The engine no longer mutates source values — corrections
+    are inserted as a new row with a fresher `as_of_date`. Consumers query
+    by (segment, parameter, source_type) and decide which vintage to use.
+    """
+    __tablename__ = "raw_observations"
+
+    pk: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    source_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    segment: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    product: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
+    parameter: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+
+    as_of_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    reporting_basis: Mapped[str] = mapped_column(String, nullable=False)
+    methodology_note: Mapped[str] = mapped_column(String, nullable=False)
+
+    sample_size_n: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    period_start: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    period_end: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    source_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    page_or_table_ref: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    inserted_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+
 class AuditLog(Base):
     """One row per state-changing operation. Append-only."""
     __tablename__ = "audit_log"

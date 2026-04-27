@@ -11,6 +11,7 @@ governance typically requires full access provenance, not just write provenance.
 from __future__ import annotations
 
 import json
+from datetime import date
 from typing import Any, Literal, Optional
 
 import pandas as pd
@@ -18,13 +19,14 @@ from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from src.db import AuditLog, Benchmark, make_session_factory
+from src.db import AuditLog, Benchmark, RawObservationRow, make_session_factory
 from src.models import (
     BenchmarkEntry,
     Component,
     Condition,
     DataType,
     QualityScore,
+    RawObservation,
     SourceType,
 )
 
@@ -282,6 +284,135 @@ class BenchmarkRegistry:
         if format == "csv":
             return df.to_csv(index=False)
         raise ValueError(f"Unknown format: {format!r}")
+
+
+# ---------------------------------------------------------------------------
+# RawObservation helpers (Brief 1)
+# ---------------------------------------------------------------------------
+
+def _obs_to_row(obs: RawObservation) -> RawObservationRow:
+    return RawObservationRow(
+        source_id=obs.source_id,
+        source_type=obs.source_type.value,
+        segment=obs.segment,
+        product=obs.product,
+        parameter=obs.parameter,
+        value=obs.value,
+        as_of_date=obs.as_of_date,
+        reporting_basis=obs.reporting_basis,
+        methodology_note=obs.methodology_note,
+        sample_size_n=obs.sample_size_n,
+        period_start=obs.period_start,
+        period_end=obs.period_end,
+        source_url=obs.source_url,
+        page_or_table_ref=obs.page_or_table_ref,
+    )
+
+
+def _row_to_obs(row: RawObservationRow) -> RawObservation:
+    return RawObservation(
+        source_id=row.source_id,
+        source_type=SourceType(row.source_type),
+        segment=row.segment,
+        product=row.product,
+        parameter=row.parameter,
+        value=row.value,
+        as_of_date=row.as_of_date,
+        reporting_basis=row.reporting_basis,
+        methodology_note=row.methodology_note,
+        sample_size_n=row.sample_size_n,
+        period_start=row.period_start,
+        period_end=row.period_end,
+        source_url=row.source_url,
+        page_or_table_ref=row.page_or_table_ref,
+    )
+
+
+# Patch the BenchmarkRegistry class with raw-observation methods.
+def _add_observation(self: "BenchmarkRegistry", obs: RawObservation) -> None:
+    """Insert a single RawObservation. Append-only — no version supersession."""
+    with self._factory() as s:
+        s.add(_obs_to_row(obs))
+        self._audit(
+            s, "add_observation", obs.source_id,
+            {"segment": obs.segment, "parameter": obs.parameter,
+             "as_of_date": obs.as_of_date.isoformat()},
+            "inserted",
+        )
+        s.commit()
+
+
+def _add_observations(self: "BenchmarkRegistry", obs_list: list[RawObservation]) -> int:
+    """Bulk insert. Returns count inserted."""
+    with self._factory() as s:
+        for obs in obs_list:
+            s.add(_obs_to_row(obs))
+        self._audit(
+            s, "add_observations", "*",
+            {"count": len(obs_list)}, f"{len(obs_list)} inserted",
+        )
+        s.commit()
+        return len(obs_list)
+
+
+def _query_observations(
+    self: "BenchmarkRegistry",
+    *,
+    segment: Optional[str] = None,
+    product: Optional[str] = None,
+    source_type: Optional[SourceType] = None,
+    parameter: Optional[str] = None,
+    since: Optional[date] = None,
+) -> list[RawObservation]:
+    """Filter raw observations. Latest-vintage filtering is the consumer's job."""
+    with self._factory() as s:
+        stmt = select(RawObservationRow)
+        if segment is not None:
+            stmt = stmt.where(RawObservationRow.segment == segment)
+        if product is not None:
+            stmt = stmt.where(RawObservationRow.product == product)
+        if source_type is not None:
+            stmt = stmt.where(RawObservationRow.source_type == source_type.value)
+        if parameter is not None:
+            stmt = stmt.where(RawObservationRow.parameter == parameter)
+        if since is not None:
+            stmt = stmt.where(RawObservationRow.as_of_date >= since)
+        rows = s.scalars(
+            stmt.order_by(RawObservationRow.segment, RawObservationRow.source_id,
+                          RawObservationRow.as_of_date.desc())
+        ).all()
+        self._audit(
+            s, "query_observations",
+            f"{segment or '*'}/{parameter or '*'}",
+            {
+                "segment": segment, "product": product,
+                "source_type": source_type.value if source_type else None,
+                "parameter": parameter,
+                "since": since.isoformat() if since else None,
+            },
+            f"{len(rows)} rows",
+        )
+        s.commit()
+        return [_row_to_obs(r) for r in rows]
+
+
+def _list_segments(self: "BenchmarkRegistry") -> list[str]:
+    """Distinct canonical segment IDs that have at least one observation."""
+    with self._factory() as s:
+        stmt = select(RawObservationRow.segment).distinct().order_by(
+            RawObservationRow.segment
+        )
+        segments = [row for row in s.scalars(stmt).all()]
+        self._audit(s, "list_segments", "*", {}, f"{len(segments)} segments")
+        s.commit()
+        return segments
+
+
+# Bind helpers as methods on BenchmarkRegistry without rewriting the class body.
+BenchmarkRegistry.add_observation = _add_observation       # type: ignore[attr-defined]
+BenchmarkRegistry.add_observations = _add_observations     # type: ignore[attr-defined]
+BenchmarkRegistry.query_observations = _query_observations  # type: ignore[attr-defined]
+BenchmarkRegistry.list_segments = _list_segments           # type: ignore[attr-defined]
 
 
 def _row_to_dict(row: Benchmark) -> dict[str, Any]:
