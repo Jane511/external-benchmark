@@ -4,10 +4,6 @@ from __future__ import annotations
 import pytest
 
 from ingestion.adapters.non_bank_base import CANONICAL_OBSERVATION_COLUMNS
-from ingestion.external_indices.fitch_dinkum_adapter import FitchDinkumAdapter
-from ingestion.external_indices.moodys_au_rmbs_index_adapter import (
-    MoodysAuRmbsIndexAdapter,
-)
 from ingestion.external_indices.rba_fsr_aggregates_adapter import (
     RbaFsrAggregatesAdapter,
 )
@@ -20,8 +16,6 @@ from src.models import SourceType
 
 _ADAPTERS = [
     SpSpinAdapter,
-    MoodysAuRmbsIndexAdapter,
-    FitchDinkumAdapter,
     RbaSecuritisationAggregatesAdapter,
     RbaFsrAggregatesAdapter,
 ]
@@ -37,8 +31,6 @@ def test_external_index_adapter_canonical_shape(adapter_cls, tmp_path):
 
 @pytest.mark.parametrize("adapter_cls,expected_type", [
     (SpSpinAdapter, SourceType.RATING_AGENCY_INDEX),
-    (MoodysAuRmbsIndexAdapter, SourceType.RATING_AGENCY_INDEX),
-    (FitchDinkumAdapter, SourceType.RATING_AGENCY_INDEX),
     (RbaSecuritisationAggregatesAdapter, SourceType.RBA_AGGREGATE),
     (RbaFsrAggregatesAdapter, SourceType.RBA_AGGREGATE),
 ])

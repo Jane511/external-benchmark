@@ -1,4 +1,4 @@
-# Refresh schedules for external benchmark sources (plan §8)
+# Refresh schedules for external benchmark sources.
 # Values are days; any benchmark older than its source type's threshold is
 # flagged as stale by governance.stale_benchmark_report().
 #
@@ -9,8 +9,7 @@
 #   icc_trade          : annual publication + grace                   -> 395
 #   industry_body      : semi-annual (JLL, CoreLogic, AFIA)           -> 210
 #   listed_peer        : semi-annual investor reporting               -> 210
-#   rba               : semi-annual stability review                  -> 210
-#   insolvency (ASIC)  : semi-annual aggregate publication            -> 210
+#   rba                : semi-annual stability review                 -> 210
 #   regulatory (APS)   : infrequent structural updates (~2 yr)        -> 760
 
 refresh_schedules:
@@ -22,5 +21,4 @@ refresh_schedules:
   listed_peer:   210
   rba:           210
   bureau:        120
-  insolvency:    210
   regulatory:    760

@@ -5,9 +5,9 @@ from datetime import date, timedelta
 
 import pytest
 
-from reports.benchmark_report import BenchmarkCalibrationReport, RAW_ONLY_BANNER
+from src.benchmark_report import BenchmarkCalibrationReport, RAW_ONLY_BANNER
 from src.db import create_engine_and_schema
-from src.models import RawObservation, SourceType
+from src.models import DataDefinitionClass, RawObservation, SourceType
 from src.observations import PeerObservations
 from src.registry import BenchmarkRegistry
 
@@ -21,6 +21,7 @@ def populated_registry() -> BenchmarkRegistry:
         RawObservation(
             source_id="cba", source_type=SourceType.BANK_PILLAR3,
             segment="commercial_property", parameter="pd",
+            data_definition_class=DataDefinitionClass.BASEL_PD_ONE_YEAR,
             value=0.025, as_of_date=today - timedelta(days=30),
             reporting_basis="Pillar 3 trailing 4-quarter average",
             methodology_note="CR6 EAD-weighted Average PD",
@@ -29,6 +30,7 @@ def populated_registry() -> BenchmarkRegistry:
         RawObservation(
             source_id="judo", source_type=SourceType.NON_BANK_LISTED,
             segment="commercial_property", parameter="pd",
+            data_definition_class=DataDefinitionClass.BASEL_PD_ONE_YEAR,
             value=0.045, as_of_date=today - timedelta(days=90),
             reporting_basis="Half-yearly disclosure",
             methodology_note="Average PD on commercial real estate book",
@@ -86,3 +88,37 @@ def test_html_renders_with_banner(populated_registry):
     html = report.to_html()
     assert "<title>External Benchmark Report" in html
     assert "raw, source-attributable observations only" in html
+
+
+def test_raw_data_inventory_section_only_when_dir_provided(
+    populated_registry, tmp_path,
+):
+    """`raw_data_dir=None` (default) skips section 6 entirely."""
+    bare = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
+    assert "raw_data_inventory" not in bare.generate()
+    assert "## 6. Raw data inventory" not in bare.to_markdown()
+
+
+def test_raw_data_inventory_section_walks_directory(populated_registry, tmp_path):
+    """`raw_data_dir` populates section 6 with files grouped by family."""
+    raw = tmp_path / "raw"
+    (raw / "pillar3").mkdir(parents=True)
+    (raw / "pillar3" / "CBA_FY25.pdf").write_bytes(b"%PDF stub")
+    (raw / "non_bank" / "qualitas").mkdir(parents=True)
+    (raw / "non_bank" / "qualitas" / "_MANUAL.md").write_text("hint")
+
+    report = BenchmarkCalibrationReport(
+        populated_registry, period_label="Q1 2026", raw_data_dir=raw,
+    )
+    data = report.generate()
+    inv = data["raw_data_inventory"]
+    assert inv["n_files"] == 2
+    families = {b["family"] for b in inv["by_family"]}
+    assert families == {"pillar3", "non_bank"}
+
+    md = report.to_markdown()
+    assert "## 6. Raw data inventory" in md
+    assert "### pillar3" in md
+    assert "### non_bank" in md
+    assert "CBA_FY25.pdf" in md
+    assert "_MANUAL.md" in md

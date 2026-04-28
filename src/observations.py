@@ -25,11 +25,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Optional
+from typing import Optional, Sequence
 
-from src.models import RawObservation, SourceType
+from src.models import DataDefinitionClass, RawObservation, SourceType
 from src.registry import BenchmarkRegistry
-from src.validation import BIG4_SOURCE_IDS, ValidationFlags, compute_validation_flags
+from src.validation import (
+    BIG4_SOURCE_IDS,
+    ValidationFlags,
+    compute_validation_flags,
+    is_big4_source_id,
+)
 
 
 @dataclass
@@ -53,10 +58,10 @@ class ObservationSet:
             raise ValueError("big4_only and nonbank_only are mutually exclusive")
         if big4_only:
             return [o for o in self.observations
-                    if o.source_id.lower() in BIG4_SOURCE_IDS]
+                    if is_big4_source_id(o.source_id)]
         if nonbank_only:
             return [o for o in self.observations
-                    if o.source_id.lower() not in BIG4_SOURCE_IDS]
+                    if not is_big4_source_id(o.source_id)]
         return list(self.observations)
 
     def latest_per_source(self) -> list[RawObservation]:
@@ -91,18 +96,23 @@ class PeerObservations:
         product: Optional[str] = None,
         source_type: Optional[SourceType] = None,
         only_pd: bool = True,
+        definition_classes: Optional[Sequence[DataDefinitionClass]] = None,
     ) -> ObservationSet:
         """Return the ObservationSet for this segment.
 
         Filters: only PD entries by default (use only_pd=False to include
         LGD or other parameter types). Optional product and source_type
-        filters narrow further.
+        filters narrow further. ``definition_classes`` lets a consumer
+        restrict to a specific definition family — e.g. pass
+        ``[DataDefinitionClass.BASEL_PD_ONE_YEAR]`` to exclude arrears /
+        impaired / commentary observations.
         """
         rows = self._registry.query_observations(
             segment=segment,
             product=product,
             source_type=source_type,
             parameter="pd" if only_pd else None,
+            definition_classes=definition_classes,
         )
         flags = compute_validation_flags(rows, today=self._today)
         return ObservationSet(

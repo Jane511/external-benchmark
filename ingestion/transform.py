@@ -62,8 +62,6 @@ _PUBLISHER_TO_SOURCE_TYPE: dict[str, SourceType] = {
     "Australia and New Zealand Banking Group": SourceType.PILLAR3,
     "ICC": SourceType.ICC_TRADE,
     "ICC Trade Register": SourceType.ICC_TRADE,
-    "ASIC_ABS": SourceType.INSOLVENCY,
-    "ASIC+ABS": SourceType.INSOLVENCY,
     "illion": SourceType.BUREAU,
     "S&P": SourceType.RATING_AGENCY,
     "S&P Global Ratings": SourceType.RATING_AGENCY,
@@ -74,7 +72,6 @@ _PUBLISHER_TO_SOURCE_TYPE: dict[str, SourceType] = {
     "JLL Australia": SourceType.INDUSTRY_BODY,
     "AFIA": SourceType.INDUSTRY_BODY,
     "RBA": SourceType.RBA,
-    "ASIC": SourceType.INSOLVENCY,
     "La Trobe Financial": SourceType.LISTED_PEER,
     "Qualitas": SourceType.LISTED_PEER,
 }

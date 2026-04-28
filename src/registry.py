@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Sequence
 
 import pandas as pd
 from sqlalchemy import select
@@ -24,6 +24,7 @@ from src.models import (
     BenchmarkEntry,
     Component,
     Condition,
+    DataDefinitionClass,
     DataType,
     QualityScore,
     RawObservation,
@@ -297,6 +298,7 @@ def _obs_to_row(obs: RawObservation) -> RawObservationRow:
         segment=obs.segment,
         product=obs.product,
         parameter=obs.parameter,
+        data_definition_class=obs.data_definition_class.value,
         value=obs.value,
         as_of_date=obs.as_of_date,
         reporting_basis=obs.reporting_basis,
@@ -316,6 +318,7 @@ def _row_to_obs(row: RawObservationRow) -> RawObservation:
         segment=row.segment,
         product=row.product,
         parameter=row.parameter,
+        data_definition_class=DataDefinitionClass(row.data_definition_class),
         value=row.value,
         as_of_date=row.as_of_date,
         reporting_basis=row.reporting_basis,
@@ -363,8 +366,14 @@ def _query_observations(
     source_type: Optional[SourceType] = None,
     parameter: Optional[str] = None,
     since: Optional[date] = None,
+    definition_classes: Optional[Sequence[DataDefinitionClass]] = None,
 ) -> list[RawObservation]:
-    """Filter raw observations. Latest-vintage filtering is the consumer's job."""
+    """Filter raw observations. Latest-vintage filtering is the consumer's job.
+
+    ``definition_classes``: when given, only return observations whose
+    ``data_definition_class`` is in the set. Lets a consumer ask "give me
+    only Basel-PD observations" or "give me arrears + impaired only".
+    """
     with self._factory() as s:
         stmt = select(RawObservationRow)
         if segment is not None:
@@ -377,6 +386,12 @@ def _query_observations(
             stmt = stmt.where(RawObservationRow.parameter == parameter)
         if since is not None:
             stmt = stmt.where(RawObservationRow.as_of_date >= since)
+        if definition_classes:
+            stmt = stmt.where(
+                RawObservationRow.data_definition_class.in_(
+                    [c.value for c in definition_classes]
+                )
+            )
         rows = s.scalars(
             stmt.order_by(RawObservationRow.segment, RawObservationRow.source_id,
                           RawObservationRow.as_of_date.desc())
@@ -389,6 +404,10 @@ def _query_observations(
                 "source_type": source_type.value if source_type else None,
                 "parameter": parameter,
                 "since": since.isoformat() if since else None,
+                "definition_classes": (
+                    [c.value for c in definition_classes]
+                    if definition_classes else None
+                ),
             },
             f"{len(rows)} rows",
         )

@@ -108,17 +108,3 @@ sources:
     frequency_days: 395
     quality_score: HIGH
     source_name: "ICC_TRADE"
-
-  # ------------------------------------------------------------------
-  # ASIC insolvency + ABS business counts importer (Phase 6)
-  # Combined to produce failure_rate per ANZSIC division.
-  # ------------------------------------------------------------------
-  asic_abs:
-    scraper: asic_abs
-    url: "https://asic.gov.au/regulatory-resources/find-a-document/statistics/insolvency-statistics/"
-    asic_dir: "data/asic/"
-    abs_dir: "data/abs/"
-    frequency_days: 90
-    quality_score: MEDIUM
-    source_name: "asic_abs"
-    description: "ASIC insolvency counts + ABS business counts -> failure rates"

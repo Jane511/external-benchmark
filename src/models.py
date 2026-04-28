@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, Literal, Optional, Union
+from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class SourceType(str, Enum):
@@ -42,10 +42,8 @@ class SourceType(str, Enum):
     NON_BANK_LISTED = "non_bank_listed"      # Judo, Liberty, Pepper, MoneyMe, etc.
     APRA_QPEX = "apra_qpex"
     APRA_PERFORMANCE = "apra_performance"
-    APRA_NON_ADI = "apra_non_adi"            # NEW — non-ADI lender register
-    ASIC_INSOLVENCY = "asic_insolvency"
-    ABS_BUSINESS_COUNTS = "abs_business_counts"
-    RATING_AGENCY_INDEX = "rating_agency_index"  # S&P SPIN, Moody's RMBS, Fitch Dinkum
+    APRA_NON_ADI = "apra_non_adi"            # DEPRECATED 2026-04-28: adapter removed (was stub)
+    RATING_AGENCY_INDEX = "rating_agency_index"  # S&P SPIN
     RBA_AGGREGATE = "rba_aggregate"          # RBA Bulletin / FSR aggregates
 
 
@@ -58,6 +56,52 @@ class DataType(str, Enum):
     RECOVERY_RATE = "recovery_rate"
     FAILURE_RATE = "failure_rate"
     SUPERVISORY_VALUE = "supervisory_value"
+
+
+class DataDefinitionClass(str, Enum):
+    """Classification of what a published rate actually represents.
+
+    Surfaces definition heterogeneity to consumers so they can decide
+    how to align (or whether to use) each observation. The engine never
+    aligns or adjusts; it just labels.
+    """
+
+    BASEL_PD_ONE_YEAR = "basel_pd_one_year"
+    """Basel-aligned 12-month forward probability of default. Big 4
+    Pillar 3, Judo Bank Pillar 3 (since 2019)."""
+
+    ARREARS_30_PLUS_DAYS = "arrears_30_plus_days"
+    """Loans 30+ days past due as % of book. S&P SPIN, some Resimac
+    disclosures."""
+
+    ARREARS_90_PLUS_DAYS = "arrears_90_plus_days"
+    """Loans 90+ days past due as % of book. Pepper Money, Resimac,
+    APRA QPEX (most-comparable to PD but earlier in the cycle)."""
+
+    IMPAIRED_LOANS_RATIO = "impaired_loans_ratio"
+    """Loans classified as impaired (cumulative, includes restructured).
+    Liberty Financial, APRA QPEX. Definition closer to default than PD."""
+
+    NPL_RATIO = "npl_ratio"
+    """Non-performing loans (typically 90+ DPD plus impaired). APRA
+    quarterly ADI performance."""
+
+    LOSS_EXPENSE_RATE = "loss_expense_rate"
+    """Loan loss expense / average book (P&L-driven). Pepper asset
+    finance, Liberty. Forward-looking; reflects management provisioning."""
+
+    REALISED_LOSS_RATE = "realised_loss_rate"
+    """Backward-looking realised charge-offs / book. La Trobe Financial.
+    Useful for LGD calibration, not directly PD."""
+
+    REGULATORY_FLOOR_PD = "regulatory_floor_pd"
+    """Regulatory-prescribed PD by slot/grade. APS 113 slotting (Strong/
+    Good/Satisfactory/Weak), APS 113 minimum floors."""
+
+    QUALITATIVE_COMMENTARY = "qualitative_commentary"
+    """Source publishes only qualitative narrative; encoded as a tagged
+    text observation with no numeric value. Qualitas, Metrics. Stored
+    with value=0.0 and the commentary in methodology_note."""
 
 
 class QualityScore(str, Enum):
@@ -186,68 +230,37 @@ class BenchmarkEntry(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Adjustment-layer models
+# Raw observation API — what the engine publishes to consumers
 # ---------------------------------------------------------------------------
 
-class AdjustmentStep(BaseModel):
-    """One multiplier applied during adjustment, plus rationale for the audit trail."""
-    model_config = ConfigDict(frozen=True, extra="forbid")
+_ALLOWED_PARAMETERS: frozenset[str] = frozenset({
+    "pd", "lgd", "arrears", "impaired", "npl", "loss_rate", "commentary",
+})
 
-    name: str = Field(..., min_length=1)
-    multiplier: float = Field(..., gt=0)
-    source_reference: str = ""
-    rationale: str = ""
+_PARAMETER_TO_DEFINITION_CLASSES: dict[str, frozenset[DataDefinitionClass]] = {
+    "pd": frozenset({
+        DataDefinitionClass.BASEL_PD_ONE_YEAR,
+        DataDefinitionClass.REGULATORY_FLOOR_PD,
+    }),
+    "lgd": frozenset({
+        # LGD parameters can carry realised loss rates (back-looking) or
+        # supervisory floors when published as LGD; the engine just labels.
+        DataDefinitionClass.REALISED_LOSS_RATE,
+        DataDefinitionClass.REGULATORY_FLOOR_PD,  # APS 113 LGD slotting reuses the floor class
+    }),
+    "arrears": frozenset({
+        DataDefinitionClass.ARREARS_30_PLUS_DAYS,
+        DataDefinitionClass.ARREARS_90_PLUS_DAYS,
+    }),
+    "impaired": frozenset({DataDefinitionClass.IMPAIRED_LOANS_RATIO}),
+    "npl": frozenset({DataDefinitionClass.NPL_RATIO}),
+    "loss_rate": frozenset({
+        DataDefinitionClass.LOSS_EXPENSE_RATE,
+        DataDefinitionClass.REALISED_LOSS_RATE,
+    }),
+    "commentary": frozenset({DataDefinitionClass.QUALITATIVE_COMMENTARY}),
+}
 
-
-class AdjustmentResult(BaseModel):
-    """Output of AdjustmentEngine.adjust(). Chain of steps + final value.
-
-    `scenario_label` defaults to None for persisted adjustments; set to
-    'what_if' by the engine when the caller passes overrides, which also
-    suppresses DB writes. Persistence guarantee: rows in the `adjustments`
-    table always have scenario_label=None.
-    """
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    raw_value: float
-    adjusted_value: float
-    institution_type: InstitutionType
-    product: str = Field(..., min_length=1)
-    asset_class: str = Field(..., min_length=1)
-    steps: list[AdjustmentStep] = Field(default_factory=list)
-    final_multiplier: float = Field(..., gt=0)
-    scenario_label: Optional[str] = None
-
-
-# ---------------------------------------------------------------------------
-# Triangulation
-# ---------------------------------------------------------------------------
-
-class TriangulationResult(BaseModel):
-    """Combined benchmark across multiple adjusted sources for one segment.
-
-    `confidence_n` is silently capped at 500 on ingest — the cap belongs to
-    the model so every code path producing TriangulationResult honours it,
-    not just the triangulator.
-    """
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    segment: str = Field(..., min_length=1)
-    benchmark_value: float
-    confidence_n: int = Field(..., ge=0)
-    source_count: int = Field(..., ge=1)
-    method: str = Field(..., min_length=1)
-    per_source_breakdown: list[dict[str, Any]] = Field(default_factory=list)
-
-    @field_validator("confidence_n", mode="before")
-    @classmethod
-    def _cap_confidence_at_500(cls, v: Any) -> int:
-        return min(int(v), 500)
-
-
-# ---------------------------------------------------------------------------
-# Raw observation API (Brief 1) — what the engine publishes to consumers
-# ---------------------------------------------------------------------------
 
 class RawObservation(BaseModel):
     """A single raw PD or LGD observation from one source for one segment.
@@ -256,6 +269,11 @@ class RawObservation(BaseModel):
     triangulation — the source's published value with its full attribution.
     Consumers (PD workbook, LGD project, stress testing) read these via
     src.observations.PeerObservations and apply their own adjustments.
+
+    `data_definition_class` makes source heterogeneity machine-readable:
+    Big 4 publish Basel PDs, APRA QPEX publishes impaired ratios, S&P SPIN
+    publishes 30+DPD arrears, Qualitas publishes only commentary, etc.
+    Consumers filter on this field rather than parsing methodology notes.
     """
 
     model_config = ConfigDict(frozen=True, str_strip_whitespace=True, extra="forbid")
@@ -264,7 +282,8 @@ class RawObservation(BaseModel):
     source_type: SourceType
     segment: str = Field(..., min_length=1)           # canonical segment ID
     product: Optional[str] = None                     # finer granularity if available
-    parameter: str = Field(..., min_length=1)         # "pd" or "lgd"
+    parameter: str = Field(..., min_length=1)         # broad category (see _ALLOWED_PARAMETERS)
+    data_definition_class: DataDefinitionClass        # precise definition the source publishes
     value: float = Field(..., ge=0.0)                 # raw published value (decimal)
 
     # Vintage and methodology
@@ -294,86 +313,35 @@ class RawObservation(BaseModel):
 
     @model_validator(mode="after")
     def _validate_parameter(self) -> "RawObservation":
-        if self.parameter not in ("pd", "lgd"):
+        if self.parameter not in _ALLOWED_PARAMETERS:
             raise ValueError(
-                f"parameter must be 'pd' or 'lgd'; got {self.parameter!r}"
+                f"parameter must be one of {sorted(_ALLOWED_PARAMETERS)}; "
+                f"got {self.parameter!r}"
             )
-        # PD/LGD are decimal proportions — clamp to [0, 1]
-        if not 0.0 <= self.value <= 1.0:
+        # Numeric values bounded [0, 1]; commentary uses value=0.0 by convention.
+        if self.parameter != "commentary":
+            if not 0.0 <= self.value <= 1.0:
+                raise ValueError(
+                    f"value={self.value} must be in [0, 1] for "
+                    f"parameter={self.parameter!r}"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_parameter_definition_consistency(self) -> "RawObservation":
+        valid = _PARAMETER_TO_DEFINITION_CLASSES.get(self.parameter)
+        if valid is not None and self.data_definition_class not in valid:
             raise ValueError(
-                f"value={self.value} must be in [0, 1] for parameter={self.parameter!r}"
+                f"data_definition_class={self.data_definition_class.value!r} is "
+                f"not valid for parameter={self.parameter!r}; "
+                f"valid: {sorted(c.value for c in valid)}"
             )
         return self
 
 
 # ---------------------------------------------------------------------------
-# Calibration feed: tagged union with five method-specific variants
+# Governance report container
 # ---------------------------------------------------------------------------
-
-class _CalibrationFeedBase(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-    segment: str = Field(..., min_length=1)
-    floor_triggered: bool
-
-
-class CentralTendencyOutput(_CalibrationFeedBase):
-    method: Literal["central_tendency"] = "central_tendency"
-    external_lra: float = Field(..., ge=0.0)
-
-
-class LogisticRecalibrationOutput(_CalibrationFeedBase):
-    method: Literal["logistic_recalibration"] = "logistic_recalibration"
-    target_lra: float = Field(..., ge=0.0)
-    confidence_n: int = Field(..., ge=0, le=500)
-
-
-class BayesianBlendingOutput(_CalibrationFeedBase):
-    method: Literal["bayesian_blending"] = "bayesian_blending"
-    external_pd: float = Field(..., ge=0.0)
-    confidence_n: int = Field(..., ge=0, le=500)
-
-
-class ExternalBlendingOutput(_CalibrationFeedBase):
-    method: Literal["external_blending"] = "external_blending"
-    external_lra: float = Field(..., ge=0.0)
-    internal_weight: float = Field(..., ge=0.0, le=1.0)
-
-
-class PlutoTascheOutput(_CalibrationFeedBase):
-    method: Literal["pluto_tasche"] = "pluto_tasche"
-    external_pd: float = Field(..., ge=0.0)
-    role: str = "comparison_only"
-
-
-CalibrationFeedOutput = Union[
-    CentralTendencyOutput,
-    LogisticRecalibrationOutput,
-    BayesianBlendingOutput,
-    ExternalBlendingOutput,
-    PlutoTascheOutput,
-]
-
-
-# ---------------------------------------------------------------------------
-# Downturn and governance
-# ---------------------------------------------------------------------------
-
-class DownturnResult(BaseModel):
-    """Output of `downturn.lgd_downturn_uplift()` and decomposition paths.
-
-    `lgd_for_capital` (= downturn_lgd) and `lgd_for_ecl` (= long_run_lgd)
-    are kept as separate fields so downstream consumers can pick the right
-    value for the right regulatory purpose without re-deriving it.
-    """
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    long_run_lgd: float = Field(..., ge=0.0, le=1.0)
-    uplift: float = Field(..., gt=0.0)
-    downturn_lgd: float = Field(..., ge=0.0, le=1.0)
-    product_type: str = Field(..., min_length=1)
-    lgd_for_capital: float = Field(..., ge=0.0, le=1.0)
-    lgd_for_ecl: float = Field(..., ge=0.0, le=1.0)
-
 
 class GovernanceReport(BaseModel):
     """Container for any of the six governance report variants."""

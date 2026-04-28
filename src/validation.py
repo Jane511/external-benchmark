@@ -28,6 +28,22 @@ from src.models import RawObservation
 BIG4_SOURCE_IDS: frozenset[str] = frozenset({"cba", "nab", "wbc", "anz"})
 
 
+def is_big4_source_id(source_id: str) -> bool:
+    """Return True if ``source_id`` belongs to a Big 4 bank.
+
+    Accepts both short forms (``"cba"``) used in tests and the long
+    Pillar-3 forms produced by the seed / migration pipeline
+    (``"CBA_PILLAR3_RES_2024H2"``). The check is case-insensitive and
+    matches either an exact short form or a long form whose first
+    underscore- or hyphen-separated token is one of the Big 4.
+    """
+    sid = source_id.lower()
+    if sid in BIG4_SOURCE_IDS:
+        return True
+    head = sid.replace("-", "_").split("_", 1)[0]
+    return head in BIG4_SOURCE_IDS
+
+
 @dataclass
 class ValidationFlags:
     """Per-segment data-quality flags. Informational only — values are not modified."""
@@ -96,7 +112,7 @@ def compute_validation_flags(
         if (today - o.as_of_date).days > staleness_days
     ]
 
-    big4_vals = [o.value for o in observations if o.source_id.lower() in BIG4_SOURCE_IDS]
+    big4_vals = [o.value for o in observations if is_big4_source_id(o.source_id)]
     nonbank_vals = [o.value for o in observations if o.source_id.lower() not in BIG4_SOURCE_IDS]
 
     bank_vs_nonbank: float | None = None

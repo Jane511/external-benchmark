@@ -6,9 +6,12 @@ from datetime import date, timedelta
 import pytest
 
 from src.db import create_engine_and_schema
-from src.models import RawObservation, SourceType
+from src.models import DataDefinitionClass, RawObservation, SourceType
 from src.observations import PeerObservations
 from src.registry import BenchmarkRegistry
+
+
+_BASEL_PD = DataDefinitionClass.BASEL_PD_ONE_YEAR
 
 
 @pytest.fixture()
@@ -20,6 +23,7 @@ def registry_with_observations() -> BenchmarkRegistry:
         RawObservation(
             source_id="cba", source_type=SourceType.BANK_PILLAR3,
             segment="commercial_property", parameter="pd",
+            data_definition_class=_BASEL_PD,
             value=0.025, as_of_date=today - timedelta(days=30),
             reporting_basis="Pillar 3 trailing 4-quarter average",
             methodology_note="CR6 EAD-weighted Average PD",
@@ -28,6 +32,7 @@ def registry_with_observations() -> BenchmarkRegistry:
         RawObservation(
             source_id="nab", source_type=SourceType.BANK_PILLAR3,
             segment="commercial_property", parameter="pd",
+            data_definition_class=_BASEL_PD,
             value=0.028, as_of_date=today - timedelta(days=60),
             reporting_basis="Pillar 3 trailing 4-quarter average",
             methodology_note="CR6 EAD-weighted Average PD",
@@ -35,6 +40,7 @@ def registry_with_observations() -> BenchmarkRegistry:
         RawObservation(
             source_id="judo", source_type=SourceType.NON_BANK_LISTED,
             segment="commercial_property", parameter="pd",
+            data_definition_class=_BASEL_PD,
             value=0.045, as_of_date=today - timedelta(days=90),
             reporting_basis="Half-yearly results — Pillar 3 equivalent",
             methodology_note="Average PD on commercial real estate book",
@@ -42,6 +48,7 @@ def registry_with_observations() -> BenchmarkRegistry:
         RawObservation(
             source_id="cba", source_type=SourceType.BANK_PILLAR3,
             segment="residential_mortgage", parameter="pd",
+            data_definition_class=_BASEL_PD,
             value=0.005, as_of_date=today - timedelta(days=30),
             reporting_basis="Pillar 3 trailing 4-quarter average",
             methodology_note="Residential mortgage PD",
@@ -83,6 +90,7 @@ def test_for_segment_only_pd_default(registry_with_observations):
         RawObservation(
             source_id="cba", source_type=SourceType.BANK_PILLAR3,
             segment="commercial_property", parameter="lgd",
+            data_definition_class=DataDefinitionClass.REALISED_LOSS_RATE,
             value=0.40, as_of_date=date(2026, 4, 1),
             reporting_basis="Pillar 3 quarterly",
             methodology_note="Average LGD CR6",
@@ -90,6 +98,37 @@ def test_for_segment_only_pd_default(registry_with_observations):
     )
     pd_obs = peer.for_segment("commercial_property")
     assert all(o.parameter == "pd" for o in pd_obs.observations)
+
+
+def test_for_segment_filters_by_definition_class(registry_with_observations):
+    """`definition_classes=[X]` restricts the result to observations whose
+    data_definition_class is in the set."""
+    today = date(2026, 4, 27)
+    # Add an arrears observation in the same segment so we can filter it out.
+    registry_with_observations.add_observation(
+        RawObservation(
+            source_id="sp_spin", source_type=SourceType.RATING_AGENCY_INDEX,
+            segment="commercial_property", parameter="arrears",
+            data_definition_class=DataDefinitionClass.ARREARS_30_PLUS_DAYS,
+            value=0.012, as_of_date=today,
+            reporting_basis="S&P SPIN monthly",
+            methodology_note="30+ DPD aggregate",
+        )
+    )
+    peer = PeerObservations(registry_with_observations, today=today)
+    basel = peer.for_segment(
+        "commercial_property",
+        only_pd=False,
+        definition_classes=[DataDefinitionClass.BASEL_PD_ONE_YEAR],
+    )
+    assert {o.source_id for o in basel.observations} == {"cba", "nab", "judo"}
+    assert all(o.parameter == "pd" for o in basel.observations)
+    arrears = peer.for_segment(
+        "commercial_property",
+        only_pd=False,
+        definition_classes=[DataDefinitionClass.ARREARS_30_PLUS_DAYS],
+    )
+    assert {o.source_id for o in arrears.observations} == {"sp_spin"}
 
 
 def test_all_segments_returns_distinct_segments(registry_with_observations):

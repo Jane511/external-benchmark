@@ -1,13 +1,14 @@
 """SQLite storage layer for the External Benchmark Engine.
 
-Three tables — `benchmarks`, `adjustments`, `audit_log`.
+Three tables — `benchmarks`, `raw_observations`, `audit_log`.
 
 Immutability contract (enforced by the registry layer, declared here):
 - `benchmarks` content fields are write-once. Corrections insert a new
   row with `version = prior.version + 1`; the prior row's `superseded_by`
   is set to the new source_id. No other `UPDATE` to this table is allowed.
-- `adjustments` and `audit_log` are append-only. What-if adjustments are
-  in-memory only and must never reach `adjustments`.
+- `raw_observations` is append-only. Corrections are inserted as a new
+  row with a fresher `as_of_date`; old rows are never mutated.
+- `audit_log` is append-only.
 """
 from __future__ import annotations
 
@@ -23,6 +24,8 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     create_engine,
+    inspect,
+    text,
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
@@ -68,24 +71,6 @@ class Benchmark(Base):
     inserted_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
 
-class Adjustment(Base):
-    """Append-only log of persisted adjustments. What-if results never land here."""
-    __tablename__ = "adjustments"
-
-    pk: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    source_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    institution_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    product: Mapped[str] = mapped_column(String, nullable=False)
-    asset_class: Mapped[str] = mapped_column(String, nullable=False)
-
-    raw_value: Mapped[float] = mapped_column(Float, nullable=False)
-    adjusted_value: Mapped[float] = mapped_column(Float, nullable=False)
-
-    # Serialised list[AdjustmentStep] — rehydrated by the registry layer.
-    steps_json: Mapped[str] = mapped_column(String, nullable=False)
-    applied_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
-
-
 class RawObservationRow(Base):
     """Raw, source-attributable PD/LGD observation (Brief 1).
 
@@ -101,6 +86,10 @@ class RawObservationRow(Base):
     segment: Mapped[str] = mapped_column(String, nullable=False, index=True)
     product: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     parameter: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    data_definition_class: Mapped[str] = mapped_column(
+        String, nullable=False, index=True,
+        server_default="basel_pd_one_year",
+    )
     value: Mapped[float] = mapped_column(Float, nullable=False)
 
     as_of_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
@@ -138,7 +127,38 @@ def create_engine_and_schema(db_path: str | Path = ":memory:") -> Engine:
     url = "sqlite:///:memory:" if db_path == ":memory:" else f"sqlite:///{db_path}"
     engine = create_engine(url, echo=False, future=True)
     Base.metadata.create_all(engine)
+    _ensure_data_definition_class_column(engine)
     return engine
+
+
+def _ensure_data_definition_class_column(engine: Engine) -> None:
+    """Add ``data_definition_class`` to legacy ``raw_observations`` tables.
+
+    SQLite ``CREATE TABLE`` from ``Base.metadata.create_all`` is a no-op
+    when the table already exists, so existing databases miss the new
+    column. Inspect and ``ALTER TABLE`` in-place; back-fill defaults that
+    line up with each row's ``parameter``:
+
+      - ``parameter='pd'``  -> ``basel_pd_one_year`` (Big 4 Pillar 3 etc.)
+      - ``parameter='lgd'`` -> ``realised_loss_rate``
+      - everything else     -> ``basel_pd_one_year`` (placeholder; the
+        migration script re-classifies via inference)
+    """
+    insp = inspect(engine)
+    if "raw_observations" not in insp.get_table_names():
+        return
+    cols = {c["name"] for c in insp.get_columns("raw_observations")}
+    if "data_definition_class" in cols:
+        return
+    with engine.begin() as conn:
+        conn.execute(text(
+            "ALTER TABLE raw_observations ADD COLUMN "
+            "data_definition_class TEXT NOT NULL DEFAULT 'basel_pd_one_year'"
+        ))
+        conn.execute(text(
+            "UPDATE raw_observations SET data_definition_class='realised_loss_rate' "
+            "WHERE parameter='lgd'"
+        ))
 
 
 def make_session_factory(engine: Engine) -> sessionmaker:

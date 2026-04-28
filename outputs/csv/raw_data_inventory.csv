@@ -1,0 +1,34 @@
+source_family,subfamily,filename,relative_path,size_bytes,modified_utc,kind
+apra,,Quarterly%20authorised%20deposit-taking%20institution%20performance-September%202004%20to%20December%202025.xlsx,apra/Quarterly%20authorised%20deposit-taking%20institution%20performance-September%202004%20to%20December%202025.xlsx,1829863,2026-04-21T08:31:18+00:00,xlsx
+apra,,Quarterly%20authorised%20deposit-taking%20institution%20property%20exposures%20statistics%20December%202025.xlsx,apra/Quarterly%20authorised%20deposit-taking%20institution%20property%20exposures%20statistics%20December%202025.xlsx,542614,2026-04-21T08:31:18+00:00,xlsx
+external_indices,sp_spin,_MANUAL.md,external_indices/sp_spin/_MANUAL.md,2105,2026-04-28T04:18:21+00:00,manual_note
+external_indices,sp_spin,rmbs arrears statistics australia excluding non capital market issuance feb.2026.pdf,external_indices/sp_spin/rmbs arrears statistics australia excluding non capital market issuance feb.2026.pdf,1802775,2026-04-28T01:47:23+00:00,pdf
+external_indices,sp_spin,rmbs arrears statistics australia excluding non capital market issuance feb.2026.xls,external_indices/sp_spin/rmbs arrears statistics australia excluding non capital market issuance feb.2026.xls,1035264,2026-04-28T01:48:25+00:00,xls
+non_bank,judo,_MANUAL.md,non_bank/judo/_MANUAL.md,554,2026-04-28T01:15:28+00:00,manual_note
+non_bank,liberty,_MANUAL.md,non_bank/liberty/_MANUAL.md,781,2026-04-28T01:15:29+00:00,manual_note
+non_bank,metrics_credit,69e58bc63e1cf5d30c16c8ac_2603_20-_20MREIF_20Monthly_20Report.pdf,non_bank/metrics_credit/69e58bc63e1cf5d30c16c8ac_2603_20-_20MREIF_20Monthly_20Report.pdf,548389,2026-04-28T01:15:39+00:00,pdf
+non_bank,moneyme,MONEYME_1H26_Interim_Report_and_Results.pdf,non_bank/moneyme/MONEYME_1H26_Interim_Report_and_Results.pdf,4091522,2026-04-28T01:15:33+00:00,pdf
+non_bank,pepper,_MANUAL.md,non_bank/pepper/_MANUAL.md,645,2026-04-28T01:16:13+00:00,manual_note
+non_bank,pepper,Pepper_20Green_20Annual_20Review_202024.pdf,non_bank/pepper/Pepper_20Green_20Annual_20Review_202024.pdf,199252,2026-04-27T22:39:50+00:00,pdf
+non_bank,plenti,Results_presentation_df72650cc7.pdf,non_bank/plenti/Results_presentation_df72650cc7.pdf,2266622,2026-04-28T01:15:34+00:00,pdf
+non_bank,qualitas,_MANUAL.md,non_bank/qualitas/_MANUAL.md,632,2026-04-28T01:15:36+00:00,manual_note
+non_bank,resimac,_MANUAL.md,non_bank/resimac/_MANUAL.md,770,2026-04-28T01:15:31+00:00,manual_note
+non_bank,wisr,_MANUAL.md,non_bank/wisr/_MANUAL.md,694,2026-04-28T01:15:35+00:00,manual_note
+pillar3,,2026-first-quarter-pillar-3-report.pdf,pillar3/2026-first-quarter-pillar-3-report.pdf,1543042,2026-04-21T08:31:30+00:00,pdf
+pillar3,,ANZ_FY2025_Pillar3_Annual.pdf,pillar3/ANZ_FY2025_Pillar3_Annual.pdf,1923829,2026-04-21T12:49:38+00:00,pdf
+pillar3,,ANZ_H1_2025_Pillar3.pdf,pillar3/ANZ_H1_2025_Pillar3.pdf,15,2026-04-21T12:55:39+00:00,pdf
+pillar3,,Basel-III-Pillar3-quantitative-info-30Sept25.xlsx,pillar3/Basel-III-Pillar3-quantitative-info-30Sept25.xlsx,722633,2026-04-21T08:31:30+00:00,xlsx
+pillar3,,CBA_FY2025_Pillar3_Annual.pdf,pillar3/CBA_FY2025_Pillar3_Annual.pdf,2354558,2026-04-21T11:33:32+00:00,pdf
+pillar3,,CBA_H1_2026_Pillar3_Quantitative.xlsx,pillar3/CBA_H1_2026_Pillar3_Quantitative.xlsx,58521,2026-04-21T09:33:01+00:00,xlsx
+pillar3,,December-2025-Pillar-3-disclosure.pdf,pillar3/December-2025-Pillar-3-disclosure.pdf,493014,2026-04-21T08:31:32+00:00,pdf
+pillar3,,mannual validation.md,pillar3/mannual validation.md,7265,2026-04-22T03:04:43+00:00,manual_note
+pillar3,,NAB_FY2025_Pillar3_Annual.pdf,pillar3/NAB_FY2025_Pillar3_Annual.pdf,5204265,2026-04-21T12:49:37+00:00,pdf
+pillar3,,NAB_H1_2025_Pillar3.pdf,pillar3/NAB_H1_2025_Pillar3.pdf,15,2026-04-21T12:55:39+00:00,pdf
+pillar3,,wbc-december-Pillar-3-report.pdf,pillar3/wbc-december-Pillar-3-report.pdf,1061399,2026-04-21T08:31:31+00:00,pdf
+pillar3,,WBC_FY2025_Pillar3_Annual.pdf,pillar3/WBC_FY2025_Pillar3_Annual.pdf,2059066,2026-04-21T12:49:37+00:00,pdf
+pillar3,,WBC_H1_2025_Pillar3.pdf,pillar3/WBC_H1_2025_Pillar3.pdf,15,2026-04-21T12:55:39+00:00,pdf
+pillar3,,WBC_H1_2026_Pillar3.pdf,pillar3/WBC_H1_2026_Pillar3.pdf,61374,2026-04-21T12:55:49+00:00,pdf
+rba,,financial-stability-review-2025-10.pdf,rba/financial-stability-review-2025-10.pdf,3837206,2026-04-28T02:15:33+00:00,pdf
+rba,,financial-stability-review-2026-03.pdf,rba/financial-stability-review-2026-03.pdf,3272062,2026-04-27T22:39:34+00:00,pdf
+rba,,SECURITISATION_GATE.md,rba/SECURITISATION_GATE.md,1856,2026-04-28T01:03:14+00:00,manual_note
+rba,,securitisation_landing.html,rba/securitisation_landing.html,28364,2026-04-27T22:39:34+00:00,html_snapshot

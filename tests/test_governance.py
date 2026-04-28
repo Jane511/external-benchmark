@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.db import Adjustment, AuditLog, create_engine_and_schema, make_session_factory
+from src.db import AuditLog, create_engine_and_schema, make_session_factory
 from src.governance import (
     GovernanceReporter,
     export_to_docx,
@@ -56,7 +56,7 @@ def test_refresh_schedules_yaml_loads() -> None:
     required_keys = {
         "pillar3", "apra_adi", "rating_agency", "icc_trade",
         "industry_body", "listed_peer", "rba", "bureau",
-        "insolvency", "regulatory",
+        "regulatory",
     }
     assert required_keys.issubset(schedules.keys())
     assert schedules["pillar3"] == 120
@@ -332,29 +332,27 @@ def test_annual_review_package_includes_pillar3_peer_divergence(seeded_reporter)
 # READ-ONLY enforcement: governance must not write to DB
 # ---------------------------------------------------------------------------
 
-def test_governance_does_not_write_to_adjustments_or_audit_log(seeded_reporter) -> None:
+def test_governance_does_not_write_adjust_rows_to_audit_log(seeded_reporter) -> None:
     reporter, _, engine = seeded_reporter
     factory = make_session_factory(engine)
 
-    def counts():
+    def adjust_audit_count() -> int:
         with factory() as s:
-            adj = s.scalars(select(func.count(Adjustment.pk))).one()
-            audit_adjust = s.scalars(
+            return s.scalars(
                 select(func.count(AuditLog.pk)).where(AuditLog.operation == "adjust")
             ).one()
-        return adj, audit_adjust
 
-    before = counts()
+    before = adjust_audit_count()
     reporter.stale_benchmark_report()
     reporter.quality_assessment_report()
     reporter.coverage_report(segments=["residential_mortgage"])
     reporter.peer_comparison_report({"residential_mortgage": 0.008}, ["residential_mortgage"])
     reporter.annual_review_package(segments=["residential_mortgage"])
-    after = counts()
+    after = adjust_audit_count()
 
     # Registry reads (list/get_by_segment/get_version_history) DO write audit_log —
     # but `operation='adjust'` rows should never appear from governance.
-    assert before == after
+    assert before == after == 0
 
 
 # ---------------------------------------------------------------------------

@@ -1,547 +1,445 @@
 # External Benchmark Engine
 
-Publishes a **library of raw, source-attributable PD/LGD observations** for
-Australian credit — Big 4 Pillar 3, non-bank ASX-listed lenders (Judo,
-Liberty, Pepper, Resimac, MoneyMe, Plenti, Wisr), APRA / ASIC / ABS, and
-rating-agency / RBA aggregate indices — and produces a per-period
-**raw-only report** that downstream consumers (PD workbook, LGD project,
+Publishes a **library of raw, source-attributable PD / LGD observations**
+for Australian credit — Big 4 Pillar 3, non-bank ASX-listed lenders
+(Judo, Liberty, Pepper, Resimac, MoneyMe, Plenti, Wisr, Qualitas,
+Metrics Credit), APRA, RBA Financial Stability Review, and
+S&P SPIN RMBS arrears — and emits a per-period **raw-only
+benchmark report** that downstream consumers (PD workbook, LGD project,
 stress testing) read from.
 
-> **Brief 1 (2026-04-27):** the engine no longer applies definition
-> alignment, institution adjustments, downturn LGD overlays, or
-> cross-source triangulation. It publishes raw observations only. All
-> adjustment logic moved to consuming projects so each use case can
-> manage its own complete adjustment chain coherently. See
-> [`docs/migration_from_adjusted_to_raw.md`](docs/migration_from_adjusted_to_raw.md).
+> **The engine publishes raw, source-attributable observations only.**
+> No definition alignment, institution adjustments, downturn LGD
+> overlays, or cross-source triangulation. All adjustment logic moved
+> to consuming projects so each use case can manage its own complete
+> adjustment chain coherently. See
+> [`docs/migration_from_adjusted_to_raw.md`](docs/migration_from_adjusted_to_raw.md)
+> for the migration guide.
 
 ---
 
-## Deliverables (per quarter)
+## 1. Deliverables (per period)
 
-- `outputs/reports/Report_<period>_RawOnly.md` — raw-only Markdown report
-- `outputs/reports/Report_<period>_RawOnly.html` — browser view
-- `outputs/reports/Report_<period>_RawOnly.docx` — Word version (optional, requires `[reports]` extras)
-- `outputs/spot_check_verification.md` — human-verified extraction QA
+**Reports** (in `outputs/reports/`):
 
-The report has five sections: executive summary, per-source raw
-observations by segment, cross-source validation summary (spread,
-outliers, vintage), Big 4 vs non-bank disclosure spread (informational
-only), and provenance / methodology footnotes. **No adjusted or
-triangulated values appear anywhere.**
+- `Report_<period>.md` — raw-only Markdown report (committee-friendly, git-reviewable)
+- `Report_<period>.html` — single-file browser view (inline CSS, no JS)
+- `Report_<period>.docx` — Word version (requires `[reports]` extras)
 
-## Quarterly refresh (once your data is available)
+**Machine-readable CSV bundle** (in `outputs/csv/`, emitted by `python cli.py export-csvs`):
 
-1. Re-run each Big 4 bank adapter (one command per bank — the CLI has no bulk alias):
+- `raw_observations.csv` — one row per observation with `source_id`, `source_type`, `is_big4`, `segment`, `parameter`, `data_definition_class`, `value`, `as_of_date`, vintage, methodology, URL. **This is the contract for downstream PD / LGD / ECL projects and BI dashboards.**
+- `validation_flags.csv` — per-segment cross-source flags (spread, outliers, vintage, Big 4 vs non-bank ratio).
+- `reality_check_bands.csv` — per-product upper / lower band table flattened from [`config/reality_check_bands.yaml`](config/reality_check_bands.yaml).
+- `raw_data_inventory.csv` — manifest of every file currently staged in `data/raw/` (size, modified time, family, kind). Lets dashboards show "what raw publications are on disk?".
 
-   ```bash
-   python cli.py ingest pillar3 cba --reporting-date <YYYY-MM-DD>
-   python cli.py ingest pillar3 nab --reporting-date <YYYY-MM-DD>
-   python cli.py ingest pillar3 wbc --reporting-date <YYYY-MM-DD>
-   python cli.py ingest pillar3 anz --reporting-date <YYYY-MM-DD>
-   ```
+**Configuration** (committed):
 
-2. `python cli.py ingest apra` (refresh APRA data)
-3. `python cli.py ingest asic-abs` (refresh combined ASIC insolvency + ABS business counts)
-4. `python cli.py report benchmark --format docx --output outputs/reports/Report_<PERIOD>_final.docx`
-5. `python cli.py report benchmark --format markdown --output outputs/reports/Report_<PERIOD>_final.md` (emits both `*_Board.md` and `*_Technical.md`)
-6. Manual spot-check of 5 random rows against source PDFs — use `python scripts/pick_spot_checks.py` to sample rows, then record findings in `outputs/spot_check_verification.md`
-7. Email DOCX to MRC
+- [`config/reality_check_bands.yaml`](config/reality_check_bands.yaml) — per-product upper / lower bands and justifying source IDs; loaded by downstream consumers via [`src.reality_check.load_reality_check_bands()`](src/reality_check.py).
 
----
-
-## 1. What this tool does
-
-The engine ingests public disclosures from many source types, maps each
-source's segment labels to a canonical segment ID
-([`ingestion/segment_mapping.yaml`](ingestion/segment_mapping.yaml)), and
-emits raw `RawObservation` rows into the registry. Consumers query via
-[`PeerObservations.for_segment()`](src/observations.py).
-
-| Source type | Publisher(s) | Cadence | What we pull |
-| --- | --- | --- | --- |
-| `bank_pillar3` | ANZ, CBA, NAB, WBC | Half-yearly | PD/LGD per asset class × PD band (APS 330 CR6/CR10) |
-| `non_bank_listed` | Judo, Liberty, Pepper, Resimac, MoneyMe, Plenti, Wisr | Half-yearly / annual | Loan-book PD/LGD, arrears bands |
-| `apra_performance` | APRA | Quarterly | ADI sector 90+ DPD / impaired exposure ratios |
-| `apra_qpex` | APRA | Quarterly | Property exposures statistics |
-| `apra_non_adi` | APRA | Annual register | Non-ADI lender register entries that publish data |
-| `asic_insolvency` | ASIC | Quarterly / annual | Business insolvency appointments |
-| `abs_business_counts` | ABS | Annual | Business counts denominator (Cat 8165) |
-| `rating_agency_index` | S&P SPIN, Moody's AU RMBS Index, Fitch Dinkum | Monthly / quarterly | RMBS arrears, default, loss aggregates |
-| `rba_aggregate` | RBA Securitisation, RBA FSR | Irregular / semi-annual | Mortgage / business loan performance aggregates |
-
-Output: a single raw-only Markdown report per period plus optional
-HTML / DOCX.
-
----
-
-## 2. First-time setup
+**Quick runbook — regenerate all outputs:**
 
 ```bash
-# From repo root (the folder containing this README)
+# 1. Refresh raw files. Use the cadence table in section 2 to decide
+# which of these are due this cycle.
+python scripts/download_sources/pillar3_downloader.py
+python scripts/download_sources/apra_downloader.py
+python scripts/download_sources/rba_downloader.py --target all
+python scripts/download_sources/non_bank_downloader.py
+python scripts/download_sources/external_indices_downloader.py --index sp_spin
+
+# 2. Stage any manual files called out by _MANUAL.md or *_GATE.md notes,
+# then ingest/migrate into raw_observations.
+python cli.py --db benchmarks.db ingest pillar3 --reporting-date 2026-03-31
+python cli.py --db benchmarks.db ingest apra
+python scripts/migrate_to_raw_observations.py --db benchmarks.db
+
+# 3. Produce the machine-readable CSV bundle.
+python cli.py --db benchmarks.db export-csvs --out-dir outputs/csv --raw-dir data/raw
+
+# 4. Produce all report formats.
+python cli.py --db benchmarks.db report benchmark --format markdown --period-label "Q1 2026" --output outputs/reports/Report_Q1_2026.md
+python cli.py --db benchmarks.db report benchmark --format html --period-label "Q1 2026" --output outputs/reports/Report_Q1_2026.html
+python cli.py --db benchmarks.db report benchmark --format docx --period-label "Q1 2026" --output outputs/reports/Report_Q1_2026.docx
+```
+
+Run `python cli.py --db benchmarks.db seed` only when initialising a new
+empty database; the migration command is idempotent and safe to re-run.
+
+**Report sections (six):**
+
+1. **Executive summary** — count of segments, observations, sources (Big 4 vs non-bank / aggregate split).
+2. **Per-source raw observations by segment** — every published value with `source_id`, `source_type`, `parameter`, `data_definition_class`, vintage, methodology footnote, page/table reference.
+3. **Cross-source validation summary** — spread, outliers, stale-vintage flags. No consensus / triangulated value.
+4. **Big 4 vs non-bank disclosure spread** — medians per cohort plus the ratio. **Informational only**; the engine recommends no uplift.
+5. **Provenance & methodology footnotes** — one line per source with URL + reporting basis.
+6. **Raw data inventory** — every file in `data/raw/` grouped by source family, including `_MANUAL.md` notes for sources that need manual download.
+
+Each `RawObservation` carries a `data_definition_class` (Basel PD,
+arrears 30+/90+, impaired ratio, NPL ratio, loss expense, realised
+loss, regulatory floor, qualitative commentary) so consumers can filter
+by definition family without parsing methodology notes.
+
+---
+
+## 2. Source coverage — full inventory
+
+Every external data source the engine knows about, the downloader that
+fetches it, the publisher's natural release cadence, and which
+`data_definition_class`(es) it produces in `raw_observations`.
+
+| # | Source | Family | Downloader command | Cadence | Definition class(es) | Tier |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | CBA Pillar 3 (annual + quarterly) | `pillar3/` | `python scripts/download_sources/pillar3_downloader.py --bank cba` | Half-yearly + quarterly supplement | `basel_pd_one_year` | Automated |
+| 2 | NAB Pillar 3 | `pillar3/` | `python scripts/download_sources/pillar3_downloader.py --bank nab` | Half-yearly | `basel_pd_one_year` | Automated |
+| 3 | WBC Pillar 3 | `pillar3/` | `python scripts/download_sources/pillar3_downloader.py --bank wbc` | Half-yearly | `basel_pd_one_year` | Automated |
+| 4 | ANZ Pillar 3 | `pillar3/` | `python scripts/download_sources/pillar3_downloader.py --bank anz` | Half-yearly | `basel_pd_one_year` | Automated |
+| 5 | APRA Quarterly ADI Performance | `apra/` | `python scripts/download_sources/apra_downloader.py` | Quarterly (~30 days post quarter-end) | `npl_ratio` | Automated |
+| 6 | APRA Quarterly Property Exposures (QPEX) | `apra/` | (same — `apra_downloader.py` fetches both) | Quarterly | `impaired_loans_ratio` | Automated |
+| 7 | RBA Financial Stability Review | `rba/` | `python scripts/download_sources/rba_downloader.py --target fsr` | Semi-annual (March + September/October) | `arrears_30_plus_days`, `arrears_90_plus_days` | Automated |
+| 8 | RBA Securitisation system | `rba/` | `python scripts/download_sources/rba_downloader.py --target securitisation` | Continuous (gated dataset); landing-page snapshot only | (none until user agreement signed) | Snapshot + gate note (signed RBA user agreement required for raw data) |
+| 9 | Pepper Money (debt-investors) | `non_bank/pepper/` | `python scripts/download_sources/non_bank_downloader.py --lender pepper` | Half-yearly | `loss_expense_rate`, `arrears_90_plus_days`, `arrears_30_plus_days` | **Automated + parsed** |
+| 10 | Judo Bank Pillar 3 | `non_bank/judo/` | `python scripts/download_sources/non_bank_downloader.py --lender judo` | Quarterly + half-yearly | `basel_pd_one_year` | **Automated + parsed** (`/regulatory-disclosures`) |
+| 11 | Liberty Financial annual | `non_bank/liberty/` | `python scripts/download_sources/non_bank_downloader.py --lender liberty` | Annual + half-yearly | `impaired_loans_ratio` | **Automated + parsed** (`lfgroup.com.au`) |
+| 12 | Resimac half-yearly | `non_bank/resimac/` | `python scripts/download_sources/non_bank_downloader.py --lender resimac` | Half-yearly + annual | `arrears_90_plus_days` (parser TODO) | URL fixed; manual workflow until parser lands |
+| 13 | MoneyMe investor centre | `non_bank/moneyme/` | `python scripts/download_sources/non_bank_downloader.py --lender moneyme` | Half-yearly | (TBD when parsed) | URL fixed (`investors.moneyme.com.au`); manual workflow until parser lands |
+| 14 | Plenti quarterly trading update | `non_bank/plenti/` | `python scripts/download_sources/non_bank_downloader.py --lender plenti` | Quarterly + half-yearly + annual | `loss_expense_rate`, `arrears_90_plus_days` | **Automated + parsed** (`/shareholders`) |
+| 15 | Wisr investor centre | `non_bank/wisr/` | `python scripts/download_sources/non_bank_downloader.py --lender wisr` | Quarterly | (TBD when parsed) | URL fixed (`investorhub.wisr.com.au`); manual workflow until parser lands |
+| 16 | Qualitas (ASX:QAL) | `non_bank/qualitas/` | `python scripts/download_sources/non_bank_downloader.py --lender qualitas` | Half-yearly + monthly QRI | `qualitative_commentary` | Automated (`investors.qualitas.com.au`); commentary-only by design |
+| 17 | Metrics Credit Partners (MREIF) | `non_bank/metrics_credit/` | `python scripts/download_sources/non_bank_downloader.py --lender metrics_credit` | Monthly + half-yearly | `qualitative_commentary` | Automated (`/listed-funds/`); commentary-only by design |
+| 18 | S&P SPIN (AU RMBS) | `external_indices/sp_spin/` | `python scripts/download_sources/external_indices_downloader.py --index sp_spin` | Monthly; staged quarterly | `arrears_30_plus_days` | Manual download, **parsed when staged** |
+| 19 | ICC Trade Register | `icc/` | `python scripts/download_sources/icc_downloader.py` | Annual | (TBD; trade-finance default rates) | Manual (paywalled, by design) |
+
+**Cadence guidance — when to re-download:**
+
+- **Quarterly (Feb / May / Aug / Nov)** — Big 4 Pillar 3 (CBA quarterly), APRA Performance, APRA QPEX. Run `pillar3_downloader.py` and `apra_downloader.py` ~30 days after each quarter-end (when APRA publishes).
+- **Semi-annual (March + September/October)** — Big 4 Pillar 3 H1 / FY PDFs (NAB, WBC, ANZ, CBA H1/FY); RBA FSR. Re-run `pillar3_downloader.py` and `rba_downloader.py --target fsr`.
+- **Monthly / quarterly staging** — Pepper Money, Metrics Credit Partners, and S&P SPIN. Run `non_bank_downloader.py` monthly; stage one SPIN PDF per quarter and re-run `scripts/migrate_to_raw_observations.py`.
+- **Annual (analyst trigger)** — ICC Trade Register (paid). ICC requires a procurement decision.
+- **One-off after publisher URL drift** — non-bank ASX `_MANUAL.md` lenders. Check the IR pages every quarter; when the IR layout stabilises, lift the URL into the per-lender config in [`non_bank_downloader.py`](scripts/download_sources/non_bank_downloader.py).
+
+**Refresh-staleness thresholds** are enforced by [`src/governance.py`](src/governance.py) reading [`config/refresh_schedules.yaml`](config/refresh_schedules.yaml). Run `python cli.py report stale` before any committee report to flag overdue sources.
+
+The engine emits raw observations only; downstream consumers decide how
+to combine, align, or weight them.
+
+---
+
+## 3. Quarterly workflow (end-to-end)
+
+Total wall-clock time ≈ 15–30 min, depending on scraper hits.
+
+### Step 1 — Download raw source files
+
+```bash
+# Big 4 Pillar 3 disclosures (PDFs + CBA XLSX)            -> data/raw/pillar3/
+python scripts/download_sources/pillar3_downloader.py
+
+# APRA ADI quarterly statistics (XLSX)                    -> data/raw/apra/
+python scripts/download_sources/apra_downloader.py
+
+# RBA Financial Stability Review (latest PDF)             -> data/raw/rba/
+# + Securitisation system landing snapshot + gate note
+python scripts/download_sources/rba_downloader.py
+
+# Non-bank ASX-listed lender disclosures (best-effort)    -> data/raw/non_bank/<lender>/
+# Pepper Money typically OK; the rest are bot-protected
+# or DNS-gated and emit a per-lender _MANUAL.md note.
+python scripts/download_sources/non_bank_downloader.py
+
+# External rating-agency RMBS indices (best-effort)       -> data/raw/external_indices/
+# S&P SPIN requires manual PDF staging; downloader maintains _MANUAL.md.
+python scripts/download_sources/external_indices_downloader.py
+```
+
+#### Source-by-source automation tier
+
+| Source family | Downloader | Tier |
+| --- | --- | --- |
+| Big 4 Pillar 3 (CBA, NAB, WBC, ANZ) | `pillar3_downloader.py` | **Automated** |
+| APRA ADI Performance + QPEX | `apra_downloader.py` | **Automated** |
+| RBA FSR (latest PDF) | `rba_downloader.py --target fsr` | **Automated** |
+| RBA Securitisation system | `rba_downloader.py --target securitisation` | Snapshot + gate note (signed user agreement required for raw data) |
+| Pepper Money | `non_bank_downloader.py --lender pepper` | **Automated + parsed** (debt-investors page) |
+| Judo / Liberty / Plenti | `non_bank_downloader.py` | **Automated + parsed** after the URL-fix brief landed |
+| Qualitas / Metrics Credit | `non_bank_downloader.py` | Automated; commentary-only by design (no published numbers) |
+| Resimac / MoneyMe / Wisr | `non_bank_downloader.py` | URL fixed; per-source `_MANUAL.md` describes the staging workflow until the per-adapter parser lands in a follow-up brief |
+| S&P SPIN | `external_indices_downloader.py` | Manual PDF staging; parser emits prime + non-conforming 30+ DPD observations |
+| ICC Trade Register | `icc_downloader.py` | Manual (paywalled, by design) |
+
+When a downloader can't fetch a source it writes a `_MANUAL.md` note
+into the per-source folder pointing the analyst at the right URL. The
+adapters accept "no input" as a valid outcome (per
+[`ingestion/adapters/base.py`](ingestion/adapters/base.py)) and emit an
+empty frame — no fabricated observations.
+
+### Step 2 — Seed and ingest into the registry
+
+```bash
+# Initialise (or reset) the SQLite DB with the canonical seed entries
+python cli.py --db benchmarks.db seed
+
+# Ingest live publisher files (re-run per source family)
+python cli.py --db benchmarks.db ingest pillar3 --reporting-date 2026-03-31
+python cli.py --db benchmarks.db ingest apra
+
+# Migrate legacy BenchmarkEntry rows -> raw_observations
+# (idempotent; safe to re-run)
+python scripts/migrate_to_raw_observations.py --db benchmarks.db
+
+# Sanity-check what landed
+python cli.py --db benchmarks.db ingest status
+python cli.py --db benchmarks.db list --limit 20
+python cli.py --db benchmarks.db observations --segment commercial_property
+```
+
+### Step 3 — Export the CSV bundle (input for PD project + dashboards)
+
+```bash
+# Writes 4 files into outputs/csv/:
+#   raw_observations.csv      raw_data_inventory.csv
+#   validation_flags.csv      reality_check_bands.csv
+python cli.py --db benchmarks.db export-csvs
+```
+
+Override the destinations if needed:
+
+```bash
+python cli.py --db benchmarks.db export-csvs \
+    --out-dir /path/to/pd_project/inputs/external_benchmark/ \
+    --raw-dir data/raw
+```
+
+These CSVs are the **stable contract** between this engine and downstream
+consumers. They are deterministic — same DB content → byte-identical
+CSVs. Schema:
+
+- **`raw_observations.csv`** — `source_id, source_type, is_big4, segment, product, parameter, data_definition_class, value, as_of_date, reporting_basis, methodology_note, sample_size_n, period_start, period_end, source_url, page_or_table_ref`. One row per observation. `value` is a decimal in `[0, 1]` (commentary rows = `0.0`).
+- **`validation_flags.csv`** — `segment, n_sources, spread_pct, big4_spread_pct, bank_vs_nonbank_ratio, outlier_sources, stale_sources`. `outlier_sources` and `stale_sources` are pipe-separated source-IDs.
+- **`reality_check_bands.csv`** — `product, lower_band_pd, upper_band_pd, lower_sources, upper_sources, rationale, last_review_date, next_review_due`. Pipe-separated source lists; `rationale` is multi-line markdown flattened with `\n`.
+- **`raw_data_inventory.csv`** — `source_family, subfamily, filename, relative_path, size_bytes, modified_utc, kind`. Walks `data/raw/` and lists every staged file (PDF / XLSX / CSV / `_MANUAL.md` / `*_GATE.md`).
+
+Recommended downstream wiring:
+
+```python
+import pandas as pd
+
+obs = pd.read_csv("outputs/csv/raw_observations.csv", parse_dates=["as_of_date"])
+basel_pd_only = obs[obs["data_definition_class"] == "basel_pd_one_year"]
+
+bands = pd.read_csv("outputs/csv/reality_check_bands.csv")
+upper = bands.set_index("product")["upper_band_pd"].to_dict()
+```
+
+### Step 4 — Generate the committee report
+
+```bash
+# Markdown — committee-friendly, git-reviewable
+python cli.py --db benchmarks.db report benchmark \
+    --format markdown --period-label "Q1 2026"
+
+# HTML — single self-contained file (inline CSS, no JS)
+python cli.py --db benchmarks.db report benchmark \
+    --format html --period-label "Q1 2026"
+
+# DOCX — Word format (requires [reports] extras)
+python cli.py --db benchmarks.db report benchmark \
+    --format docx --period-label "Q1 2026"
+```
+
+Default output paths: `outputs/reports/Report_<period>.{md,html,docx}`.
+Pass `--output` to override. `--source-type` narrows the report to a
+single source family (e.g. `--source-type bank_pillar3` or
+`--source-type rating_agency_index`).
+
+The report has six sections (see §1). Section 6 ("Raw data inventory")
+walks `data/raw/` and lists every staged file by source family — so the
+committee can see at a glance which non-bank disclosures were fetched
+versus which still need a manual download.
+
+### Step 5 — Reality-check the calibrated values (downstream)
+
+The engine itself does not enforce reality-check bounds. The PD / LGD /
+ECL projects load
+[`config/reality_check_bands.yaml`](config/reality_check_bands.yaml) via
+[`src/reality_check.py`](src/reality_check.py) and decide what to do
+with values that fall outside an upper or lower band:
+
+```python
+from src.reality_check import load_reality_check_bands
+
+library = load_reality_check_bands()
+band = library.for_product("commercial_property")
+# band.upper_band_pd, band.lower_band_pd, band.upper_sources,
+# band.lower_sources, band.rationale
+```
+
+The library carries `last_review_date` and `next_review_due` so
+consumers can warn when bands are stale.
+
+### Step 6 — Spot-check before sign-off
+
+Pick 5 random observations and verify against source PDFs:
+
+```bash
+python scripts/pick_spot_checks.py
+# Record findings in outputs/spot_check_verification.md
+```
+
+---
+
+## 4. First-time setup
+
+```bash
+# From repo root
 python -m venv .venv
 .venv\Scripts\activate          # Windows
-# source .venv/bin/activate     # macOS/Linux
+# source .venv/bin/activate     # macOS / Linux
 
 pip install -e ".[ingestion,download,reports]"
 ```
 
-Required Python: **3.9+**. The SQLite database `benchmarks.db` is created on first run.
+Required Python: **3.9+**. The SQLite database `benchmarks.db` is
+created on first `seed` / `ingest`.
 
 Smoke-test the install:
 
 ```bash
 python cli.py --help
 python cli.py list --help
+python -m pytest --no-header -q
 ```
 
 ---
 
-## 3. The quarterly workflow (end-to-end)
+## 5. CLI surface
 
-Run these four steps in order each quarter. Total wall-clock time ≈ 15–30 min (mostly the Pillar 3 PDF scrapes).
+```text
+# Core
+python cli.py [--db PATH] seed | list | history | export | observations
 
-### Step 1 — Download raw source files
-
-```bash
-# Big 4 Pillar 3 disclosures (PDFs + CBA XLSX)
-python scripts/download_sources/pillar3_downloader.py
-
-# APRA ADI quarterly statistics (XLSX)
+# Downloaders (one per source family — see §2 for the full table)
+python scripts/download_sources/pillar3_downloader.py            [--bank cba|nab|wbc|anz|all]
 python scripts/download_sources/apra_downloader.py
+python scripts/download_sources/rba_downloader.py                [--target fsr|securitisation|all]
+python scripts/download_sources/non_bank_downloader.py           [--lender pepper|judo|...|all]
+python scripts/download_sources/external_indices_downloader.py   [--index sp_spin|all] [--dry-run]
+python scripts/download_sources/icc_downloader.py                (paywalled — manual)
 
-# ASIC insolvency statistics (Series 1 & 2 XLSX)
-python scripts/download_sources/asic_insolvency_downloader.py
-
-# ABS business entries/exits (Cat. 8165 XLSX)
-python scripts/download_sources/abs_business_counts_downloader.py
-```
-
-Files land under [data/raw/](data/raw/), [data/asic/](data/asic/), [data/abs/](data/abs/). If a scraper fails, see §6 *Common failures*.
-
-### Step 2 — Ingest into the registry
-
-```bash
-# Big 4 — pass --reporting-date of the disclosure period end
-python cli.py ingest pillar3 --reporting-date 2025-09-30
-
-# APRA
+# Ingest
+python cli.py ingest pillar3 [cba|nab|wbc|anz] [--reporting-date YYYY-MM-DD]
 python cli.py ingest apra
-
-# ASIC + ABS (combined into failure rates)
-python cli.py ingest asic-abs
-```
-
-Check what landed:
-
-```bash
+python cli.py ingest icc       (manual file path)
 python cli.py ingest status
-python cli.py list --limit 20
+
+# Cache
+python cli.py cache status | clear [...]
+
+# CSV exports (machine-readable contract for downstream projects)
+python cli.py [--db PATH] export-csvs [--out-dir DIR] [--raw-dir DIR]
+
+# Reports
+python cli.py report stale | quality | coverage | peer | annual    (governance)
+python cli.py report benchmark --format docx|html|markdown \
+    [--output PATH] [--period-label "Q1 2026"] [--source-type X]
+
+# Migration (one-shot — populates raw_observations from legacy benchmarks)
+python scripts/migrate_to_raw_observations.py [--db PATH]
 ```
 
-### Step 3 — Generate reports
-
-**Quick reference — running reports for Bank vs Private Credit:**
-
-- Use `--institution-type bank` for MRC / Bank Board reports; use `--institution-type private_credit` for Credit Committee reports.
-- Each variant produces a different report (differences listed in the comparison table below): title, committee label, Stage 2 adjustment chain applied, sign-off block, and DOCX helper wrappers.
-- **Do not confuse** the top-level `--institution` flag (controls *ingestion* — which adjustment profile binds to the DB) with the `--institution-type` flag on `report benchmark` (controls the *report template*). Always pass `--institution-type` on the `report benchmark` subcommand itself.
-
-The engine emits a different report variant depending on who the audience is. Pick one with the **`--institution-type`** flag:
-
-```bash
-# Bank / MRC variant (default — omits flag if bank)
-python cli.py report benchmark --format markdown \
-    --institution-type bank \
-    --period-label "Q3 2025" \
-    --output outputs/reports/Report_Q3_2025.md
-
-# Private-credit / Credit Committee variant
-python cli.py report benchmark --format markdown \
-    --institution-type private_credit \
-    --period-label "Q3 2025" \
-    --output outputs/reports/Report_Q3_2025_PC.md
-```
-
-Each invocation writes **two** files (Board + Technical):
-- `*_Board.md` — board-ready (~2–3 pages)
-- `*_Technical.md` — full source register, audit trail, governance
-
-**What `--institution-type` changes in the output:**
-
-| Element                  | `bank`                                                 | `private_credit`                                      |
-|--------------------------|--------------------------------------------------------|-------------------------------------------------------|
-| Report title             | "External Benchmark Calibration Report — Q3 2025"      | "External Benchmark Report — Q3 2025"                 |
-| Committee label          | Model Risk Committee                                   | Credit Committee                                      |
-| Flagship adjustment chain | Bank Stage 2: `peer_mix × geography_ig` (near-neutral) | PC Stage 2: `selection_bias × lvr × trading_history` (2.15x uplift) |
-| Sign-off block           | 3 Lines of Defence (1LoD / 2LoD / 3LoD)                | Credit Committee Decision Log + Next Review Actions   |
-| DOCX footer (if chosen)  | `add_3lod_signoff()`                                   | `add_decision_log()` + `add_next_review_actions()`    |
-
-The underlying benchmark entries in the registry are the same — what differs is (a) the Stage 2 adjustment multipliers applied (see §6.3–6.4 below) and (b) the sign-off governance wrapper. Run both variants in the same quarter if you need separate packs for MRC and Credit Committee.
-
-For DOCX / HTML (optional — same `--institution-type` flag applies):
-
-```bash
-python cli.py report benchmark --format docx --institution-type bank --period-label "Q3 2025"
-python cli.py report benchmark --format html --institution-type private_credit --period-label "Q3 2025"
-```
-
-> **Note:** the top-level `--institution` flag (e.g. `python cli.py --institution private_credit report ...`) controls the **ingestion** side (which adjustment profile to bind to). For report generation, always use the `--institution-type` flag on the `report benchmark` subcommand itself — that's what drives the template.
-
-### Step 4 — Review before sign-off
-
-See §5 below — this is the most important step and **must not be skipped**.
+There is no `report environment` or `report combined` subcommand — the
+engine no longer pulls from the `industry-analysis` sibling project,
+and reports surface only what the engine itself ingests.
 
 ---
 
-## 4. What to run, when
+## 6. Repository layout
 
-| Frequency          | Commands                                              | Trigger                                    |
-|--------------------|-------------------------------------------------------|--------------------------------------------|
-| **Quarterly** (Feb, May, Aug, Nov) | `pillar3_downloader.py` → `ingest pillar3` → `ingest apra` → `report benchmark` | ~30 days after quarter-end, when APRA publishes |
-| **Annually** (July) | `asic_insolvency_downloader.py` + `abs_business_counts_downloader.py` → `ingest asic-abs` | ABS Cat. 8165 releases each August        |
-| **Annually** (when available) | Manually download ICC Trade Register PDF → `python cli.py ingest icc --path <file>` | Currently paywalled — budget needed       |
-| **Ad hoc**         | `python cli.py report stale`                          | Before any report run, to catch missing refreshes |
-| **Ad hoc**         | `python cli.py report quality`                        | When a new source type is added           |
-
-Stale-detection thresholds live in [config/refresh_schedules.yaml](config/refresh_schedules.yaml) (pillar3 = 120 days, insolvency = 210 days, etc.).
-
----
-
-## 5. Review checklist before the report goes to Board
-
-These are the numbers in `Report_Q3_2025_Board.md` that **you must tie back to source** each period. Any discrepancy holds the report.
-
-### 5.1 Peer comparison table (§2 of Board report)
-
-For each asset class, compare the median PD / LGD per bank against the raw Pillar 3 disclosure PDF:
-
-| Board figure               | Where to verify                                                           |
-|----------------------------|---------------------------------------------------------------------------|
-| ANZ PD / LGD medians       | ANZ Pillar 3 PDF, Table CR6 (cached in [data/raw/pillar3/](data/raw/pillar3/)) |
-| CBA PD / LGD medians       | CBA Basel III Pillar 3 Capital Adequacy PDF, Table 12.1                   |
-| NAB PD / LGD medians       | NAB Pillar 3 PDF, Table 21 (CR6)                                          |
-| WBC PD / LGD medians       | Westpac Pillar 3 PDF, Table 21                                            |
-
-**Known data-quality issue:** NAB's `corporate_general` LGD sometimes reads as 0.45% (should be ~45%) due to a decimal-scale inconsistency in the source. If you see a peer value two orders of magnitude off the others, inspect [ingestion/adapters/nab_pillar3_pdf_adapter.py](ingestion/adapters/nab_pillar3_pdf_adapter.py) before publishing.
-
-### 5.2 Flagship CBA CRE PD (§1 Executive Summary, §7 Technical)
-
-The "raw CBA CRE PD 2.50% → Bank 2.50% / PC 5.38% (2.15x)" figure is **hard-coded** in [reports/benchmark_report.py](reports/benchmark_report.py) (`_build_bank_vs_pc_comparison`, `raw_pd = 0.025`). Update when the CBA disclosure value changes.
-
-### 5.3 APRA ADI impaired ratio (§3 Board report)
-
-- Latest quarter value + 3-year-prior value are pulled from the registry automatically.
-- Sanity-check against APRA's *Quarterly ADI Performance Statistics* Table 5.
-- If the latest publication date in the report is older than ~30 days past quarter-end, APRA hasn't published yet — wait.
-
-### 5.4 ASIC / ABS industry failure rates (§3 Board report)
-
-- One row per ANZSIC division, using the latest available value per industry.
-- Verify against ABS *Counts of Australian Businesses* (Cat. 8165.0) and ASIC *Insolvency Statistics Series 1 & 2*.
-- These are **directional context only** — do not incorporate into calibrated PDs (policy set in §5.1 of the board report and enforced by `SourceType.INSOLVENCY.frequency = LOW` in [src/governance.py](src/governance.py)).
-
-### 5.5 Calibrated benchmarks (§4 Board report)
-
-This is the table that feeds directly into the PD Calibration module and ultimately into the internal model. Each row has two numbers you must understand and verify:
-
-**Pipeline end-to-end:**
-
+```text
+external_benchmark_engine/
+├── cli.py                              # Top-level Click CLI — start here
+├── config/
+│   ├── reality_check_bands.yaml        # Per-product upper / lower PD bands
+│   └── refresh_schedules.yaml          # Stale-source thresholds per source_type
+├── data/                               # Raw downloaded files (cached, git-ignored)
+│   └── raw/pillar3/, raw/apra/, raw/rba/, raw/non_bank/, raw/external_indices/
+├── scripts/download_sources/           # Downloaders — one per publisher / family
+├── ingestion/
+│   ├── adapters/                       # Per-publisher PDF/XLSX adapters
+│   ├── pillar3/                        # Per-bank Pillar 3 entry points
+│   ├── external_indices/               # S&P SPIN and RBA aggregate adapters
+│   └── segment_mapping.yaml            # Canonical segment IDs + per-source aliases
+├── src/                                # Core engine — all Python lives here
+│   ├── models.py                       # RawObservation, DataDefinitionClass, etc.
+│   ├── db.py                           # SQLAlchemy schema; ALTER for new column
+│   ├── registry.py                     # add_observation(), query_observations()
+│   ├── observations.py                 # PeerObservations facade
+│   ├── validation.py                   # Cross-source spread / outlier / vintage flags
+│   ├── reality_check.py                # Reality-check band loader
+│   ├── seed_data.py                    # Canonical reality-check seed entries
+│   ├── governance.py                   # Stale / quality / coverage / peer / annual reports
+│   ├── benchmark_report.py             # Raw-only report — Markdown + HTML + DOCX
+│   ├── csv_exporter.py                 # CSV bundle for downstream / dashboards
+│   └── docx_helpers.py                 # Shared python-docx primitives
+├── outputs/
+│   ├── reports/                        # Report_<period>.{md,html,docx}
+│   └── csv/                            # raw_observations / validation_flags /
+│                                       # reality_check_bands / raw_data_inventory
+├── tests/                              # Full coverage of the raw-only path
+└── benchmarks.db                       # SQLite registry (created on first ingest)
 ```
-raw external entries (Pillar 3 PD per band)
-       │
-       ▼  AdjustmentEngine.adjust()   [Stage 1 + Stage 2 — see §6]
-adjusted values per source
-       │
-       ▼  BenchmarkTriangulator.triangulate()
-triangulated_pd  ───────────────────────→ (column 1 in §4 table)
-       │
-       ▼  CalibrationFeed.for_<method>()  +  regulatory floor
-calibrated_pd    ───────────────────────→ (column 2 in §4 table)
-```
-
-#### 5.5.1 `triangulated_pd` — how it's computed
-
-`triangulated_pd` is the weighted average of **adjusted** external PD values across all banks reporting in that segment.
-
-- **Default method:** `weighted_by_years` — each source is weighted by the disclosure period length (clamped at `max(period_years, 1)`). Half-yearly ANZ/NAB/WBC PDFs therefore carry more weight than quarterly CBA XLSX. See [src/triangulation.py](src/triangulation.py).
-- **Alternative methods** (not currently wired to the board report but available in [src/triangulation.py](src/triangulation.py)): `simple_average`, `quality_weighted` (HIGH = 3×, MEDIUM = 2×, LOW = 1× — weights hard-coded in `_QUALITY_WEIGHTS`), `trimmed_mean` (drops min and max — requires ≥ 4 sources).
-- **What goes in:** only PD entries for the segment (LGD and supervisory-value rows are filtered out). Each entry is first run through the full Stage 1 + Stage 2 adjustment chain from §6 — so the multipliers you tune in `adjustment_profiles.yaml` flow through to this number.
-- **Confidence (`confidence_n`)** is also computed and shown in the Technical Appendix §4; it's clamped at 500. Low confidence (N < 40) should be footnoted for the committee.
-
-Verify `triangulated_pd` by: pulling the adjusted values per source from the Technical Appendix §3 (adjustment audit trail), computing the period-year-weighted average yourself, and matching. Off by > 0.5 bps → investigate the adjustment chain.
-
-#### 5.5.2 `calibrated_pd` — how it's computed
-
-`calibrated_pd` takes `triangulated_pd` and applies one of **five** PD calibration methods, then a regulatory floor. All five live in [src/calibration_feed.py](src/calibration_feed.py).
-
-| Method                   | Output field        | What it does                                                                                                    | When to use                                           |
-|--------------------------|---------------------|-----------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|
-| `central_tendency`       | `external_lra`      | Returns the triangulated PD as-is (after floor). Pure external anchor.                                          | No internal data yet; pure external calibration       |
-| `logistic_recalibration` | `target_lra` + `confidence_n` | Same value as central_tendency, carrying confidence count for logistic-regression scaling downstream. | Rank-order preserved from internal model; just rescale target rate |
-| `bayesian_blending`      | `external_pd` + `confidence_n` | Supplies the prior (external) and sample size for Bayesian blending with internal frequency data.   | When you want to blend internal and external with explicit prior strength |
-| `external_blending`      | `external_lra` + `internal_weight` | Blends external LRA with internal LRA using a weight schedule: **< 3 yr = 0.30**, 3–4 yr = 0.50, 4–5 yr = 0.70, **5+ yr = 0.90**. | Default method in board report — use when internal data length drives the weight |
-| `pluto_tasche`           | `external_pd` + `role="comparison_only"` | Low-default-portfolio method; external serves as comparison anchor only, not as a direct input.   | For LDPs like sovereigns and financial institutions  |
-
-**Which method is used in the board report:** `external_blending` with `internal_years=5` (→ `internal_weight = 0.9`, so `calibrated_pd = 0.9 × internal + 0.1 × external`). This is why the Q3 2025 board report shows `calibrated_pd ≈ triangulated_pd` — the display currently reflects the external component only; the internal blend is applied downstream in the calibration module. See [reports/benchmark_report.py](reports/benchmark_report.py) `_call_feed_method`.
-
-**Regulatory floor (APRA APS 113):** `DEFAULT_REGULATORY_FLOOR = 0.0003` (3 bps) — hard-coded in [src/calibration_feed.py](src/calibration_feed.py:39). Any calibrated PD below 3 bps is clamped up and `floor_triggered = Yes` flags it in the report. The floor applies to **PD only**; LGD never goes through this path (LGD uses `downturn.py`).
-
-#### 5.5.3 Relationship to the adjustment multipliers from §6
-
-Each adjustment multiplier you tune in [config/adjustment_profiles.yaml](config/adjustment_profiles.yaml) flows through to **both** columns of the §4 table:
-
-- Raising `peer_mix` default from 1.00 → 1.05 raises every bank-source adjusted value by 5%, which raises `triangulated_pd` roughly 5%, which raises `calibrated_pd` by the same 5% (unless the floor activates).
-- PC selection_bias changes do **not** affect the board-report table because the report runs the Bank adjustment chain. PC chain only runs when `--institution-type private_credit` is set (see §3).
-- Stage 1 `apra_impaired_to_pd = 1.50` only affects segments fed by APRA impaired-ratio entries (currently none in `corporate_sme` / `residential_mortgage`, so it's a no-op for the current §4 rows).
-
-#### 5.5.4 How to update the calibration assumptions
-
-| What you want to change                                              | Where to change it                                                                                                                                   |
-|----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Triangulation weighting scheme (e.g. switch to `quality_weighted`)   | `CalibrationFeed(... triangulation_method="quality_weighted")` constructor arg in [cli.py](cli.py) — currently hard-coded to `weighted_by_years`     |
-| Quality weights (HIGH/MEDIUM/LOW = 3/2/1)                            | `_QUALITY_WEIGHTS` dict in [src/triangulation.py](src/triangulation.py:52-56). Requires MRC approval.                                                 |
-| Regulatory floor (3 bps → e.g. 5 bps)                                | `DEFAULT_REGULATORY_FLOOR` in [src/calibration_feed.py](src/calibration_feed.py:39). Ties to APRA APS 113 — **do not change without MRC + regulatory sign-off**. |
-| External-blending weight schedule (0.30 / 0.50 / 0.70 / 0.90)        | `_internal_weight_for_years()` function at the bottom of [src/calibration_feed.py](src/calibration_feed.py:163-171)                                  |
-| Which segments get calibrated                                        | `DEFAULT_PD_SEGMENTS` tuple at the top of [reports/benchmark_report.py](reports/benchmark_report.py:46-52)                                           |
-| Which method appears as `calibrated_pd` in the board report          | `_render_board_markdown` in [reports/benchmark_report.py](reports/benchmark_report.py) — currently picks `external_blending`. Change the lookup in the row-builder if you want a different method surfaced. |
-| Internal data history length (drives blending weight)                | `internal_years=5` in `_call_feed_method` in [reports/benchmark_report.py](reports/benchmark_report.py) — update to reflect the actual model's data vintage |
-
-**Governance for calibration changes:** same gate as §6.7 (adjustment config) — pytest must pass, board report must be regenerated and the §4 table re-reviewed, MRC decision register entry with rationale. Changes to the regulatory floor or quality weights additionally require documented referencing to the driving APRA guidance or framework revision.
-
-#### 5.5.5 If `floor_triggered = Yes`
-
-A triggered floor means `triangulated_pd < 3 bps`. Either:
-
-1. The external benchmark is genuinely low (e.g. AAA sovereign, prime senior residential mortgage) — leave the floor in place and add a footnote acknowledging it.
-2. A data-quality issue is dragging the triangulation down (check the Technical Appendix §3 for an outlier source with an unreasonably low adjusted value) — fix the ingestion before publishing.
-3. An adjustment multiplier has been set too aggressively (e.g. `peer_mix` default below 1.00) — review §6 config.
-
-### 5.6 Governance flag counts (§6 Board report)
-
-- `stale` flag_count should be **0**. Anything >0 means a source missed its refresh window — re-run the relevant downloader before publishing.
-- `quality` flag_count of ~76 is expected (all ASIC/ABS rows flag `low_quality:…:frequency` — this is by design, see §5.4 above).
-- `pillar3_divergence` flag_count highlights where one Big 4 bank's PD is materially above peer median — investigate but not a blocker.
-
----
-
-## 6. Bank vs Private Credit adjustments
-
-Every external benchmark entering the calibration feed is put through a **2-stage adjustment chain** by [src/adjustments.py](src/adjustments.py). All multipliers live in [config/adjustment_profiles.yaml](config/adjustment_profiles.yaml) — no magic numbers in code.
-
-### 6.1 How the chain runs
-
-```
-raw external value
-      │
-      ▼
-Stage 1 — definition_alignment   (shared; keyed by source_type)
-      │
-      ▼
-Stage 2 — institution-specific
-      ├── BankAdjustment             : peer_mix  × geography_ig
-      └── PrivateCreditAdjustment    : selection_bias × LVR × industry
-                                       × trading_history × unsecured
-                                       × invoice concentration overlay
-      │
-      ▼
-adjusted value (→ triangulation → calibration)
-```
-
-Stage 1 and Stage 2 multipliers compose multiplicatively. The `final_multiplier` you see in the Board report §1 flagship line is the product of every step that fired.
-
-### 6.2 Stage 1 — Definition alignment (shared)
-
-Only fires when the `source_type` matches one of the rules below. If no rule matches (e.g. `pillar3`, `apra_adi` PD entries, `listed_peer`), Stage 1 is a no-op.
-
-| Rule key                          | Fires for source_type    | Default multiplier | Purpose                                           |
-|-----------------------------------|--------------------------|--------------------|---------------------------------------------------|
-| `apra_impaired_to_pd`             | `apra_adi` (impaired-ratio rows) | **1.50**       | APRA 90+ DPD / impaired ratio → PD equivalent (APG 113) |
-| `illion_bfri_to_default_rate`     | `bureau`                 | **1.40** (1.30–1.50) | illion BFRI index → default rate                 |
-| `rating_agency_global_to_au_ig`   | `rating_agency` (IG)     | **0.85** (0.80–0.90) | Global IG rating → AU IG                         |
-| `rating_agency_global_to_au_sub_ig` | `rating_agency` (sub-IG) | **1.00**          | Global sub-IG → AU sub-IG (no adjustment)        |
-
-Source-reference rationale is stored alongside each rule and emitted in the Technical Appendix audit trail.
-
-### 6.3 Stage 2 — Bank chain
-
-Two multipliers. Both always available; `geography_ig` only fires when the source is a global rating agency.
-
-| Step          | Range        | Default | When it fires                                           |
-|---------------|--------------|---------|---------------------------------------------------------|
-| `peer_mix`    | 0.95 – 1.05  | **1.00** | Always — adjusts for portfolio-mix differences vs the benchmark basket |
-| `geography_ig`| 0.80 – 0.90  | **0.85** | Only when source is `rating_agency` (global → AU IG)    |
-
-The default `peer_mix = 1.00` is why the board report shows the bank output roughly equal to the raw Pillar 3 value — bank-to-bank the mix is similar, so no uplift.
-
-### 6.4 Stage 2 — Private Credit chain
-
-Driven by the **product** passed in (not the asset_class). The product key is matched against [config/adjustment_profiles.yaml](config/adjustment_profiles.yaml) → `private_credit_stage2`. Current products and their default multipliers:
-
-| Product                    | selection_bias | LVR     | industry   | other                |
-|----------------------------|----------------|---------|------------|----------------------|
-| `bridging_residential`     | 1.75 (1.5–2.0) | 1.15    | —          | —                    |
-| `bridging_commercial`      | **2.00** (1.8–2.5) | **1.20** | —     | —                    |
-| `development`              | 2.25 (2.0–2.5) | — (slotting) | —    | —                    |
-| `residual_stock`           | 1.75           | 1.15    | —          | —                    |
-| `trade_finance`            | 1.35           | —       | 1.10       | —                    |
-| `invoice_finance`          | 1.40           | —       | —          | concentration overlay |
-| `working_capital_secured`  | 2.00           | —       | 1.00 (ANZSIC-dependent) | —       |
-| `working_capital_unsecured`| 2.00           | —       | 1.00       | `unsecured` = 1.30   |
-
-Plus cross-product multipliers that fire when the caller passes the kwarg:
-
-| Multiplier                      | Range        | Default | Trigger                                              |
-|---------------------------------|--------------|---------|------------------------------------------------------|
-| `trading_history_adj`           | 1.05 – 1.15  | 1.10    | Borrower with <3 years trading history               |
-| `invoice_concentration_overlay` | 1.00 – 1.40  | 1.10    | Debtor concentration share — bucketed into 4 tiers   |
-| LGD: `weaker_guarantor`         | 1.05 – 1.15  | 1.10    | PC counterparty weaker than bank equivalent          |
-| LGD: `smaller_workout_team`     | 1.05 – 1.10  | 1.075   | Smaller recovery function                            |
-| LGD: `subordinated`             | 1.30 – 1.80  | 1.55    | Position behind senior bank debt                     |
-| LGD: `higher_lvr`               | 1.10 – 1.25  | 1.175   | Above-market LVR at origination                      |
-| LGD: `sector_concentration`     | 1.05 – 1.15  | 1.10    | Concentration in a single ANZSIC sector              |
-
-The **flagship Board-report figure** (2.15x PC/Bank ratio on CBA CRE PD) comes from `selection_bias × lvr × trading_history` = 1.70 × 1.15 × 1.10 ≈ 2.15 hard-coded in [reports/benchmark_report.py](reports/benchmark_report.py) `_build_bank_vs_pc_comparison`.
-
-### 6.5 Where each multiplier is sourced from
-
-All ranges trace back to the **Bank External Benchmarking Framework** (`project guidence.md` §4) and supporting regulatory references:
-
-| Multiplier family          | Source document                                          |
-|----------------------------|----------------------------------------------------------|
-| `apra_impaired_to_pd`      | APRA APG 113 *Capital Adequacy: Credit Risk*              |
-| `illion_bfri_*`            | illion BFRI methodology whitepaper                        |
-| `rating_agency_*`          | S&P / Moody's sovereign and corporate methodology        |
-| `peer_mix`, `geography_ig` | Framework §4 (bank stage-2 table)                         |
-| `selection_bias`, `lvr`, `industry`, product table | Framework §4 (private-credit stage-2 table) |
-| `trading_history_adj`, `invoice_concentration_overlay` | Framework §4 (additional PC adjustments)  |
-| LGD-specific (`subordinated`, `higher_lvr`, etc.) | Framework §4 + MRC calibration committee minutes |
-
-Each row in [config/adjustment_profiles.yaml](config/adjustment_profiles.yaml) carries a `source_reference` string that flows through to the audit trail — **do not remove this field** when editing.
-
-### 6.6 How to update the config
-
-All tuning is done in [config/adjustment_profiles.yaml](config/adjustment_profiles.yaml). No code changes required. Typical changes:
-
-**a) Change a default multiplier for an existing step** (e.g. raise PC `bridging_commercial` selection_bias from 2.00 to 2.10):
-
-```yaml
-bridging_commercial:
-  selection_bias:  {min: 1.8, max: 2.5, default: 2.10}   # was 2.00
-```
-
-Keep `default` between `min` and `max`. Stage 1 single-multiplier entries (e.g. `apra_impaired_to_pd`) use `multiplier:` instead of a min/max/default tuple.
-
-**b) Widen or narrow a range** (e.g. peer_mix band):
-
-```yaml
-bank_stage2:
-  peer_mix:
-    min: 0.90           # was 0.95
-    max: 1.10           # was 1.05
-    default: 1.00
-```
-
-The engine only enforces that `what_if` overrides land within `[min, max]` in tests — the `default` is what runs in production.
-
-**c) Add a new private-credit product**:
-
-```yaml
-private_credit_stage2:
-  new_product_name:
-    selection_bias:  {min: 1.5, max: 2.0, default: 1.70}
-    lvr:             {min: 1.10, max: 1.20, default: 1.15}
-    # industry key is optional
-```
-
-Then pass `product="new_product_name"` when calling `AdjustmentEngine.adjust()`.
-
-**d) Adjust the invoice concentration tiers**:
-
-```yaml
-invoice_concentration_overlay:
-  below_10pct: 1.00
-  10_to_25pct: 1.10
-  25_to_50pct: 1.25
-  above_50pct: 1.40
-  default_when_absent: 1.10
-```
-
-The bucket keys are hard-coded in [src/adjustments.py](src/adjustments.py) `_select_concentration` — if you rename them, update both files.
-
-**e) Change the stale-source refresh thresholds** (separate file):
-
-Edit [config/refresh_schedules.yaml](config/refresh_schedules.yaml) — values are days. E.g. to tighten Pillar 3 from quarterly + 30-day grace (120 days) to quarterly only (90 days):
-
-```yaml
-refresh_schedules:
-  pillar3:       90     # was 120
-```
-
-### 6.7 Governance / sign-off for config changes
-
-Any change to [config/adjustment_profiles.yaml](config/adjustment_profiles.yaml) **must**:
-
-1. Be tested: `pytest tests/test_adjustments.py -v` (119 tests guard the multiplier math).
-2. Regenerate the board report and re-check the flagship PC/Bank ratio — it's the most sensitive figure to adjustment changes.
-3. Be logged in the MRC decision register with the old value, new value, rationale, and supporting document reference.
-4. If a range (min/max) changes, update the `source_reference` field to cite the decision paper or framework revision.
-
-Do not edit `source_reference` or `rationale` fields without a corresponding MRC decision — they are the audit-trail evidence shown in the Technical Appendix §3.
 
 ---
 
 ## 7. Common failures and fixes
 
-| Symptom                                              | Likely cause / fix                                                  |
-|------------------------------------------------------|---------------------------------------------------------------------|
-| `Pillar3Downloader: no matching anchor` for a bank   | The bank moved the disclosure page. Update the `BANKS` dict in [scripts/download_sources/pillar3_downloader.py](scripts/download_sources/pillar3_downloader.py) (header comment keeps a change-log). |
-| `APRA scraper found no Series anchor`                | APRA changed the publication naming. Inspect [scripts/download_sources/apra_downloader.py](scripts/download_sources/apra_downloader.py) keyword list. |
-| `ICC Trade Register` flagged unavailable             | Expected — ICC is paywalled since 2025. Either skip or manually purchase and ingest via `python cli.py ingest icc --path <pdf>`. |
-| NAB LGD ≈ 0.x% vs peers at 30–50%                    | Decimal scaling issue in NAB PDF adapter. See §5.1 above.           |
-| `floor_triggered = True` on every segment            | `adjustment_profiles.yaml` floor values may be set too high. Review with MRC. |
-| Board report has empty peer tables                   | `pillar3` ingestion didn't find PD/LGD rows — check `ingest status` and re-run with `--force-refresh`. |
+| Symptom | Likely cause / fix |
+| --- | --- |
+| `Pillar3Downloader: no matching anchor` for a bank | The bank moved the disclosure page. Update the `BANKS` dict in [`pillar3_downloader.py`](scripts/download_sources/pillar3_downloader.py) (header comment keeps a change-log). |
+| `APRA scraper found no Series anchor` | APRA changed the publication naming. Inspect [`apra_downloader.py`](scripts/download_sources/apra_downloader.py) keyword list. |
+| Non-bank lender `_MANUAL.md` written | IR page is bot-protected or DNS-gated. Follow the hint in the per-lender `_MANUAL.md` and drop the file by hand into `data/raw/non_bank/<lender>/`. |
+| S&P SPIN `_MANUAL.md` written | The public release URL is generated per article. Drop the PDF into `data/raw/external_indices/sp_spin/` and re-run `scripts/migrate_to_raw_observations.py`. |
+| Migration script reports rows skipped | Skipped rows are non-PD / non-LGD legacy entries that don't map to a `data_definition_class`. Inspect the row's `source_id` and add a pattern to `_infer_definition_class` if it should be migrated. |
+| Spread / outlier flags fire across every segment | Vintage drift. Refresh staler sources before publishing. |
+| Tests fail with `ModuleNotFoundError: No module named 'src'` when running a script | Use `python cli.py …` or run the script with `python scripts/<file>.py` (project root is auto-bootstrapped). Don't run `python -c "from scripts…"` outside the repo root. |
 
 Cache management:
 
 ```bash
-python cli.py cache status        # Show cached files per source
-python cli.py cache clear pillar3 # Force re-download on next run
+python cli.py cache status
+python cli.py cache clear pillar3
 ```
 
 ---
 
-## 7. Repository layout
+## 8. Architectural principle
 
-```
-external_benchmark_engine/
-├── cli.py                        # Top-level Click CLI — start here
-├── config/
-│   ├── adjustment_profiles.yaml  # Bank vs private-credit multipliers
-│   └── refresh_schedules.yaml    # Stale-source thresholds per source_type
-├── data/                         # Raw downloaded files (cached, git-ignored)
-│   ├── raw/ (pillar3/, apra/)
-│   ├── asic/
-│   └── abs/
-├── scripts/download_sources/     # Scrapers — one per publisher
-├── ingestion/                    # Parsers that turn raw files into registry rows
-│   ├── adapters/                 # One adapter per PDF/XLSX format
-│   └── pillar3/                  # Per-bank Pillar 3 adapters
-├── src/                          # Core engine (registry, adjustments, triangulation, calibration, governance)
-├── reports/
-│   ├── benchmark_report.py       # Report 1 — Board + Technical markdown
-│   └── docx_helpers.py
-├── outputs/reports/              # Generated board & technical reports
-├── tests/
-└── benchmarks.db                 # SQLite registry (created on first ingest)
-```
+The engine answers exactly one question:
+
+> **What did each external source publish for this segment, in this
+> period, under what definition?**
+
+It deliberately does NOT answer:
+
+- *"What's the consensus benchmark across sources?"* → triangulation; lives in the consuming project.
+- *"What does this source mean once aligned to Basel definitions?"* → definition alignment; lives in the consuming project.
+- *"Should our LRA be capped at this level?"* → calibration decision; lives in the consuming project.
+- *"What does the macro / industry environment look like?"* → industry overlay; **removed entirely** from this engine.
+
+Heterogeneity is a **feature, not a bug**. Different sources publish
+different things — Pepper publishes asset-finance arrears, Liberty
+publishes impaired-loan ratios, Judo publishes proper Basel PDs. The
+engine surfaces these definitions explicitly via
+`data_definition_class`. Consumers (PD, LGD, ECL projects) decide how
+to align them.
 
 ---
 
-## 8. Escalation
+## 9. Escalation
 
-- **Model Risk Committee** — quality flags, calibration method changes, floor overrides.
+- **Model Risk Committee** — quality flags, governance reports, calibration changes downstream.
 - **Data engineering** — broken scrapers, adapter failures, cache corruption.
-- **Owner of [project guidence.md](project%20guidence.md)** — scope, roadmap, deferred reports (Reports 2 & 3).
+- **Owner of the brief documents** — scope, roadmap.
 
 ---
 

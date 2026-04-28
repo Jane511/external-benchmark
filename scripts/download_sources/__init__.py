@@ -3,27 +3,37 @@
 Automated (direct XLSX/PDF downloads):
 - ``apra_downloader.ApraAdiDownloader`` — APRA quarterly ADI statistics
 - ``pillar3_downloader.Pillar3Downloader`` — Big 4 Pillar 3 disclosures
-- ``abs_business_counts_downloader.AbsBusinessCountsDownloader`` — ABS cat. 8165
-- ``asic_insolvency_downloader.AsicInsolvencyDownloader`` — ASIC Series 1+2
+- ``rba_downloader.RbaDownloader`` — RBA FSR PDF + Securitisation snapshot
+
+Best-effort (per-source graceful — OK / MANUAL / FAIL):
+- ``non_bank_downloader.NonBankDisclosureDownloader`` — 9 non-bank
+  ASX-listed lender investor-relations pages (judo, liberty, pepper,
+  resimac, moneyme, plenti, wisr, qualitas, metrics_credit). Many IR
+  sites are bot-protected; the downloader writes a per-lender
+  ``_MANUAL.md`` note when it can't fetch.
+- ``external_indices_downloader.ExternalIndicesDownloader`` — S&P SPIN
+  manual-staging helper. The adapter parses staged PDFs.
 
 Manual (by design, see individual module docstrings for rationale):
-- ``icc_downloader.IccTradeDownloader`` — ICC Trade Register
+- ``icc_downloader.IccTradeDownloader`` — ICC Trade Register (paywalled)
 """
 
-from scripts.download_sources.abs_business_counts_downloader import (
-    AbsBusinessCountsDownloader,
-)
 from scripts.download_sources.apra_downloader import ApraAdiDownloader
-from scripts.download_sources.asic_insolvency_downloader import (
-    AsicInsolvencyDownloader,
+from scripts.download_sources.external_indices_downloader import (
+    ExternalIndicesDownloader,
 )
 from scripts.download_sources.icc_downloader import IccTradeDownloader
+from scripts.download_sources.non_bank_downloader import (
+    NonBankDisclosureDownloader,
+)
 from scripts.download_sources.pillar3_downloader import Pillar3Downloader
+from scripts.download_sources.rba_downloader import RbaDownloader
 
 __all__ = [
-    "AbsBusinessCountsDownloader",
     "ApraAdiDownloader",
-    "AsicInsolvencyDownloader",
+    "ExternalIndicesDownloader",
     "IccTradeDownloader",
+    "NonBankDisclosureDownloader",
     "Pillar3Downloader",
+    "RbaDownloader",
 ]

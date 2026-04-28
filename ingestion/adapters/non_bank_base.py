@@ -32,6 +32,7 @@ CANONICAL_OBSERVATION_COLUMNS: list[str] = [
     "segment",
     "product",
     "parameter",
+    "data_definition_class",
     "value",
     "as_of_date",
     "reporting_basis",
