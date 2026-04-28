@@ -672,57 +672,6 @@ def _print_refresh_report(report) -> None:
         )
 
 
-# --- ICC Trade Register (Phase 3; manual-download) -----------------------
-
-@ingest.command("icc", help="Parse a manually-downloaded ICC Trade Register PDF.")
-@click.option(
-    "--source-path", type=click.Path(exists=True, dir_okay=False), default=None,
-    help="Path to a downloaded ICC Trade Register PDF. Omit to auto-discover in data/raw/icc/.",
-)
-@click.option(
-    "--report-year", type=int, default=None,
-    help="Which edition to parse (e.g. 2024). Omit for latest cached.",
-)
-@click.option("--force-refresh", is_flag=True,
-              help="Accepted for CLI parity; no-op for manual-download sources.")
-@click.option("--dry-run", is_flag=True, help="Preview actions without writing.")
-@click.pass_context
-def ingest_icc(
-    ctx: click.Context, source_path: Optional[str], report_year: Optional[int],
-    force_refresh: bool, dry_run: bool,
-) -> None:
-    from ingestion.refresh import RefreshOrchestrator
-
-    registry = _get_registry(ctx.obj["db"])
-    extras: dict[str, object] = {}
-    if report_year is not None:
-        extras["report_year"] = report_year
-    if force_refresh:
-        extras["force_refresh"] = True
-
-    overrides: dict[str, Path] = {}
-    if source_path:
-        overrides["icc_trade"] = Path(source_path)
-
-    orchestrator = RefreshOrchestrator(
-        registry=registry,
-        local_overrides=overrides,
-        scraper_extras={"icc_trade": extras} if extras else None,
-    )
-    report = orchestrator.refresh_source("icc_trade", dry_run=dry_run)
-
-    click.echo(f"Source: {report.source_name}  dry_run={report.dry_run}")
-    click.echo(f"Summary: {report.summary()}")
-    for err in report.errors:
-        click.echo(f"  ERROR: {err}", err=True)
-    click.echo(f"\nActions ({len(report.actions)}):")
-    for a in report.actions:
-        click.echo(
-            f"  {a.action:<25}  {a.source_id}   value={a.value}  "
-            f"value_date={a.value_date}   ({a.reason})"
-        )
-
-
 @ingest.command("status", help="Show last retrieval date per source type.")
 @click.pass_context
 def ingest_status(ctx: click.Context) -> None:

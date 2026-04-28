@@ -6,7 +6,6 @@
 #   pillar3 / apra_adi : quarterly disclosure + 30-day grace          -> 120
 #   bureau             : quarterly update + grace                     -> 120
 #   rating_agency      : annual update + 30-day grace                 -> 395
-#   icc_trade          : annual publication + grace                   -> 395
 #   industry_body      : semi-annual (JLL, CoreLogic, AFIA)           -> 210
 #   listed_peer        : semi-annual investor reporting               -> 210
 #   rba                : semi-annual stability review                 -> 210
@@ -16,7 +15,6 @@ refresh_schedules:
   pillar3:       120
   apra_adi:      120
   rating_agency: 395
-  icc_trade:     395
   industry_body: 210
   listed_peer:   210
   rba:           210

@@ -341,43 +341,6 @@ def test_ingest_pillar3_anz_subcommand_is_registered(db_path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Ingest ICC Trade Register (Phase 3)
-# ---------------------------------------------------------------------------
-
-def test_ingest_icc_subcommand_reports_missing_cache_dir(db_path) -> None:
-    """Without a cached PDF, `ingest icc` should surface the manual-download hint."""
-    runner = CliRunner()
-    # Use isolated_filesystem so data/raw/icc/ resolves to a tmp dir
-    with runner.isolated_filesystem() as fs:
-        result = runner.invoke(
-            cli,
-            ["--db", str(Path(fs) / "b.db"),
-             "ingest", "icc", "--dry-run"],
-        )
-    # Exit code non-zero (FileNotFoundError surfaces as an orchestrator error)
-    # but more importantly, we should see a clear manual-download hint.
-    assert "icc" in result.output.lower()
-    # The error should mention manual-download or the iccwbo URL.
-    assert (
-        "manual-download" in result.output.lower()
-        or "iccwbo" in result.output.lower()
-        or "not found" in result.output.lower()
-    )
-
-
-def test_ingest_icc_help_shows_force_refresh_and_report_year(db_path) -> None:
-    """Verify the command is registered with the expected flags."""
-    runner = CliRunner()
-    result = runner.invoke(cli, ["ingest", "icc", "--help"])
-    assert result.exit_code == 0
-    assert "--report-year" in result.output
-    assert "--force-refresh" in result.output
-    assert "ICC" in result.output
-
-
-
-
-# ---------------------------------------------------------------------------
 # Report 1 committee report CLI (Part 3)
 # ---------------------------------------------------------------------------
 

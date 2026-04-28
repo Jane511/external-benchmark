@@ -1,10 +1,10 @@
 # External Benchmark Report — Q1 2026
-_Generated: 2026-04-28T04:33:53+00:00_
+_Generated: 2026-04-28T05:43:31+00:00_
 
 > **The engine publishes raw, source-attributable observations only.** No adjustments — definition alignment, selection bias, downturn overlays — are applied. These have moved to consuming projects (PD workbook for PD, LGD project for LGD, etc.) so each use case can manage its own complete adjustment chain. Consumers of this report apply their own adjustments per their model documentation.
 
 ## 1. Executive Summary
-- 20 raw observations across 11 canonical segments.
+- 20 raw observations across 10 canonical segments.
 - 20 distinct sources contributing: 16 Big 4 + 4 non-bank / aggregate.
 - Every value in this report is the source-published raw figure. No multipliers, no triangulation, no adjustment.
 

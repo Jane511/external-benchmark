@@ -54,7 +54,7 @@ def seeded_reporter():
 def test_refresh_schedules_yaml_loads() -> None:
     schedules = load_refresh_schedules()
     required_keys = {
-        "pillar3", "apra_adi", "rating_agency", "icc_trade",
+        "pillar3", "apra_adi", "rating_agency",
         "industry_body", "listed_peer", "rba", "bureau",
         "regulatory",
     }

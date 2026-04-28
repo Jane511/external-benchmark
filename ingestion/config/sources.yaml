@@ -98,13 +98,3 @@ sources:
     frequency_days: 180
     quality_score: HIGH
     source_name: "ANZ_PILLAR3"
-
-  # ------------------------------------------------------------------
-  # ICC Trade Register (Phase 3; manual-download)
-  # ------------------------------------------------------------------
-  icc_trade:
-    scraper: icc_trade
-    url: "https://iccwbo.org/news-publications/policies-reports/icc-trade-register-report/"
-    frequency_days: 395
-    quality_score: HIGH
-    source_name: "ICC_TRADE"
