@@ -1,9 +1,8 @@
-"""Seed data for the External Benchmark Engine — 8 Australian segments.
+"""Seed data for the External Benchmark Engine — Australian segments.
 
 Values are authentic to Australian external-benchmark sources per plan §3:
   - Big 4 Pillar 3 disclosures (CBA, NAB, WBC, ANZ) H2 2024 snapshot
   - APRA APS 113 regulatory floors and specialised-lending slotting grades
-  - ICC Trade Register (import/export LC, trade loans)
   - illion BFRI aggregate failure rates
   - AFIA invoice finance aggregates
   - S&P corporate default study
@@ -278,13 +277,6 @@ _INVOICE_FINANCE = [
         url="https://afia.asn.au/research", value=0.012,
         quality_score=QualityScore.MEDIUM,
     ),
-    _entry(
-        source_id="ICC_TRADE_RECEIVABLES", publisher="ICC Trade Register",
-        source_type=SourceType.ICC_TRADE, data_type=DataType.DEFAULT_RATE,
-        asset_class="invoice_finance",
-        url="https://iccwbo.org/trade-register",
-        period_years=10, value=0.008,
-    ),
 ]
 
 # ---------------------------------------------------------------------------
@@ -314,35 +306,6 @@ _WORKING_CAPITAL = [
         notes="illion BFRI aggregate — requires ANZSIC / definition alignment",
     ),
 ]
-
-# ---------------------------------------------------------------------------
-# 8. Trade finance (Bank + PC)
-# ---------------------------------------------------------------------------
-_TRADE_FINANCE = [
-    _entry(
-        source_id="ICC_TRADE_IMPORT_LC", publisher="ICC Trade Register",
-        source_type=SourceType.ICC_TRADE, data_type=DataType.DEFAULT_RATE,
-        asset_class="trade_finance",
-        url="https://iccwbo.org/trade-register",
-        period_years=10, value=0.0003,
-        notes="ICC import LC default rate (0.01-0.05% range)",
-    ),
-    _entry(
-        source_id="ICC_TRADE_EXPORT_LC", publisher="ICC Trade Register",
-        source_type=SourceType.ICC_TRADE, data_type=DataType.DEFAULT_RATE,
-        asset_class="trade_finance",
-        url="https://iccwbo.org/trade-register",
-        period_years=10, value=0.00015,
-    ),
-    _entry(
-        source_id="ICC_TRADE_LOANS", publisher="ICC Trade Register",
-        source_type=SourceType.ICC_TRADE, data_type=DataType.DEFAULT_RATE,
-        asset_class="trade_finance",
-        url="https://iccwbo.org/trade-register",
-        period_years=10, value=0.004,
-    ),
-]
-
 
 # ---------------------------------------------------------------------------
 # Reality-check sources — published with explicit data_definition_class
@@ -616,7 +579,6 @@ SEED_ENTRIES: list[BenchmarkEntry] = (
     + _DEVELOPMENT
     + _INVOICE_FINANCE
     + _WORKING_CAPITAL
-    + _TRADE_FINANCE
     + _REALITY_CHECK_ENTRIES
 )
 

@@ -19,17 +19,16 @@ class SourceType(str, Enum):
 
     Used by the registry / observations API for source-type filtering and
     by the governance refresh-schedule lookup. Legacy values (PILLAR3,
-    APRA_ADI, RATING_AGENCY, ICC_TRADE, INDUSTRY_BODY, LISTED_PEER,
-    REGULATORY, RBA, BUREAU, INSOLVENCY) are retained for backward
-    compatibility with persisted BenchmarkEntry rows; new RawObservation
-    rows use the BANK_PILLAR3 / NON_BANK_LISTED / APRA_* / RATING_AGENCY_INDEX
-    / RBA_AGGREGATE family below.
+    APRA_ADI, RATING_AGENCY, INDUSTRY_BODY, LISTED_PEER, REGULATORY, RBA,
+    BUREAU, INSOLVENCY) are retained for backward compatibility with
+    persisted BenchmarkEntry rows; new RawObservation rows use the
+    BANK_PILLAR3 / NON_BANK_LISTED / APRA_* / RATING_AGENCY_INDEX /
+    RBA_AGGREGATE family below.
     """
     # ---- legacy (BenchmarkEntry rows) --------------------------------
     PILLAR3 = "pillar3"
     APRA_ADI = "apra_adi"
     RATING_AGENCY = "rating_agency"
-    ICC_TRADE = "icc_trade"
     INDUSTRY_BODY = "industry_body"
     LISTED_PEER = "listed_peer"
     REGULATORY = "regulatory"

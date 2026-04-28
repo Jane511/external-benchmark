@@ -60,8 +60,6 @@ _PUBLISHER_TO_SOURCE_TYPE: dict[str, SourceType] = {
     "Westpac Banking Corporation": SourceType.PILLAR3,
     "ANZ": SourceType.PILLAR3,
     "Australia and New Zealand Banking Group": SourceType.PILLAR3,
-    "ICC": SourceType.ICC_TRADE,
-    "ICC Trade Register": SourceType.ICC_TRADE,
     "illion": SourceType.BUREAU,
     "S&P": SourceType.RATING_AGENCY,
     "S&P Global Ratings": SourceType.RATING_AGENCY,

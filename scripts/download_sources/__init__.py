@@ -13,16 +13,12 @@ Best-effort (per-source graceful — OK / MANUAL / FAIL):
   ``_MANUAL.md`` note when it can't fetch.
 - ``external_indices_downloader.ExternalIndicesDownloader`` — S&P SPIN
   manual-staging helper. The adapter parses staged PDFs.
-
-Manual (by design, see individual module docstrings for rationale):
-- ``icc_downloader.IccTradeDownloader`` — ICC Trade Register (paywalled)
 """
 
 from scripts.download_sources.apra_downloader import ApraAdiDownloader
 from scripts.download_sources.external_indices_downloader import (
     ExternalIndicesDownloader,
 )
-from scripts.download_sources.icc_downloader import IccTradeDownloader
 from scripts.download_sources.non_bank_downloader import (
     NonBankDisclosureDownloader,
 )
@@ -32,7 +28,6 @@ from scripts.download_sources.rba_downloader import RbaDownloader
 __all__ = [
     "ApraAdiDownloader",
     "ExternalIndicesDownloader",
-    "IccTradeDownloader",
     "NonBankDisclosureDownloader",
     "Pillar3Downloader",
     "RbaDownloader",

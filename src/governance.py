@@ -61,11 +61,6 @@ _QUALITY_MATRIX: dict[SourceType, dict[str, QualityScore]] = {
         "transparency": QualityScore.MEDIUM, "frequency": QualityScore.MEDIUM,
         "regulatory_standing": QualityScore.MEDIUM,
     },
-    SourceType.ICC_TRADE: {
-        "depth": QualityScore.HIGH, "relevance": QualityScore.HIGH,
-        "transparency": QualityScore.HIGH, "frequency": QualityScore.MEDIUM,
-        "regulatory_standing": QualityScore.MEDIUM,
-    },
     SourceType.INDUSTRY_BODY: {
         "depth": QualityScore.MEDIUM, "relevance": QualityScore.MEDIUM,
         "transparency": QualityScore.MEDIUM, "frequency": QualityScore.MEDIUM,

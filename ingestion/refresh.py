@@ -22,7 +22,6 @@ import yaml
 
 from ingestion.apra_adi import ApraAdiScraper
 from ingestion.base import BaseScraper, ScrapedDataPoint
-from ingestion.icc_trade import IccTradeScraper
 from ingestion.pillar3.anz import ANZScraper
 from ingestion.pillar3.cba import CBAScraper
 from ingestion.pillar3.nab import NABScraper
@@ -80,7 +79,6 @@ class RefreshOrchestrator:
         "pillar3_nab": NABScraper,
         "pillar3_wbc": WBCScraper,
         "pillar3_anz": ANZScraper,
-        "icc_trade": IccTradeScraper,
     }
 
     def __init__(

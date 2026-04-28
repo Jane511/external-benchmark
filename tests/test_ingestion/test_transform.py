@@ -44,7 +44,6 @@ def test_normalize_value_unknown_unit_raises() -> None:
 
 def test_map_source_type_exact_match() -> None:
     assert map_source_type("APRA") == SourceType.APRA_ADI
-    assert map_source_type("ICC Trade Register") == SourceType.ICC_TRADE
     assert map_source_type("illion") == SourceType.BUREAU
 
 

@@ -113,21 +113,4 @@ SOURCE_URLS: dict[str, dict] = {
         ],
     },
 
-    # -------------------------------------------------------------------
-    "icc_trade": {
-        "cache_dir": "data/raw/icc/",
-        "description": "ICC Trade Register (annual; paid publication; manual download)",
-        "manual_download": True,
-        "files": [
-            {
-                "name": "ICC Trade Register Report",
-                "url": (
-                    "https://iccwbo.org/news-publications/policies-reports/"
-                    "icc-trade-register-report/"
-                ),
-                "filename_pattern": "ICC_Trade_Register_{year}.pdf",
-            },
-        ],
-    },
-
 }

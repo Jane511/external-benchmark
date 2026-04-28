@@ -108,14 +108,12 @@ fetches it, the publisher's natural release cadence, and which
 | 16 | Qualitas (ASX:QAL) | `non_bank/qualitas/` | `python scripts/download_sources/non_bank_downloader.py --lender qualitas` | Half-yearly + monthly QRI | `qualitative_commentary` | Automated (`investors.qualitas.com.au`); commentary-only by design |
 | 17 | Metrics Credit Partners (MREIF) | `non_bank/metrics_credit/` | `python scripts/download_sources/non_bank_downloader.py --lender metrics_credit` | Monthly + half-yearly | `qualitative_commentary` | Automated (`/listed-funds/`); commentary-only by design |
 | 18 | S&P SPIN (AU RMBS) | `external_indices/sp_spin/` | `python scripts/download_sources/external_indices_downloader.py --index sp_spin` | Monthly; staged quarterly | `arrears_30_plus_days` | Manual download, **parsed when staged** |
-| 19 | ICC Trade Register | `icc/` | `python scripts/download_sources/icc_downloader.py` | Annual | (TBD; trade-finance default rates) | Manual (paywalled, by design) |
 
 **Cadence guidance — when to re-download:**
 
 - **Quarterly (Feb / May / Aug / Nov)** — Big 4 Pillar 3 (CBA quarterly), APRA Performance, APRA QPEX. Run `pillar3_downloader.py` and `apra_downloader.py` ~30 days after each quarter-end (when APRA publishes).
 - **Semi-annual (March + September/October)** — Big 4 Pillar 3 H1 / FY PDFs (NAB, WBC, ANZ, CBA H1/FY); RBA FSR. Re-run `pillar3_downloader.py` and `rba_downloader.py --target fsr`.
 - **Monthly / quarterly staging** — Pepper Money, Metrics Credit Partners, and S&P SPIN. Run `non_bank_downloader.py` monthly; stage one SPIN PDF per quarter and re-run `scripts/migrate_to_raw_observations.py`.
-- **Annual (analyst trigger)** — ICC Trade Register (paid). ICC requires a procurement decision.
 - **One-off after publisher URL drift** — non-bank ASX `_MANUAL.md` lenders. Check the IR pages every quarter; when the IR layout stabilises, lift the URL into the per-lender config in [`non_bank_downloader.py`](scripts/download_sources/non_bank_downloader.py).
 
 **Refresh-staleness thresholds** are enforced by [`src/governance.py`](src/governance.py) reading [`config/refresh_schedules.yaml`](config/refresh_schedules.yaml). Run `python cli.py report stale` before any committee report to flag overdue sources.
@@ -165,7 +163,6 @@ python scripts/download_sources/external_indices_downloader.py
 | Qualitas / Metrics Credit | `non_bank_downloader.py` | Automated; commentary-only by design (no published numbers) |
 | Resimac / MoneyMe / Wisr | `non_bank_downloader.py` | URL fixed; per-source `_MANUAL.md` describes the staging workflow until the per-adapter parser lands in a follow-up brief |
 | S&P SPIN | `external_indices_downloader.py` | Manual PDF staging; parser emits prime + non-conforming 30+ DPD observations |
-| ICC Trade Register | `icc_downloader.py` | Manual (paywalled, by design) |
 
 When a downloader can't fetch a source it writes a `_MANUAL.md` note
 into the per-source folder pointing the analyst at the right URL. The
@@ -324,12 +321,10 @@ python scripts/download_sources/apra_downloader.py
 python scripts/download_sources/rba_downloader.py                [--target fsr|securitisation|all]
 python scripts/download_sources/non_bank_downloader.py           [--lender pepper|judo|...|all]
 python scripts/download_sources/external_indices_downloader.py   [--index sp_spin|all] [--dry-run]
-python scripts/download_sources/icc_downloader.py                (paywalled — manual)
 
 # Ingest
 python cli.py ingest pillar3 [cba|nab|wbc|anz] [--reporting-date YYYY-MM-DD]
 python cli.py ingest apra
-python cli.py ingest icc       (manual file path)
 python cli.py ingest status
 
 # Cache

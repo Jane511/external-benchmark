@@ -17,7 +17,6 @@ def test_empty_cache_status_reports_zero_counts_per_subdir(manager) -> None:
     status = manager.cache_status()
     assert "apra" in status
     assert "pillar3" in status
-    assert "icc" in status
     for subdir, info in status.items():
         assert info["count"] == 0
         assert info["latest"] is None
@@ -54,13 +53,13 @@ def test_clear_specific_source_only_removes_that_subdir(manager, tmp_path: Path)
 
 
 def test_clear_all_sources_removes_everything(manager, tmp_path: Path) -> None:
-    for sub in ("apra", "pillar3", "icc"):
+    for sub in ("apra", "pillar3"):
         d = tmp_path / sub
         d.mkdir()
         (d / "file.bin").write_bytes(b"x")
 
     removed = manager.clear_cache(source=None)
-    assert removed == 3
-    for sub in ("apra", "pillar3", "icc"):
+    assert removed == 2
+    for sub in ("apra", "pillar3"):
         d = tmp_path / sub
         assert list(d.iterdir()) == []

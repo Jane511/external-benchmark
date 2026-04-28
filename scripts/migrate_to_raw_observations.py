@@ -22,7 +22,6 @@ Source-type mapping from legacy SourceType -> raw-only SourceType:
     RATING_AGENCY  -> RATING_AGENCY_INDEX
     RBA            -> RBA_AGGREGATE
     BUREAU         -> NON_BANK_LISTED   (placeholder; bureau adapters live elsewhere)
-    ICC_TRADE      -> NON_BANK_LISTED   (placeholder)
     REGULATORY     -> APRA_PERFORMANCE  (placeholder)
     INSOLVENCY     -> kept as INSOLVENCY (legacy passthrough)
     INDUSTRY_BODY  -> kept as INDUSTRY_BODY (legacy passthrough — covers AFIA etc.)
@@ -75,7 +74,6 @@ _TYPE_MAP: dict[SourceType, SourceType] = {
     SourceType.RATING_AGENCY: SourceType.RATING_AGENCY_INDEX,
     SourceType.RBA: SourceType.RBA_AGGREGATE,
     SourceType.BUREAU: SourceType.NON_BANK_LISTED,
-    SourceType.ICC_TRADE: SourceType.NON_BANK_LISTED,
     SourceType.REGULATORY: SourceType.APRA_PERFORMANCE,
     # INSOLVENCY and INDUSTRY_BODY pass through unchanged (legacy enums
     # retained — they cover non-ABS/ASIC sources too, e.g. AFIA).
