@@ -375,37 +375,6 @@ def test_ingest_icc_help_shows_force_refresh_and_report_year(db_path) -> None:
     assert "ICC" in result.output
 
 
-# ---------------------------------------------------------------------------
-# Ingest CoreLogic (Phase 5) + ASIC/ABS (Phase 6)
-# ---------------------------------------------------------------------------
-
-def test_ingest_asic_abs_runs_with_fixture_csvs(db_path, tmp_path) -> None:
-    import shutil
-
-    fix = Path(__file__).parent / "fixtures"
-    asic = tmp_path / "asic"; asic.mkdir()
-    absd = tmp_path / "abs";  absd.mkdir()
-    shutil.copy(fix / "asic_sample.csv", asic / "asic_insolvency_extract.csv")
-    shutil.copy(fix / "abs_sample.csv",  absd / "abs_business_counts.csv")
-
-    runner = CliRunner()
-    result = _invoke(
-        runner, db_path, "ingest", "asic-abs",
-        "--asic-dir", str(asic),
-        "--abs-dir",  str(absd),
-        "--dry-run",
-    )
-    assert result.exit_code == 0
-    assert "add=5" in result.output
-    assert "INDUSTRY_CONSTRUCTION" in result.output
-
-
-def test_ingest_asic_abs_help_shows_both_dir_flags(db_path) -> None:
-    runner = CliRunner()
-    result = runner.invoke(cli, ["ingest", "asic-abs", "--help"])
-    assert result.exit_code == 0
-    assert "--asic-dir" in result.output
-    assert "--abs-dir" in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -460,90 +429,6 @@ def test_report_benchmark_institution_type_flag_is_deprecated(db_path, tmp_path)
     )
     assert result.exit_code == 0
     assert "deprecated" in (result.output + (result.stderr or "")).lower()
-
-
-def test_report_environment_errors_when_data_dir_missing(tmp_path, db_path) -> None:
-    """With no sibling repo + no overrides, the CLI fails loudly rather than
-    silently producing an empty report."""
-    runner = CliRunner()
-    # Point at a guaranteed-missing path so neither default resolves.
-    missing = tmp_path / "no-such-exports"
-    result = _invoke(
-        runner, db_path,
-        "report", "environment",
-        "--data-dir", str(missing),
-        "--format", "markdown",
-    )
-    assert result.exit_code != 0
-    assert "does not exist" in result.output.lower() or \
-           "missing" in result.output.lower()
-
-
-def test_report_environment_generates_markdown_from_fixture(tmp_path, db_path) -> None:
-    """End-to-end: point `report environment` at a synthetic exports dir
-    and confirm the markdown variants land in the chosen output dir."""
-    import pandas as pd
-
-    d = tmp_path / "exports"
-    d.mkdir()
-    pd.DataFrame({
-        "industry": ["Agriculture", "Construction"],
-        "classification_risk_score": [3.5, 2.75],
-        "macro_risk_score":          [3.2, 2.6],
-        "industry_base_risk_score":  [3.5, 2.68],
-        "industry_base_risk_level":  ["Elevated", "Medium"],
-        "cash_rate_latest_pct":      [3.85, 3.85],
-        "cash_rate_change_1y_pctpts":[-0.25, -0.25],
-    }).to_parquet(d / "industry_risk_scores.parquet", index=False)
-    pd.DataFrame({
-        "property_segment":     ["Offices", "Aged care"],
-        "cycle_stage":          ["downturn", "neutral"],
-        "market_softness_score":[4.3, 2.7],
-        "region_risk_score":    [4.0, 2.7],
-        "region_risk_band":     ["High", "Medium"],
-        "approvals_change_pct": [-35.0, 60.0],
-        "commencements_signal": ["Proxy"] * 2,
-        "completions_signal":   ["Proxy"] * 2,
-        "market_softness_band": ["soft", "normal"],
-    }).to_parquet(d / "property_market_overlays.parquet", index=False)
-    pd.DataFrame({
-        "scenario": ["base", "mild", "moderate", "severe"],
-        "pd_multiplier": [1.0, 1.2, 1.5, 2.0],
-        "lgd_multiplier": [1.0, 1.1, 1.2, 1.3],
-        "ccf_multiplier": [1.0, 1.05, 1.10, 1.20],
-        "property_value_haircut": [0.0, 0.05, 0.10, 0.20],
-        "notes":     ["b", "m", "mo", "s"],
-        "as_of_date":["2026-03-16"] * 4,
-    }).to_parquet(d / "downturn_overlay_table.parquet", index=False)
-    pd.DataFrame({
-        "as_of_date":                ["2026-03-16"],
-        "cash_rate_regime":          ["neutral_easing"],
-        "arrears_environment_level": ["Low"],
-        "arrears_trend":             ["Improving"],
-        "macro_regime_flag":         ["base"],
-        "source_dataset":            ["test"],
-    }).to_parquet(d / "macro_regime_flags.parquet", index=False)
-
-    out_stem = tmp_path / "out" / "Env_Q1_2026.md"
-    runner = CliRunner()
-    result = _invoke(
-        runner, db_path,
-        "report", "environment",
-        "--data-dir", str(d),
-        "--format", "markdown",
-        "--output", str(out_stem),
-        "--period-label", "Q1 2026",
-    )
-    assert result.exit_code == 0, result.output
-    assert (tmp_path / "out" / "Env_Q1_2026_Board.md").exists()
-    assert (tmp_path / "out" / "Env_Q1_2026_Technical.md").exists()
-
-
-def test_report_combined_returns_not_implemented(db_path) -> None:
-    runner = CliRunner()
-    result = _invoke(runner, db_path, "report", "combined")
-    assert result.exit_code == 2
-    assert "not yet implemented" in result.output.lower()
 
 
 # ---------------------------------------------------------------------------

@@ -498,12 +498,12 @@ def export_to_docx(
       - "private_credit"  Credit Committee format with decision log + next actions
       - None              defaults to `report.institution_type` from the Pydantic model
 
-    The actual python-docx work lives in `reports/docx_helpers.py` — this
+    The actual python-docx work lives in `src/docx_helpers.py` — this
     function is a thin shim so callers who only want the core engine don't
     pay the import cost of python-docx unless they request a DOCX export.
     """
     try:
-        from reports.docx_helpers import (
+        from src.docx_helpers import (
             _require_docx,  # surfaces the shared "install python-docx" hint
             new_document,
             add_heading,
@@ -522,7 +522,7 @@ def export_to_docx(
         ) from exc
 
     # Trigger the shared import gate so the error message is consistent
-    # whether python-docx is missing or only reports.docx_helpers is missing.
+    # whether python-docx is missing or only src.docx_helpers is missing.
     _require_docx()
 
     resolved_inst = (institution_type or report.institution_type.value).lower()

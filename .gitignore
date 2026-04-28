@@ -94,8 +94,12 @@ docs/*
 !docs/adapter_pattern.md
 !docs/pillar3_pdf_spec.md
 !docs/migration_from_adjusted_to_raw.md
-!docs/INDUSTRY_ANALYSIS_INTEGRATION_SPEC.md
 PROGRESS.md
+
+# Local working artefacts — internal briefs and analyst reference docs
+# kept on disk for the user but not for the public repo.
+engine_*_brief.md
+manual_download_reference.docx
 
 # ---------------------------------------------------------------------------
 # Project-specific: raw data and local DB
@@ -115,8 +119,6 @@ benchmarks.db
 outputs/*
 !outputs/reports/
 outputs/reports/*
-!outputs/reports/Report_Q1_2026_RawOnly_sample.md
-# Environment reports (sibling industry-analysis project) — kept when present.
-!outputs/reports/Report_Environment_*.md
-!outputs/reports/Report_Environment_*.html
-!outputs/reports/Report_Environment_*.docx
+!outputs/reports/Report_Q1_2026.md
+!outputs/csv/
+!outputs/csv/*.csv

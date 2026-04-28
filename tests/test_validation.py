@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from src.models import RawObservation, SourceType
+from src.models import DataDefinitionClass, RawObservation, SourceType
 from src.validation import compute_validation_flags
 
 
@@ -22,6 +22,7 @@ def _obs(
         segment=segment,
         product=None,
         parameter="pd",
+        data_definition_class=DataDefinitionClass.BASEL_PD_ONE_YEAR,
         value=value,
         as_of_date=today - timedelta(days=days_old),
         reporting_basis="Pillar 3 quarterly",

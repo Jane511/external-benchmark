@@ -8,7 +8,6 @@ from sqlalchemy import inspect, select
 from sqlalchemy.exc import IntegrityError
 
 from src.db import (
-    Adjustment,
     AuditLog,
     Benchmark,
     create_engine_and_schema,
@@ -53,11 +52,7 @@ def _benchmark_row(**overrides) -> Benchmark:
 def test_all_tables_created(session) -> None:
     inspector = inspect(session.bind)
     tables = set(inspector.get_table_names())
-    # Brief 1: raw_observations is the new write target; benchmarks /
-    # adjustments / audit_log persist for backward-compatibility reads.
-    assert tables == {
-        "benchmarks", "adjustments", "audit_log", "raw_observations",
-    }
+    assert tables == {"benchmarks", "raw_observations", "audit_log"}
 
 
 def test_benchmark_insert_and_fetch_roundtrip(session) -> None:
@@ -122,25 +117,6 @@ def test_supersede_pattern_updates_prior_row_only(session) -> None:
     assert rows[1].superseded_by is None
 
 
-def test_adjustment_insert_append_only(session) -> None:
-    session.add(
-        Adjustment(
-            source_id="X",
-            institution_type="private_credit",
-            product="bridging_commercial",
-            asset_class="commercial_property_investment",
-            raw_value=0.025,
-            adjusted_value=0.053762,
-            steps_json='[{"name":"selection_bias","multiplier":1.7}]',
-        )
-    )
-    session.commit()
-
-    row = session.scalars(select(Adjustment)).one()
-    assert row.adjusted_value == pytest.approx(0.053762)
-    assert row.applied_at is not None
-
-
 def test_audit_log_insert(session) -> None:
     session.add(
         AuditLog(
@@ -160,28 +136,16 @@ def test_audit_log_insert(session) -> None:
 
 
 def test_timestamp_defaults_are_utc(session) -> None:
-    """inserted_at / applied_at / timestamp all default via _utcnow()."""
+    """inserted_at / timestamp default via _utcnow()."""
     session.add(_benchmark_row(source_id="T"))
-    session.add(
-        Adjustment(
-            source_id="T",
-            institution_type="bank",
-            product="residential_mortgage",
-            asset_class="residential_mortgage",
-            raw_value=0.008,
-            adjusted_value=0.008,
-            steps_json="[]",
-        )
-    )
     session.add(AuditLog(operation="noop", entity_id="T"))
     session.commit()
 
     b = session.scalars(select(Benchmark).where(Benchmark.source_id == "T")).one()
-    a = session.scalars(select(Adjustment).where(Adjustment.source_id == "T")).one()
     al = session.scalars(select(AuditLog).where(AuditLog.entity_id == "T")).one()
 
     # SQLite strips tz info on read; just assert they're populated and recent.
     now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
-    for ts in (b.inserted_at, a.applied_at, al.timestamp):
+    for ts in (b.inserted_at, al.timestamp):
         assert ts is not None
         assert (now_naive - ts).total_seconds() < 60

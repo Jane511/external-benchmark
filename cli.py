@@ -150,7 +150,7 @@ def history(ctx: click.Context, source_id: str) -> None:
 @cli.group(
     "report",
     help="Governance reports (stale / quality / coverage / peer / annual) + "
-         "committee reports (benchmark / environment / combined).",
+         "the raw-only benchmark report.",
 )
 def report() -> None:
     pass
@@ -234,7 +234,7 @@ def report_annual(ctx: click.Context, segment: tuple[str, ...]) -> None:
               help="[DEPRECATED — Brief 1] Reports are now institution-agnostic. "
                    "Accepted for backward compatibility but ignored.")
 @click.option("--output", type=click.Path(), default=None,
-              help="Output path. Defaults to outputs/reports/Report_{period}_RawOnly.{ext}.")
+              help="Output path. Defaults to outputs/reports/Report_{period}.{ext}.")
 @click.option("--period-label", default=None,
               help="Period label (e.g. 'Q3 2025'). Derived from today if omitted.")
 @click.option("--source-type", default=None,
@@ -249,7 +249,7 @@ def report_benchmark(
     period_label: Optional[str],
     source_type: Optional[str],
 ) -> None:
-    from reports.benchmark_report import BenchmarkCalibrationReport
+    from src.benchmark_report import BenchmarkCalibrationReport
 
     if institution_type is not None:
         click.echo(
@@ -266,13 +266,12 @@ def report_benchmark(
         registry=registry,
         peer_observations=peer,
         period_label=period_label,
+        raw_data_dir=Path("data/raw"),
     )
 
     ext = {"docx": "docx", "html": "html", "markdown": "md"}[fmt]
     period_slug = (period_label or report_obj._period).replace(" ", "_")
-    default_path = (
-        Path("outputs/reports") / f"Report_{period_slug}_RawOnly.{ext}"
-    )
+    default_path = Path("outputs/reports") / f"Report_{period_slug}.{ext}"
     out_path = Path(output) if output else default_path
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -290,72 +289,6 @@ def report_benchmark(
             "PeerObservations.for_segment(source_type=...) for programmatic use.",
             err=True,
         )
-
-
-@report.command("environment",
-                help="Report 2 — industry / property environment. Sources "
-                     "data from the industry-analysis sibling project.")
-@click.option("--format", "fmt",
-              type=click.Choice(["docx", "html", "markdown", "all"]),
-              default="all", show_default=True)
-@click.option("--data-dir", type=click.Path(), default=None,
-              help="Path to industry-analysis/data/exports/. Defaults to "
-                   "$EXTERNAL_BENCHMARK_INDUSTRY_ANALYSIS_DIR, then the "
-                   "known-sibling-repo path.")
-@click.option("--output", type=click.Path(), default=None,
-              help="Output stem. Defaults to outputs/reports/"
-                   "Report_Environment_<period>.<ext>.")
-@click.option("--period-label", default=None)
-@click.option("--stale-days", type=int, default=90, show_default=True)
-@click.pass_context
-def report_environment(
-    ctx: click.Context,
-    fmt: str,
-    data_dir: Optional[str],
-    output: Optional[str],
-    period_label: Optional[str],
-    stale_days: int,
-) -> None:
-    """Generate Report 2 in the requested format(s).
-
-    This is a thin shim over `scripts/generate_reports.py environment`;
-    both entrypoints share the same underlying renderer.
-    """
-    # Forward to the standalone generator so there is exactly one
-    # implementation of the Report-2 emit logic. We re-invoke via the
-    # click runner so option parsing stays consistent.
-    from scripts.generate_reports import environment as env_cmd
-
-    argv: list[str] = ["--format", fmt]
-    if data_dir:
-        argv.extend(["--data-dir", data_dir])
-    if output:
-        argv.extend(["--output", output])
-    if period_label:
-        argv.extend(["--period-label", period_label])
-    if stale_days != 90:
-        argv.extend(["--stale-days", str(stale_days)])
-    ctx.invoke(env_cmd,
-               fmt=fmt,
-               data_dir=data_dir,
-               output=output,
-               period_label=period_label,
-               stale_days=stale_days,
-               verify=False)
-
-
-@report.command("combined",
-                help="Report 3 — combined dashboard (requires Reports 1 + 2; "
-                     "not yet implemented).")
-@click.pass_context
-def report_combined(ctx: click.Context) -> None:
-    click.echo(
-        "Report 3 (Combined Dashboard) is not yet implemented. It needs "
-        "Report 2 (Environment) wired up first, which depends on the "
-        "industry-analysis sibling project.",
-        err=True,
-    )
-    ctx.exit(2)
 
 
 # ---------------------------------------------------------------------------
@@ -467,6 +400,33 @@ def export(ctx: click.Context, fmt: str, output: str | None) -> None:
         click.echo(f"Wrote {output} ({len(payload)} chars)")
     else:
         click.echo(payload)
+
+
+@cli.command(
+    "export-csvs",
+    help="Emit the four-CSV bundle (raw_observations + validation_flags + "
+         "reality_check_bands + raw_data_inventory) into outputs/csv/. "
+         "These are the engine's machine-readable contract for downstream "
+         "projects (PD workbook, LGD project, dashboards).",
+)
+@click.option("--out-dir", type=click.Path(), default="outputs/csv",
+              show_default=True,
+              help="Directory to write the four CSVs into.")
+@click.option("--raw-dir", type=click.Path(), default="data/raw",
+              show_default=True,
+              help="Raw-data root scanned for the inventory CSV.")
+@click.pass_context
+def export_csvs(ctx: click.Context, out_dir: str, raw_dir: str) -> None:
+    from src.csv_exporter import export_all_csvs
+    registry = _get_registry(ctx.obj["db"])
+    paths = export_all_csvs(
+        registry,
+        out_dir=Path(out_dir),
+        raw_dir=Path(raw_dir),
+    )
+    for name, p in paths.items():
+        size = p.stat().st_size if p.exists() else 0
+        click.echo(f"{name:24s}  {p}  ({size:,} bytes)")
 
 
 # ---------------------------------------------------------------------------
@@ -696,45 +656,6 @@ ingest_pillar3.command("wbc", help="Scrape Westpac Pillar 3 PDF.")(
 ingest_pillar3.command("anz", help="Scrape ANZ Pillar 3 PDF.")(
     _make_pillar3_bank_command("ANZ", "anz_pillar3")
 )
-
-
-# --- ASIC + ABS failure-rate importer (Phase 6) ---------------------------
-
-@ingest.command("asic-abs",
-                help="Combine ASIC insolvency + ABS business counts into failure rates.")
-@click.option(
-    "--asic-dir", type=click.Path(), default=None,
-    help="Directory containing ASIC extracts (default: data/asic/).",
-)
-@click.option(
-    "--abs-dir", type=click.Path(), default=None,
-    help="Directory containing ABS cat. 8165 extracts (default: data/abs/).",
-)
-@click.option("--force-refresh", is_flag=True,
-              help="Accepted for CLI parity; no-op for importer sources.")
-@click.option("--dry-run", is_flag=True)
-@click.pass_context
-def ingest_asic_abs(
-    ctx: click.Context, asic_dir: Optional[str], abs_dir: Optional[str],
-    force_refresh: bool, dry_run: bool,
-) -> None:
-    from ingestion.refresh import RefreshOrchestrator
-
-    registry = _get_registry(ctx.obj["db"])
-    extras: dict[str, object] = {}
-    if asic_dir:
-        extras["asic_dir"] = asic_dir
-    if abs_dir:
-        extras["abs_dir"] = abs_dir
-    if force_refresh:
-        extras["force_refresh"] = True
-
-    orchestrator = RefreshOrchestrator(
-        registry=registry,
-        scraper_extras={"asic_abs": extras} if extras else None,
-    )
-    report = orchestrator.refresh_source("asic_abs", dry_run=dry_run)
-    _print_refresh_report(report)
 
 
 def _print_refresh_report(report) -> None:

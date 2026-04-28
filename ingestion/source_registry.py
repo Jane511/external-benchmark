@@ -15,10 +15,6 @@ Each entry declares:
 
 `filename_pattern` uses str.format() placeholders — scrapers fill them in from
 reporting-date context (quarter, year, half).
-
-The seventh "reserved" slot covers sources that are planned but not yet
-scraped (CoreLogic, ASIC, ABS). Documented so the schema keeps room for them
-without needing another refactor.
 """
 from __future__ import annotations
 
@@ -134,14 +130,4 @@ SOURCE_URLS: dict[str, dict] = {
         ],
     },
 
-    # -------------------------------------------------------------------
-    # Reserved slot for future sources (ASIC/ABS, RBA financial stability
-    # review, other manual-download providers). No download URLs yet;
-    # included here so CacheManager can detect files the user drops manually.
-    "reserved_future": {
-        "cache_dir": "data/raw/other/",
-        "description": "Reserved — ASIC / ABS / RBA (future phases)",
-        "manual_download": True,
-        "files": [],
-    },
 }

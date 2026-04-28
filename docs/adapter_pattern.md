@@ -8,7 +8,7 @@
 > [`ingestion/adapters/non_bank_base.py`](../ingestion/adapters/non_bank_base.py):
 >
 >     ["source_id", "source_type", "segment", "product",
->      "parameter", "value", "as_of_date", "reporting_basis",
+>      "parameter", "data_definition_class", "value", "as_of_date", "reporting_basis",
 >      "methodology_note", "sample_size_n", "period_start",
 >      "period_end", "source_url", "page_or_table_ref"]
 >
@@ -170,6 +170,66 @@ doesn't already appear in the `source_id`.
 | `CbaPillar3PdfAdapter`   | live (CBA Option B) | CBA half-year / full-year Pillar 3 PDF | CR6 PD + LGD per portfolio × PD band (IRB AIRB + FIRB), CR10 supervisory risk weights for specialised-lending slotting. **Text-line parsing with a PD-range regex** (pdfplumber's `extract_tables` drops the left-most category label). Multi-line portfolio labels resolved via one-line look-ahead (Pattern B: `"Corporate"` + `"(incl. SME corporate)"` → `corporate_sme`) and previous-line combine (Pattern A: `"RBNZ regulated entities"` + `"Non-retail …"`). Slotting emits **`risk_weight`** — APS 113-prescribed values — never fabricates PDs. ~127 entries. |
 | `CbaPillar3QuarterlyAdapter` | live (CBA Option A) | CBA quarterly APS 330 XLSX | Per-portfolio `npl_ratio` computed as `CRB(f)(ii).non_performing / EAD_CRWA.ead`. Label-based row lookup on both sheets; first-match wins. Mirrors the APRA QPEX arithmetic pattern — numerator / denominator / formula preserved in `quality_indicators`. ~7 entries per quarter. |
 | NAB / WBC / ANZ          | see regex-broadening note | Pillar 3 PDFs | Pillar 3 tables via `pdfplumber` — adapter pattern is overkill; broadening the table regex is simpler |
+| `JudoDisclosureAdapter`  | live | Judo Pillar 3 PDF (`/regulatory-disclosures`) | CR6 weighted-average PD per (asset class × PD band). Same line-parsing pattern as CBA, mapping Judo's labels via `segment_mapping.yaml`. Default-band PDs capped at 1.0 for Pydantic [0,1] bounds. |
+| `PepperMoneyAdapter`     | live | Pepper Money half-yearly results PDF | Slide-text section parser: identifies "Asset Finance", "Residential Mortgages", "SME / Commercial" headings, then runs per-metric regexes (loss expense, 30+ DPD, 90+ DPD) within each section. Each emitted row carries the matched snippet in `methodology_note`. |
+| `PlentiDisclosureAdapter` | live | Plenti quarterly trading update PDF | Line-driven regex parser over Plenti's bullet text. Each line can switch the current section (`Automotive` → `consumer_secured`, `Personal` → `consumer_unsecured`) AND emit metrics on the same line — important because Plenti often combines section name + headline number on one bullet. Loan portfolio AUM lands in `sample_size_n`. |
+| `LibertyAnnualAdapter`   | live | Liberty annual report PDF | Credit-risk-note table parser: walks each note block, classifies the row label against a curated needle list, then extracts the trailing percent (or computes numerator/denominator). Emits `parameter='impaired'` / `data_definition_class=IMPAIRED_LOANS_RATIO`. |
+
+## Parsing PDF disclosures — common patterns
+
+The four non-bank parsers wired in 2026-04 (Judo, Pepper, Plenti,
+Liberty) cover three reusable patterns. New non-bank adapters should
+pick whichever fits the source layout rather than reinventing.
+
+### Pattern 1 — CR6 / regulatory-table extraction (Judo style)
+
+Layouts that follow APRA APS 330 (or any structured regulator-prescribed
+table) have a deterministic column order. Use a **PD-range / category
+regex** to identify data rows, then pick the metric column by index
+from the trailing tokens. Don't trust `extract_tables`; PDF tables
+routinely lose the left-most label column.
+
+Example: `JudoDisclosureAdapter._extract_cr6_text` mirrors
+`CbaPillar3PdfAdapter._extract_cr6_page`.
+
+### Pattern 2 — bullet-text regex extraction (Plenti style)
+
+Trading updates and investor presentations often publish headline
+numbers in narrative bullets — not tables. The pattern is:
+
+1. Compile a **named-group** regex per metric (e.g. `(?P<num>...)
+   \s*(?P<unit>bps|%|basis points)`).
+2. Walk the text **line by line**, letting each line both switch the
+   current section (via heading regexes) AND emit metrics. This is
+   critical when a single line contains both the segment name and the
+   number ("Automotive loans portfolio of $1.6B; 90+ day arrears of
+   38 basis points.").
+3. Convert (number, unit) to a decimal in a single helper so bps and
+   percent are handled identically.
+
+### Pattern 3 — financial-note table extraction (Liberty style)
+
+Audited financial statements contain credit-risk notes with
+impaired-loans tables. The pattern is:
+
+1. Find the section by heading (`Credit risk` / `Loans and advances`)
+   and end it at the next note boundary.
+2. Walk each row inside that block, classify the row's label against a
+   curated `(needle, canonical_segment)` table (most-specific first),
+   then extract the trailing percent or `numerator / denominator`.
+3. Emit `parameter='impaired'` /
+   `data_definition_class=IMPAIRED_LOANS_RATIO` per matched row.
+
+### Test fixtures for text-driven parsers
+
+All four adapters expose a `_extract_*_text(text, ...)` method that
+takes the raw extracted page text and returns canonical observation
+records. The per-adapter test feeds a string fixture mimicking the
+real PDF layout and asserts the expected rows. This keeps tests
+fast (no pdfplumber, no PDF on disk) and the binary PDF stays out of
+the repo. See
+`tests/test_ingestion/adapters/test_judo_disclosure_adapter.py` for
+the reference pattern.
 
 ## When arithmetic is involved (lessons from Path B)
 

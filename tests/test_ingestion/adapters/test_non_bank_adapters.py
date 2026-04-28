@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 
-from ingestion.adapters.apra_non_adi_adapter import ApraNonAdiAdapter
 from ingestion.adapters.judo_disclosure_adapter import JudoDisclosureAdapter
 from ingestion.adapters.liberty_annual_adapter import LibertyAnnualAdapter
 from ingestion.adapters.moneyme_disclosure_adapter import MoneyMeDisclosureAdapter
@@ -38,7 +37,6 @@ _NON_BANK_ADAPTERS = [
     MoneyMeDisclosureAdapter,
     PlentiDisclosureAdapter,
     WisrDisclosureAdapter,
-    ApraNonAdiAdapter,
 ]
 
 

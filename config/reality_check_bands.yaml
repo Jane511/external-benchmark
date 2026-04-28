@@ -1,0 +1,167 @@
+# Reality-check bands per product/segment.
+#
+# These are NOT calibration targets. They are sanity-check bounds that
+# downstream consumers (PD, LGD, ECL projects) use to flag (not
+# auto-cap) calibrated values that fall outside reasonable bands.
+#
+# Each band has:
+#   upper_band: PD/LGD value above which the calibration should be
+#               reviewed (typically derived from APRA QPEX, APS 113
+#               worst slotting grade, or non-bank realised loss data)
+#   lower_band: PD/LGD value below which the calibration is suspect
+#               (typically APRA system-wide rate × 0.5)
+#   sources:    list of source IDs from raw_observations that justify
+#               each bound
+#   rationale:  plain-English explanation
+#
+# Bands are reviewed at least annually and refreshed when new vintages
+# of source data become available.
+
+reality_check_bands:
+
+  term_loan:
+    upper_band_pd: 0.060   # 6%
+    lower_band_pd: 0.005   # 0.5%
+    upper_sources:
+      - APRA_PERF_COMMERCIAL_NPL_2024Q4   # × 4
+    lower_sources:
+      - APRA_PERF_COMMERCIAL_NPL_2024Q4   # × 0.5 (= 0.65%)
+    rationale: |
+      Upper band = 4× APRA system-wide commercial NPL. Reasonable cap
+      for a non-bank SME term loan book given non-bank-vs-bank
+      selection differential. Lower band = 0.5× system NPL (anything
+      below this is unrealistic for non-bank lending).
+
+  line_of_credit:
+    upper_band_pd: 0.075   # 7.5% — slightly above term_loan
+    lower_band_pd: 0.005
+    upper_sources:
+      - APRA_PERF_COMMERCIAL_NPL_2024Q4
+    lower_sources:
+      - APRA_PERF_COMMERCIAL_NPL_2024Q4
+    rationale: |
+      Revolving facility characteristics warrant slightly higher upper
+      band than term lending (~25% uplift to account for utilisation
+      drift and faster delinquency emergence).
+
+  invoice_finance:
+    upper_band_pd: 0.045
+    lower_band_pd: 0.005
+    upper_sources:
+      - APRA_PERF_COMMERCIAL_NPL_2024Q4   # × 1.5 baseline
+    lower_sources:
+      - APRA_PERF_COMMERCIAL_NPL_2024Q4
+    rationale: |
+      Short-tenor product with security in receivables; shorter
+      observation cycle but lower PD per period.
+
+  trade_finance:
+    upper_band_pd: 0.030
+    lower_band_pd: 0.003
+    upper_sources:
+      - CBA_PILLAR3_CORP_SME_2024H2      # × 2
+    lower_sources:
+      - CBA_PILLAR3_CORP_SME_2024H2
+    rationale: |
+      Big 4 corporate Pillar 3 × 2. Trade finance peer class is closer
+      to corporate-general than to SME.
+
+  asset_finance:
+    upper_band_pd: 0.060
+    lower_band_pd: 0.005
+    upper_sources:
+      - APRA_PERF_COMMERCIAL_NPL_2024Q4   # placeholder until Pepper asset finance loss expense parsed
+    lower_sources:
+      - APRA_PERF_COMMERCIAL_NPL_2024Q4
+    rationale: |
+      Pepper Money's asset finance loss expense ~3.5% in 2024 (with
+      late-stage arrears uplift). Upper band ~25% above as buffer.
+      Source ID will switch to PEPPER_ASSET_FINANCE_LOSS_EXPENSE_2024
+      when the Pepper adapter parses real disclosures.
+
+  bridging:
+    upper_band_pd: 0.080
+    lower_band_pd: 0.015
+    upper_sources:
+      - LATROBE_BRIDGING_REALISED_LOSS    # value 0.08 / assumed LGD 0.30 × 2
+      - APS113_SLOTTING_SATIS_PD          # 0.024 × 3
+    lower_sources:
+      - APS113_SLOTTING_GOOD_PD
+    rationale: |
+      La Trobe published realised bridging loss is 0.8% of book.
+      Implied default rate ≈ 0.8% / ~30% LGD = ~2.7%; upper band
+      ≈ 2× this gives 5–6%, rounded up to 8% accounting for
+      definition-alignment uncertainty. APS 113 Satisfactory PD
+      = 2.4% provides a cross-check.
+
+  development:
+    upper_band_pd: 0.050   # APS 113 Weak slotting PD
+    lower_band_pd: 0.008   # APS 113 Good slotting PD
+    upper_sources:
+      - APS113_SLOTTING_WEAK_PD
+    lower_sources:
+      - APS113_SLOTTING_GOOD_PD
+    rationale: |
+      APS 113 specialised lending slotting grades directly bracket
+      the realistic range for development PD. Strong=0.4%, Good=0.8%,
+      Satisfactory=2.4%, Weak=5%. LRA below Good or above Weak warrants
+      review.
+
+  commercial_property:
+    upper_band_pd: 0.050
+    lower_band_pd: 0.005
+    upper_sources:
+      - APRA_QPEX_CRE_IMPAIRED_2024Q4    # × 2.5 (baseline 1.2% × 2.5 = 3%, rounded up)
+      - CBA_PILLAR3_CRE_PD_2024H2
+    lower_sources:
+      - APRA_QPEX_CRE_IMPAIRED_2024Q4    # × 0.5
+    rationale: |
+      APRA QPEX system-wide CRE impaired ratio is the canonical
+      benchmark. Upper band = 2.5× this allows for non-bank book
+      composition; lower band = 0.5× catches under-conservatism.
+
+  residential_mortgage_arrears:
+    upper_band_pd: 0.025
+    lower_band_pd: 0.005
+    upper_sources:
+      - sp_spin_prime
+    lower_sources:
+      - sp_spin_prime
+    rationale: |
+      Prime residential RMBS 30+ DPD arrears band for future bridging
+      LGD and stress-testing reality checks. Not consumed by the
+      commercial-lending PD workbook.
+
+  residential_mortgage_specialist_arrears:
+    upper_band_pd: 0.060
+    lower_band_pd: 0.020
+    upper_sources:
+      - sp_spin_non_conforming
+    lower_sources:
+      - sp_spin_non_conforming
+    rationale: |
+      Non-conforming residential RMBS 30+ DPD arrears band for future
+      bridging LGD and stress-testing reality checks. Not consumed by
+      the commercial-lending PD workbook.
+
+# Cross-cutting reality checks (segment-agnostic, used as system-wide
+# sanity references)
+system_wide_references:
+  apra_total_adi_npl:
+    source_id: APRA_PERF_COMMERCIAL_NPL_2024Q4
+    description: "All-segment ADI NPL ratio. Used as portfolio-weighted floor."
+  rba_business_arrears:
+    source_id: RBA_FSR_BUSINESS_ARREARS_2024H2
+    description: "RBA FSR business loan arrears. Macro context."
+  sp_spin_prime_rmbs:
+    source_id: sp_spin_prime
+    description: "Aggregate prime RMBS 30+ DPD. Residential mortgage cross-check."
+  sp_spin_non_conforming_rmbs:
+    source_id: sp_spin_non_conforming
+    description: "Aggregate non-conforming RMBS 30+ DPD. Specialist residential cross-check."
+
+# Vintage tracking — when bands were last reviewed
+last_review:
+  date: "2026-04-28"
+  reviewer: "<to be populated on first formal review>"
+  next_review_due: "2026-10-31"

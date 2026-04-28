@@ -12,14 +12,16 @@ canonical_segments:
   commercial_property:
     description: "Lending secured by income-producing commercial real estate."
     aliases:
-      cba:      ["Commercial property", "CRE"]
-      nab:      ["Commercial real estate"]
-      wbc:      ["Commercial property"]
-      anz:      ["Commercial property"]
-      judo:     ["Commercial real estate", "CRE lending"]
-      liberty:  ["Commercial property loans"]
-      pepper:   ["Commercial loans"]
-      resimac:  ["Commercial real estate"]
+      cba:            ["Commercial property", "CRE"]
+      nab:            ["Commercial real estate"]
+      wbc:            ["Commercial property"]
+      anz:            ["Commercial property"]
+      judo:           ["Commercial real estate", "CRE lending"]
+      liberty:        ["Commercial property loans"]
+      pepper:         ["Commercial loans"]
+      resimac:        ["Commercial real estate"]
+      qualitas:       ["Commercial property", "CRE", "Real estate credit"]
+      metrics_credit: ["Commercial property", "CRE", "Real estate credit"]
 
   commercial_property_investment:
     description: "Investment-grade income-producing CRE (kept distinct from development)."
@@ -30,11 +32,19 @@ canonical_segments:
   development:
     description: "Development / construction lending — speculative or take-out tied."
     aliases:
-      cba:      ["Development", "Property development"]
-      nab:      ["Development"]
-      wbc:      ["Development"]
-      anz:      ["Development"]
-      judo:     ["Construction"]
+      cba:            ["Development", "Property development"]
+      nab:            ["Development"]
+      wbc:            ["Development"]
+      anz:            ["Development"]
+      judo:           ["Construction"]
+      qualitas:       ["Development", "Construction", "Build-to-rent", "BTR"]
+      metrics_credit: ["Development", "Construction"]
+
+  bridging_residential:
+    description: "Short-tenor bridging loans secured by residential property."
+    aliases:
+      latrobe:  ["Bridging", "Bridging finance"]
+      liberty:  ["Bridging"]
 
   sme_corporate:
     description: "Small and medium enterprise corporate lending."
@@ -59,14 +69,28 @@ canonical_segments:
       pepper:   ["Residential mortgages"]
       resimac:  ["Residential mortgages", "Prime", "Specialist"]
       liberty:  ["Residential mortgages"]
+      sp_spin:  ["Prime SPIN", "Prime RMBS", "Prime residential mortgage"]
+
+  residential_mortgage_specialist:
+    description: "Non-conforming or specialist residential mortgage lending."
+    aliases:
+      sp_spin:  ["Non-Conforming SPIN", "Non-conforming RMBS", "Specialist residential mortgage"]
+      resimac:  ["Specialist"]
 
   consumer_unsecured:
     description: "Consumer personal loans / unsecured."
     aliases:
       moneyme:  ["Personal loan book"]
-      plenti:   ["Personal loans"]
+      plenti:   ["Personal loans", "Green loans", "Renewable energy loans"]
       wisr:     ["Personal loans", "Loan book"]
       pepper:   ["Consumer loans"]
+
+  consumer_secured:
+    description: "Consumer secured (automotive / asset finance) lending."
+    aliases:
+      pepper:   ["Asset finance", "Automotive", "Auto loans"]
+      plenti:   ["Automotive loans", "Auto loans", "Automotive"]
+      moneyme:  ["Autopay", "Automotive"]
 
   trade_finance:
     description: "Trade finance / receivables."

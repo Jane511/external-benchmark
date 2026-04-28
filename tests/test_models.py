@@ -14,19 +14,16 @@ from pydantic import ValidationError
 from datetime import datetime
 
 from src.models import (
-    AdjustmentResult,
-    AdjustmentStep,
     BenchmarkEntry,
-    CentralTendencyOutput,
     Component,
     Condition,
+    DataDefinitionClass,
     DataType,
-    DownturnResult,
     GovernanceReport,
     InstitutionType,
     QualityScore,
+    RawObservation,
     SourceType,
-    TriangulationResult,
 )
 
 
@@ -193,93 +190,6 @@ def test_value_date_after_retrieval_date_rejected() -> None:
 # Supporting models
 # ===========================================================================
 
-def test_adjustment_step_constructs() -> None:
-    step = AdjustmentStep(
-        name="selection_bias", multiplier=1.7, rationale="PC borrowers rejected by banks"
-    )
-    assert step.multiplier == 1.7
-    assert step.rationale.startswith("PC")
-
-
-def test_adjustment_result_scenario_label_defaults_to_none() -> None:
-    """Persisted adjustments have scenario_label=None; what-if sets it explicitly."""
-    step = AdjustmentStep(name="selection_bias", multiplier=1.7)
-    result = AdjustmentResult(
-        raw_value=0.025,
-        adjusted_value=0.0425,
-        institution_type=InstitutionType.PRIVATE_CREDIT,
-        product="bridging_commercial",
-        asset_class="commercial_property_investment",
-        steps=[step],
-        final_multiplier=1.7,
-    )
-    assert result.scenario_label is None
-
-
-def test_adjustment_result_scenario_label_accepts_what_if() -> None:
-    step = AdjustmentStep(name="selection_bias", multiplier=2.0)
-    result = AdjustmentResult(
-        raw_value=0.025,
-        adjusted_value=0.05,
-        institution_type=InstitutionType.PRIVATE_CREDIT,
-        product="bridging_commercial",
-        asset_class="commercial_property_investment",
-        steps=[step],
-        final_multiplier=2.0,
-        scenario_label="what_if",
-    )
-    assert result.scenario_label == "what_if"
-
-
-def test_triangulation_result_constructs() -> None:
-    result = TriangulationResult(
-        segment="residential_mortgage",
-        benchmark_value=0.0083,
-        confidence_n=300,
-        source_count=4,
-        method="weighted_by_years",
-    )
-    assert result.confidence_n == 300
-    assert result.method == "weighted_by_years"
-
-
-def test_triangulation_result_confidence_n_capped_at_500() -> None:
-    """Anything above 500 is silently clamped — the cap lives in the model."""
-    result = TriangulationResult(
-        segment="residential_mortgage",
-        benchmark_value=0.0083,
-        confidence_n=750,
-        source_count=4,
-        method="weighted_by_years",
-    )
-    assert result.confidence_n == 500
-
-
-def test_calibration_feed_central_tendency_constructs() -> None:
-    out = CentralTendencyOutput(
-        segment="residential_mortgage",
-        external_lra=0.0083,
-        floor_triggered=False,
-    )
-    assert out.method == "central_tendency"
-    assert out.external_lra == 0.0083
-
-
-def test_downturn_result_has_both_capital_and_ecl_fields() -> None:
-    """lgd_for_capital (downturn) and lgd_for_ecl (long-run) are both present."""
-    result = DownturnResult(
-        long_run_lgd=0.22,
-        uplift=1.45,
-        downturn_lgd=0.319,
-        product_type="residential_property",
-        lgd_for_capital=0.319,
-        lgd_for_ecl=0.22,
-    )
-    assert result.lgd_for_capital == 0.319
-    assert result.lgd_for_ecl == 0.22
-    assert result.lgd_for_capital != result.lgd_for_ecl  # regulatory purpose differs
-
-
 def test_governance_report_constructs() -> None:
     report = GovernanceReport(
         report_type="stale_benchmarks",
@@ -291,3 +201,124 @@ def test_governance_report_constructs() -> None:
     assert report.report_type == "stale_benchmarks"
     assert report.institution_type == InstitutionType.BANK
     assert report.findings[0]["days_old"] == 150
+
+
+# ===========================================================================
+# RawObservation — DataDefinitionClass + parameter cross-validation
+# ===========================================================================
+
+def _valid_obs_kwargs(**overrides: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "source_id": "cba",
+        "source_type": SourceType.BANK_PILLAR3,
+        "segment": "commercial_property",
+        "parameter": "pd",
+        "data_definition_class": DataDefinitionClass.BASEL_PD_ONE_YEAR,
+        "value": 0.025,
+        "as_of_date": date(2026, 3, 31),
+        "reporting_basis": "Pillar 3 quarterly",
+        "methodology_note": "Average PD CR6",
+    }
+    base.update(overrides)
+    return base
+
+
+def test_raw_observation_basel_pd_constructs() -> None:
+    obs = RawObservation(**_valid_obs_kwargs())
+    assert obs.parameter == "pd"
+    assert obs.data_definition_class is DataDefinitionClass.BASEL_PD_ONE_YEAR
+
+
+def test_raw_observation_arrears_definition_class_accepted() -> None:
+    obs = RawObservation(
+        **_valid_obs_kwargs(
+            parameter="arrears",
+            data_definition_class=DataDefinitionClass.ARREARS_30_PLUS_DAYS,
+            value=0.0093,
+        )
+    )
+    assert obs.parameter == "arrears"
+    assert obs.data_definition_class is DataDefinitionClass.ARREARS_30_PLUS_DAYS
+
+
+def test_raw_observation_impaired_npl_accepted() -> None:
+    impaired = RawObservation(
+        **_valid_obs_kwargs(
+            parameter="impaired",
+            data_definition_class=DataDefinitionClass.IMPAIRED_LOANS_RATIO,
+            value=0.012,
+        )
+    )
+    npl = RawObservation(
+        **_valid_obs_kwargs(
+            parameter="npl",
+            data_definition_class=DataDefinitionClass.NPL_RATIO,
+            value=0.013,
+        )
+    )
+    assert impaired.parameter == "impaired"
+    assert npl.parameter == "npl"
+
+
+def test_raw_observation_qualitative_commentary_zero_value_allowed() -> None:
+    """parameter='commentary' relaxes the [0,1] value check (value=0.0 by convention)."""
+    obs = RawObservation(
+        **_valid_obs_kwargs(
+            parameter="commentary",
+            data_definition_class=DataDefinitionClass.QUALITATIVE_COMMENTARY,
+            value=0.0,
+            methodology_note="QUALITATIVE: office sector under pressure",
+        )
+    )
+    assert obs.value == 0.0
+
+
+def test_raw_observation_unknown_parameter_rejected() -> None:
+    with pytest.raises(ValidationError, match=r"parameter must be one of"):
+        RawObservation(**_valid_obs_kwargs(parameter="unknown_metric"))
+
+
+def test_raw_observation_definition_class_inconsistent_with_parameter_rejected() -> None:
+    """parameter='pd' with data_definition_class=ARREARS_30_PLUS_DAYS must fail."""
+    with pytest.raises(
+        ValidationError,
+        match=r"data_definition_class=.* is not valid for parameter='pd'",
+    ):
+        RawObservation(
+            **_valid_obs_kwargs(
+                parameter="pd",
+                data_definition_class=DataDefinitionClass.ARREARS_30_PLUS_DAYS,
+            )
+        )
+
+
+def test_raw_observation_loss_rate_accepts_two_definition_classes() -> None:
+    """loss_rate covers both forward-looking expense and backward-looking realised."""
+    fwd = RawObservation(
+        **_valid_obs_kwargs(
+            parameter="loss_rate",
+            data_definition_class=DataDefinitionClass.LOSS_EXPENSE_RATE,
+            value=0.0035,
+        )
+    )
+    back = RawObservation(
+        **_valid_obs_kwargs(
+            parameter="loss_rate",
+            data_definition_class=DataDefinitionClass.REALISED_LOSS_RATE,
+            value=0.008,
+        )
+    )
+    assert fwd.value == pytest.approx(0.0035)
+    assert back.value == pytest.approx(0.008)
+
+
+def test_raw_observation_lgd_with_regulatory_floor_accepted() -> None:
+    """APS 113 LGD floor migrates as parameter='lgd' + REGULATORY_FLOOR_PD."""
+    obs = RawObservation(
+        **_valid_obs_kwargs(
+            parameter="lgd",
+            data_definition_class=DataDefinitionClass.REGULATORY_FLOOR_PD,
+            value=0.075,
+        )
+    )
+    assert obs.parameter == "lgd"

@@ -178,11 +178,95 @@ brief for the EBA MoC formulas and category boundaries.
 
 ---
 
+## Reality-check bands and definition classes (Brief 2 of 3)
+
+Brief 2 is **strictly additive** — it does not change the raw-only
+contract. It adds:
+
+1. A new `data_definition_class` field on `RawObservation` (and the
+   `raw_observations` table) so consumers can programmatically tell
+   Basel PD apart from arrears, impaired ratios, NPL ratios, loss-expense
+   rates, realised loss rates, regulatory floors, and qualitative
+   commentary — without parsing methodology notes.
+2. Two new non-bank adapters (Qualitas, Metrics Credit) so CRE-credit
+   commentary surfaces are recorded as `qualitative_commentary`
+   observations.
+3. A comprehensive seed-data extension covering APRA QPEX (impaired),
+   APRA quarterly performance (NPL), RBA FSR (arrears), S&P SPIN
+   (RMBS arrears), Big 4 Pillar 3 commercial property
+   (Basel PD), Qualitas / Metrics commentary.
+4. A per-product **reality-check band table**
+   ([config/reality_check_bands.yaml](../config/reality_check_bands.yaml))
+   that downstream consumers (PD, LGD, ECL projects) read to flag
+   calibrated values that fall outside reasonable bounds.
+
+### What `data_definition_class` means
+
+Each `RawObservation` now carries a `data_definition_class` from the
+`DataDefinitionClass` enum (`src.models`):
+
+| Class                       | Sources (examples)                                  |
+|-----------------------------|-----------------------------------------------------|
+| `BASEL_PD_ONE_YEAR`         | Big 4 Pillar 3, Judo Pillar 3                       |
+| `ARREARS_30_PLUS_DAYS`      | S&P SPIN                                            |
+| `ARREARS_90_PLUS_DAYS`      | RBA FSR aggregates                                  |
+| `IMPAIRED_LOANS_RATIO`      | APRA QPEX, Liberty Financial                        |
+| `NPL_RATIO`                 | APRA quarterly ADI performance                      |
+| `LOSS_EXPENSE_RATE`         | Pepper asset finance (forward-looking provisioning) |
+| `REALISED_LOSS_RATE`        | La Trobe Financial bridging book                    |
+| `REGULATORY_FLOOR_PD`       | APS 113 slotting + LGD/PD floors                    |
+| `QUALITATIVE_COMMENTARY`    | Qualitas, Metrics Credit Partners                   |
+
+### Filtering observations by definition class
+
+```python
+from src.observations import PeerObservations
+from src.models import DataDefinitionClass
+
+peer = PeerObservations(registry)
+basel_only = peer.for_segment(
+    "commercial_property",
+    only_pd=False,
+    definition_classes=[DataDefinitionClass.BASEL_PD_ONE_YEAR],
+)
+# Returns Big 4 Pillar 3 entries; arrears, impaired, NPL, commentary
+# are excluded.
+```
+
+### Reading the reality-check band library
+
+```python
+from src.reality_check import load_reality_check_bands
+
+library = load_reality_check_bands()
+band = library.for_product("commercial_property")
+# band.upper_band_pd, band.lower_band_pd, band.upper_sources,
+# band.lower_sources, band.rationale
+```
+
+The library carries a `last_review_date` and `next_review_due` so
+consumers can warn when bands are stale.
+
+### Responsibility split
+
+- **Engine**: publishes `RawObservation` rows with their
+  `data_definition_class`, and exposes `reality_check_bands.yaml`.
+  No enforcement, no auto-capping, no triangulation.
+- **Consumers** (PD, LGD, ECL projects): apply their own definition
+  alignment, decide whether a calibrated value falls inside a band's
+  bounds, and decide what to do (flag, block, escalate for sign-off).
+
 ## Out of scope for this migration
 
-- Reality-check methods against published non-bank loss data,
-  historical default-rate floor, APRA system-wide benchmarks — these
-  go into the PD workbook (**Brief 3**), not the engine.
-- ABS labour-force / CPI / macro overlays — these go into the
-  `industry-analysis` project, not the engine. The engine's
-  `ingestion/industry_context.py` is unchanged.
+- Adapter parsing logic for non-bank ASX-listed disclosures (Pepper,
+  Liberty, Judo, Resimac, MoneyMe, Plenti, Wisr, Qualitas, Metrics
+  Credit) — adapter skeletons exist; parsing fills in when sample
+  publications are retrieved.
+- Numeric calibration of reality-check upper/lower bands beyond
+  illustrative values — refining numbers happens when real source
+  vintages are loaded.
+- Cross-segment dependency analysis (Brief 3 territory).
+- Macro overlays (cash rate, CPI, labour-force, ANZSIC industry risk
+  scores). The engine no longer pulls from any external macro /
+  industry-analysis project; reports surface only what the engine itself
+  ingests.

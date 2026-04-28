@@ -21,7 +21,6 @@ from typing import Any, Literal, Optional
 import yaml
 
 from ingestion.apra_adi import ApraAdiScraper
-from ingestion.asic_abs_import import ASICABSFailureRateImporter
 from ingestion.base import BaseScraper, ScrapedDataPoint
 from ingestion.icc_trade import IccTradeScraper
 from ingestion.pillar3.anz import ANZScraper
@@ -82,7 +81,6 @@ class RefreshOrchestrator:
         "pillar3_wbc": WBCScraper,
         "pillar3_anz": ANZScraper,
         "icc_trade": IccTradeScraper,
-        "asic_abs": ASICABSFailureRateImporter,
     }
 
     def __init__(
