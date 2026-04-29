@@ -286,8 +286,8 @@ def test_ingest_pillar3_without_bank_runs_all_four_banks(db_path, tmp_path) -> N
         )
 
     assert result.exit_code == 0
-    # Headers for all four banks — no "not yet implemented" anywhere.
-    for bank in ("--- CBA ---", "--- NAB ---", "--- WBC ---", "--- ANZ ---"):
+    # Headers for all five banks — no "not yet implemented" anywhere.
+    for bank in ("--- CBA ---", "--- NAB ---", "--- WBC ---", "--- ANZ ---", "--- Macquarie ---"):
         assert bank in result.output
     assert "not yet implemented" not in result.output
     # CBA should succeed; NAB/WBC/ANZ will report parse errors or zero results
@@ -305,8 +305,8 @@ def test_ingest_pillar3_without_bank_skips_cba_if_no_path(db_path) -> None:
         "--dry-run",
     )
     assert result.exit_code == 0
-    # All four banks get a header, even if they error later
-    for bank in ("--- CBA ---", "--- NAB ---", "--- WBC ---", "--- ANZ ---"):
+    # All five banks get a header, even if they error later
+    for bank in ("--- CBA ---", "--- NAB ---", "--- WBC ---", "--- ANZ ---", "--- Macquarie ---"):
         assert bank in result.output
 
 
@@ -338,6 +338,13 @@ def test_ingest_pillar3_anz_subcommand_is_registered(db_path) -> None:
     result = runner.invoke(cli, ["ingest", "pillar3", "anz", "--help"])
     assert result.exit_code == 0
     assert "ANZ" in result.output or "anz" in result.output.lower()
+
+
+def test_ingest_pillar3_mqg_subcommand_is_registered(db_path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["ingest", "pillar3", "mqg", "--help"])
+    assert result.exit_code == 0
+    assert "Macquarie" in result.output or "mqg" in result.output.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -376,6 +383,13 @@ def test_report_benchmark_html_writes_self_contained_file(db_path, tmp_path) -> 
     text = out.read_text(encoding="utf-8")
     assert "<style>" in text
     assert "raw, source-attributable observations only" in text
+
+
+def test_download_rba_source_command_is_registered(db_path, tmp_path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["download", "--source", "rba_fsr", "--help"])
+    assert result.exit_code == 0
+    assert "rba_fsr" in result.output
 
 
 def test_report_benchmark_institution_type_flag_is_deprecated(db_path, tmp_path) -> None:

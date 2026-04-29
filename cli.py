@@ -430,6 +430,29 @@ def export_csvs(ctx: click.Context, out_dir: str, raw_dir: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# download — source-file capture without Benchmark rows
+# ---------------------------------------------------------------------------
+
+@cli.command("download", help="Download source files into the raw-data cache.")
+@click.option(
+    "--source",
+    type=click.Choice(["rba_fsr", "rba_smp", "rba_chart_pack"]),
+    required=True,
+)
+@click.option("--force-refresh", is_flag=True)
+@click.option("--cache-dir", type=click.Path(), default="data/raw/rba", show_default=True)
+@click.pass_context
+def download_source(ctx: click.Context, source: str, force_refresh: bool, cache_dir: str) -> None:
+    from scripts.download_sources.rba_downloader import RbaDownloader
+
+    downloader = RbaDownloader(cache_dir=Path(cache_dir), db_path=ctx.obj["db"])
+    result = downloader.download_source(source, force_refresh=force_refresh)
+    click.echo(
+        f"{source}: OK  {result.local_cached_file}  period={result.period}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # ingest — automated data collection (Phase 1: APRA ADI)
 # ---------------------------------------------------------------------------
 
@@ -496,6 +519,7 @@ _PILLAR3_BANKS: dict[str, str] = {
     "nab": "nab_pillar3",
     "wbc": "wbc_pillar3",
     "anz": "anz_pillar3",
+    "mqg": "mqg_pillar3",
 }
 
 
@@ -559,7 +583,7 @@ def _run_pillar3(
 
 
 @ingest.group("pillar3", invoke_without_command=True,
-              help="Ingest Big 4 Pillar 3 disclosures.")
+              help="Ingest bank Pillar 3 disclosures.")
 @click.option("--cba-path", type=click.Path(exists=True, dir_okay=False),
               default=None, help="CBA Excel companion path (used in group mode).")
 @click.option("--nab-path", type=click.Path(exists=True, dir_okay=False),
@@ -568,6 +592,8 @@ def _run_pillar3(
               default=None, help="Westpac Pillar 3 PDF path.")
 @click.option("--anz-path", type=click.Path(exists=True, dir_okay=False),
               default=None, help="ANZ Pillar 3 PDF path.")
+@click.option("--mqg-path", type=click.Path(exists=True, dir_okay=False),
+              default=None, help="Macquarie Bank Pillar 3 PDF path.")
 @click.option("--dry-run", is_flag=True)
 @click.option("--reporting-date", type=click.DateTime(["%Y-%m-%d"]), default=None,
               help="Reporting period end date (e.g. 2025-06-30).")
@@ -579,11 +605,11 @@ def _run_pillar3(
 def ingest_pillar3(
     ctx: click.Context,
     cba_path: str | None, nab_path: str | None,
-    wbc_path: str | None, anz_path: str | None,
+    wbc_path: str | None, anz_path: str | None, mqg_path: str | None,
     dry_run: bool, reporting_date, period_code: str | None,
     force_refresh: bool,
 ) -> None:
-    """When invoked without a bank subcommand, attempts each Big 4 in turn.
+    """When invoked without a bank subcommand, attempts each bank in turn.
 
     Any bank whose `--<bank>-path` is omitted falls through to the
     FileDownloader / cache path (real PDFs would be fetched live).
@@ -596,6 +622,7 @@ def ingest_pillar3(
         ("NAB", "nab_pillar3", nab_path),
         ("WBC", "wbc_pillar3", wbc_path),
         ("ANZ", "anz_pillar3", anz_path),
+        ("Macquarie", "mqg_pillar3", mqg_path),
     ]:
         click.echo(f"--- {label} ---")
         _run_pillar3(
@@ -655,6 +682,9 @@ ingest_pillar3.command("wbc", help="Scrape Westpac Pillar 3 PDF.")(
 )
 ingest_pillar3.command("anz", help="Scrape ANZ Pillar 3 PDF.")(
     _make_pillar3_bank_command("ANZ", "anz_pillar3")
+)
+ingest_pillar3.command("mqg", help="Scrape Macquarie Bank Pillar 3 PDF.")(
+    _make_pillar3_bank_command("Macquarie Bank", "mqg_pillar3")
 )
 
 

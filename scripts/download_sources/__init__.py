@@ -19,6 +19,9 @@ from scripts.download_sources.apra_downloader import ApraAdiDownloader
 from scripts.download_sources.external_indices_downloader import (
     ExternalIndicesDownloader,
 )
+from scripts.download_sources.governance_publications_downloader import (
+    GovernancePublicationsDownloader,
+)
 from scripts.download_sources.non_bank_downloader import (
     NonBankDisclosureDownloader,
 )
@@ -28,6 +31,7 @@ from scripts.download_sources.rba_downloader import RbaDownloader
 __all__ = [
     "ApraAdiDownloader",
     "ExternalIndicesDownloader",
+    "GovernancePublicationsDownloader",
     "NonBankDisclosureDownloader",
     "Pillar3Downloader",
     "RbaDownloader",

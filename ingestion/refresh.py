@@ -24,6 +24,7 @@ from ingestion.apra_adi import ApraAdiScraper
 from ingestion.base import BaseScraper, ScrapedDataPoint
 from ingestion.pillar3.anz import ANZScraper
 from ingestion.pillar3.cba import CBAScraper
+from ingestion.pillar3.mqg import MQGScraper
 from ingestion.pillar3.nab import NABScraper
 from ingestion.pillar3.wbc import WBCScraper
 from ingestion.transform import scraped_to_entry
@@ -79,6 +80,7 @@ class RefreshOrchestrator:
         "pillar3_nab": NABScraper,
         "pillar3_wbc": WBCScraper,
         "pillar3_anz": ANZScraper,
+        "pillar3_mqg": MQGScraper,
     }
 
     def __init__(

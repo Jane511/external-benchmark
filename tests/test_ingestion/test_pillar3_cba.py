@@ -21,6 +21,7 @@ from ingestion.pillar3.base import (
     default_cba_period_code,
 )
 from ingestion.pillar3.cba import CBAScraper
+from ingestion.pillar3.mqg import MQGScraper
 from ingestion.pillar3.nab import NABScraper
 from ingestion.pillar3.wbc import WBCScraper
 from ingestion.refresh import RefreshOrchestrator
@@ -239,7 +240,7 @@ def test_orchestrator_refresh_cba_is_idempotent(
 # rather than raising NotImplementedError.
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("ScraperCls", [NABScraper, WBCScraper, ANZScraper])
+@pytest.mark.parametrize("ScraperCls", [NABScraper, WBCScraper, ANZScraper, MQGScraper])
 def test_pdf_scrapers_reach_pdf_path_not_stub_error(
     ScraperCls, sources_config: dict, tmp_path: Path,
 ) -> None:
@@ -249,6 +250,7 @@ def test_pdf_scrapers_reach_pdf_path_not_stub_error(
         NABScraper: "nab_pillar3",
         WBCScraper: "wbc_pillar3",
         ANZScraper: "anz_pillar3",
+        MQGScraper: "mqg_pillar3",
     }
     cfg = sources_config["sources"][key_by_cls[ScraperCls]]
     scraper = ScraperCls(source_path=tmp_path / "dummy.pdf", config=cfg)
@@ -265,3 +267,10 @@ def test_scrapers_expose_source_name_and_frequency(
     )
     assert scraper.source_name == "NAB_PILLAR3"
     assert scraper.expected_frequency_days == 180
+
+    mqg = MQGScraper(
+        source_path=tmp_path / "mqg.pdf",
+        config=sources_config["sources"]["mqg_pillar3"],
+    )
+    assert mqg.source_name == "MQG_PILLAR3"
+    assert mqg.expected_frequency_days == 180

@@ -113,4 +113,95 @@ SOURCE_URLS: dict[str, dict] = {
         ],
     },
 
+    # -------------------------------------------------------------------
+    "mqg_pillar3": {
+        "cache_dir": "data/raw/pillar3/",
+        "description": "Macquarie Bank Pillar 3 disclosure (PDF)",
+        "manual_download": False,
+        "files": [
+            {
+                "name": "Pillar 3 Report",
+                "url": (
+                    "https://www.macquarie.com/investors/"
+                    "regulatory-disclosures.html"
+                ),
+                "filename_pattern": "MQG_{half}_{year}_Pillar3.pdf",
+            },
+        ],
+    },
+
+    # -------------------------------------------------------------------
+    "rba_fsr": {
+        "cache_dir": "data/raw/rba/",
+        "description": "RBA Financial Stability Review",
+        "manual_download": False,
+        "files": [
+            {
+                "name": "Financial Stability Review",
+                "url": "https://www.rba.gov.au/publications/fsr/",
+                "filename_pattern": "RBA_FSR_{period}.pdf",
+            },
+        ],
+    },
+
+    # -------------------------------------------------------------------
+    "rba_smp": {
+        "cache_dir": "data/raw/rba/",
+        "description": "RBA Statement on Monetary Policy",
+        "manual_download": False,
+        "files": [
+            {
+                "name": "Statement on Monetary Policy",
+                "url": "https://www.rba.gov.au/publications/smp/",
+                "filename_pattern": "RBA_SMP_{quarter}_{year}.pdf",
+            },
+        ],
+    },
+
+    # -------------------------------------------------------------------
+    "rba_chart_pack": {
+        "cache_dir": "data/raw/rba/",
+        "description": "RBA Chart Pack",
+        "manual_download": False,
+        "files": [
+            {
+                "name": "Chart Pack",
+                "url": "https://www.rba.gov.au/chart-pack/",
+                "filename_pattern": "RBA_ChartPack_{quarter}_{year}.pdf",
+            },
+        ],
+    },
+
+    # -------------------------------------------------------------------
+    # Forward-looking regulator commentary (newest-first scrape, per-issue
+    # manifest). These do NOT feed BenchmarkRegistry; they surface in the
+    # Board report's supporting-documentation section.
+    # -------------------------------------------------------------------
+    "apra_insight": {
+        "cache_dir": "data/raw/apra/insight/",
+        "description": "APRA Insight publications",
+        "manual_download": False,
+        "files": [
+            {
+                "name": "APRA Insight",
+                "url": "https://www.apra.gov.au/news-and-publications/apra-insight",
+                "filename_pattern": "APRA_Insight_{slug}.pdf",
+            },
+        ],
+    },
+
+    # -------------------------------------------------------------------
+    "cfr_publications": {
+        "cache_dir": "data/raw/cfr/",
+        "description": "Council of Financial Regulators publications",
+        "manual_download": False,
+        "files": [
+            {
+                "name": "CFR Publications",
+                "url": "https://www.cfr.gov.au/publications/",
+                "filename_pattern": "CFR_{slug}.pdf",
+            },
+        ],
+    },
+
 }

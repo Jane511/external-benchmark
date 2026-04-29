@@ -10,13 +10,16 @@
 #   listed_peer        : semi-annual investor reporting               -> 210
 #   rba                : semi-annual stability review                 -> 210
 #   regulatory (APS)   : infrequent structural updates (~2 yr)        -> 760
+#   governance_pubs    : APRA Insight + CFR (monthly poll)            -> 30
 
 refresh_schedules:
-  pillar3:       120
-  apra_adi:      120
-  rating_agency: 395
-  industry_body: 210
-  listed_peer:   210
-  rba:           210
-  bureau:        120
-  regulatory:    760
+  pillar3:           120
+  apra_adi:          120
+  rating_agency:     395
+  industry_body:     210
+  listed_peer:       210
+  rba:               210
+  bureau:            120
+  regulatory:        760
+  apra_insight:      30
+  cfr_publications:  30
