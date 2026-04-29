@@ -24,6 +24,7 @@ Three output formats:
 from __future__ import annotations
 
 import html
+import json
 from collections import defaultdict
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -92,6 +93,7 @@ class BenchmarkCalibrationReport:
             "provenance":              self._build_provenance(observation_sets),
         }
         if self._raw_data_dir is not None:
+            out["supporting_documentation"] = self._build_source_documentation()
             out["raw_data_inventory"] = self._build_raw_data_inventory()
         return out
 
@@ -181,6 +183,49 @@ class BenchmarkCalibrationReport:
             lines.append(f"- **{prov['source_id']}** ({prov['source_type']}): "
                          f"{prov['reporting_basis']} — {prov['source_url'] or 'n/a'}")
         lines.append("")
+
+        if data.get("supporting_documentation"):
+            docs = data["supporting_documentation"]
+            lines.append("## Supporting documentation")
+            lines.append("")
+            if docs["lead_text"]:
+                lines.append(docs["lead_text"])
+                lines.append("")
+            lines.append("| Source | Publisher | Period | Cached file | Retrieved | URL |")
+            lines.append("| --- | --- | --- | --- | --- | --- |")
+            for row in docs["documents"]:
+                lines.append(
+                    f"| {row['source']} "
+                    f"| {row['publisher']} "
+                    f"| {row['period']} "
+                    f"| {row['local_cached_file']} "
+                    f"| {row['retrieval_date']} "
+                    f"| {row['url']} |"
+                )
+            lines.append("")
+
+            commentary = docs.get("recent_regulator_commentary") or _empty_regulator_commentary()
+            lines.append("### Recent regulator commentary")
+            lines.append("")
+            if commentary.get("empty_message"):
+                lines.append(commentary["empty_message"])
+                lines.append("")
+            else:
+                for label, key in (
+                    ("APRA Insight", "apra_insight"),
+                    ("CFR publications", "cfr_publications"),
+                ):
+                    items = commentary.get(key) or []
+                    lines.append(f"**{label}**")
+                    lines.append("")
+                    if not items:
+                        lines.append("- _none captured_")
+                    else:
+                        for item in items:
+                            stamp = item.get("published_date") or "????-??-??"
+                            title = item.get("title") or "(untitled)"
+                            lines.append(f"- {stamp} — {title}")
+                    lines.append("")
 
         # 6 — Raw-data inventory (only when raw_data_dir was provided)
         if "raw_data_inventory" in data:
@@ -317,6 +362,41 @@ class BenchmarkCalibrationReport:
                 f"{p['source_url'] or 'n/a'}",
             )
 
+        if data.get("supporting_documentation"):
+            docs = data["supporting_documentation"]
+            add_heading(doc, "Supporting documentation", level=2)
+            if docs["lead_text"]:
+                add_paragraph(doc, docs["lead_text"])
+            add_table(
+                doc,
+                headers=["source", "publisher", "period", "cached_file", "retrieved", "url"],
+                rows=[
+                    [
+                        r["source"], r["publisher"], r["period"],
+                        r["local_cached_file"], r["retrieval_date"], r["url"],
+                    ]
+                    for r in docs["documents"]
+                ],
+            )
+            commentary = docs.get("recent_regulator_commentary") or _empty_regulator_commentary()
+            add_heading(doc, "Recent regulator commentary", level=3)
+            if commentary.get("empty_message"):
+                add_paragraph(doc, commentary["empty_message"], italic=True)
+            else:
+                for label, key in (
+                    ("APRA Insight", "apra_insight"),
+                    ("CFR publications", "cfr_publications"),
+                ):
+                    items = commentary.get(key) or []
+                    add_paragraph(doc, label, italic=True)
+                    if not items:
+                        add_bullet(doc, "(none captured)")
+                    else:
+                        for item in items:
+                            stamp = item.get("published_date") or "????-??-??"
+                            title = item.get("title") or "(untitled)"
+                            add_bullet(doc, f"{stamp} — {title}")
+
         if "raw_data_inventory" in data:
             inv = data["raw_data_inventory"]
             add_heading(doc, "6. Raw data inventory", level=2)
@@ -452,6 +532,83 @@ class BenchmarkCalibrationReport:
                 }
         return sorted(seen.values(), key=lambda x: x["source_id"])
 
+    def _build_source_documentation(self) -> dict[str, Any]:
+        """Read RBA publication metadata sidecars from the raw-data cache."""
+        if self._raw_data_dir is None:
+            return {
+                "lead_text": "",
+                "documents": [],
+                "recent_regulator_commentary": _empty_regulator_commentary(),
+            }
+
+        rba_dir = self._raw_data_dir / "rba"
+        docs: list[dict[str, Any]] = []
+        if rba_dir.exists():
+            for meta_path in sorted(rba_dir.glob("*.metadata.json")):
+                try:
+                    payload = json.loads(meta_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                if payload.get("source_key") not in {
+                    "rba_fsr", "rba_smp", "rba_chart_pack",
+                }:
+                    continue
+                docs.append({
+                    "source_key": payload.get("source_key", ""),
+                    "source": payload.get("source", ""),
+                    "publisher": payload.get("publisher", "Reserve Bank of Australia"),
+                    "url": payload.get("url", ""),
+                    "local_cached_file": payload.get("local_cached_file", ""),
+                    "period": payload.get("period", ""),
+                    "retrieval_date": payload.get("retrieval_date", ""),
+                })
+
+        order = {"rba_fsr": 0, "rba_smp": 1, "rba_chart_pack": 2}
+        docs.sort(key=lambda row: order.get(str(row.get("source_key")), 99))
+        periods = {d["source"]: d["period"] for d in docs}
+        lead = ""
+        if docs:
+            fsr = periods.get("RBA Financial Stability Review", "latest")
+            smp = periods.get("RBA Statement on Monetary Policy", "latest")
+            chart = periods.get("RBA Chart Pack", "latest")
+            lead = (
+                "Forward-looking commentary draws from RBA Financial Stability "
+                f"Review ({fsr}), Statement on Monetary Policy ({smp}), and "
+                f"Chart Pack ({chart}). These are not benchmark sources; they "
+                "inform governance overlays only."
+            )
+        commentary = self._build_recent_regulator_commentary()
+        return {
+            "lead_text": lead,
+            "documents": docs,
+            "recent_regulator_commentary": commentary,
+        }
+
+    def _build_recent_regulator_commentary(self) -> dict[str, Any]:
+        """Top-3 newest items from APRA Insight + CFR per-source manifests.
+
+        Reads ``apra/insight/_manifest.json`` and ``cfr/_manifest.json`` under
+        the configured raw-data directory. When both manifests are missing or
+        empty, the returned ``empty_message`` is the fallback string the
+        renderer emits in place of a table — keeps the report stable on first
+        run / before any governance scrape has succeeded.
+        """
+        assert self._raw_data_dir is not None
+        apra = _read_manifest_top(
+            self._raw_data_dir / "apra" / "insight" / "_manifest.json", limit=3,
+        )
+        cfr = _read_manifest_top(
+            self._raw_data_dir / "cfr" / "_manifest.json", limit=3,
+        )
+        any_items = bool(apra) or bool(cfr)
+        return {
+            "apra_insight": apra,
+            "cfr_publications": cfr,
+            "empty_message": (
+                "" if any_items else "No recent regulator commentary captured."
+            ),
+        }
+
     def _build_raw_data_inventory(self) -> dict[str, Any]:
         """Walk the configured raw-data directory and group files by family.
 
@@ -519,6 +676,45 @@ class BenchmarkCalibrationReport:
 # ---------------------------------------------------------------------------
 # Formatting helpers
 # ---------------------------------------------------------------------------
+
+def _empty_regulator_commentary() -> dict[str, Any]:
+    return {
+        "apra_insight": [],
+        "cfr_publications": [],
+        "empty_message": "No recent regulator commentary captured.",
+    }
+
+
+def _read_manifest_top(path: Path, *, limit: int) -> list[dict[str, Any]]:
+    """Return the ``limit`` newest items in a governance manifest, newest first.
+
+    Sort key is ``published_date`` descending (ISO strings sort lexically when
+    they're well-formed); falls back to insertion order when the date is
+    missing. Missing or unreadable manifests yield an empty list — the
+    Board-report renderer handles the empty case via ``empty_message``.
+    """
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    items = list(payload.get("items", []) or [])
+    items.sort(
+        key=lambda row: (row.get("published_date") or "", row.get("title") or ""),
+        reverse=True,
+    )
+    out: list[dict[str, Any]] = []
+    for row in items[:limit]:
+        out.append({
+            "title": row.get("title", ""),
+            "url": row.get("url", ""),
+            "published_date": row.get("published_date", ""),
+            "fetched_at": row.get("fetched_at", ""),
+            "local_path": row.get("local_path", ""),
+        })
+    return out
+
 
 def _fmt_pct(v: float | None) -> str:
     if v is None:

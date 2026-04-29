@@ -27,6 +27,7 @@ from src.models import (
 )
 from src.registry import BenchmarkRegistry
 from src.seed_data import SEED_ENTRIES, load_seed_data
+from ingestion.source_registry import SOURCE_URLS
 
 
 # ---------------------------------------------------------------------------
@@ -285,3 +286,41 @@ def test_export_csv_has_header_and_one_row(registry_and_inspector) -> None:
     lines = csv.strip().splitlines()
     assert lines[0].startswith("source_id,version,")
     assert len(lines) == 2  # header + one row
+
+
+def test_source_registry_includes_macquarie_pillar3() -> None:
+    spec = SOURCE_URLS["mqg_pillar3"]
+    assert spec["cache_dir"] == "data/raw/pillar3/"
+    assert spec["manual_download"] is False
+    assert spec["files"][0]["filename_pattern"] == "MQG_{half}_{year}_Pillar3.pdf"
+
+
+def test_source_registry_includes_rba_publications() -> None:
+    assert "reserved_future" not in SOURCE_URLS
+    expected = {
+        "rba_fsr": "RBA_FSR_{period}.pdf",
+        "rba_smp": "RBA_SMP_{quarter}_{year}.pdf",
+        "rba_chart_pack": "RBA_ChartPack_{quarter}_{year}.pdf",
+    }
+    for key, pattern in expected.items():
+        spec = SOURCE_URLS[key]
+        assert spec["cache_dir"] == "data/raw/rba/"
+        assert spec["manual_download"] is False
+        assert spec["files"][0]["filename_pattern"] == pattern
+
+
+def test_source_registry_includes_governance_publications() -> None:
+    """APRA Insight + CFR are auto-monitored governance sources (manifest-deduped)."""
+    assert "apra_insight" in SOURCE_URLS
+    apra = SOURCE_URLS["apra_insight"]
+    assert apra["cache_dir"] == "data/raw/apra/insight/"
+    assert apra["manual_download"] is False
+    assert apra["files"][0]["url"].startswith(
+        "https://www.apra.gov.au/news-and-publications/apra-insight"
+    )
+
+    assert "cfr_publications" in SOURCE_URLS
+    cfr = SOURCE_URLS["cfr_publications"]
+    assert cfr["cache_dir"] == "data/raw/cfr/"
+    assert cfr["manual_download"] is False
+    assert cfr["files"][0]["url"].startswith("https://www.cfr.gov.au/publications/")

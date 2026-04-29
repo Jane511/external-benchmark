@@ -1,4 +1,4 @@
-"""Download Big 4 Pillar 3 disclosures (CBA XLSX, NAB/WBC/ANZ PDFs).
+"""Download bank Pillar 3 disclosures (CBA XLSX, NAB/WBC/ANZ/MQG PDFs).
 
 Usage:
     python scripts/download_sources/pillar3_downloader.py
@@ -99,6 +99,13 @@ class Pillar3Downloader:
             "fallback_ext": ".pdf",
             "format": "pdf",
         },
+        "mqg": {
+            "url": "https://www.macquarie.com/investors/regulatory-disclosures.html",
+            "file_pattern": "*pillar*3*disclosures*.pdf",
+            "fallback_keywords": ["pillar 3", "pillar-3", "basel iii"],
+            "fallback_ext": ".pdf",
+            "format": "pdf",
+        },
     }
 
     def __init__(
@@ -130,24 +137,32 @@ class Pillar3Downloader:
             return None
 
         cfg = self.BANKS[bank]
-        try:
-            response = self.session.get(cfg["url"], timeout=self.timeout)
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            logger.error("Failed to fetch %s Pillar 3 page: %s", bank.upper(), exc)
-            return None
+        response = None
+        download_url: str | None = None
+        tier = "none"
 
-        soup = BeautifulSoup(response.content, "html.parser")
-        download_url, tier = self._find_download_link(
-            soup,
-            page_url=cfg["url"],
-            file_pattern=cfg["file_pattern"],
-            fallback_keywords=cfg["fallback_keywords"],
-            fallback_ext=cfg["fallback_ext"],
-        )
+        if bank == "mqg":
+            download_url, tier = self._find_macquarie_api_link()
 
         if not download_url:
-            body_preview = response.text[:500].replace("\n", " ")
+            try:
+                response = self.session.get(cfg["url"], timeout=self.timeout)
+                response.raise_for_status()
+            except requests.RequestException as exc:
+                logger.error("Failed to fetch %s Pillar 3 page: %s", bank.upper(), exc)
+                return None
+
+            soup = BeautifulSoup(response.content, "html.parser")
+            download_url, tier = self._find_download_link(
+                soup,
+                page_url=cfg["url"],
+                file_pattern=cfg["file_pattern"],
+                fallback_keywords=cfg["fallback_keywords"],
+                fallback_ext=cfg["fallback_ext"],
+            )
+
+        if not download_url:
+            body_preview = response.text[:500].replace("\n", " ") if response else ""
             logger.warning(
                 "%s: no link matched primary glob %r or fallbacks %s. "
                 "Page may be JS-rendered. Response preview: %s",
@@ -219,6 +234,69 @@ class Pillar3Downloader:
 
         return None, "none"
 
+    def _find_macquarie_api_link(self) -> tuple[str | None, str]:
+        """Macquarie's regulatory page is React-rendered; query its search API.
+
+        The latest quarter documents (June/December) publish only a subset of
+        Pillar 3 tables. For CR6/CR10 parsing we need the March full-year or
+        September half-year disclosure, so the API candidate filter excludes
+        June and December subset PDFs.
+        """
+        try:
+            response = self.session.get(
+                "https://www.macquarie.com/api/search",
+                params={
+                    "q": "Pillar 3",
+                    "c": "macq:investor-disclosures",
+                    "size": "50",
+                    "from": "0",
+                    "currentUrl": "/au/en/investors/regulatory-disclosures.html",
+                },
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as exc:
+            logger.warning("MQG: failed to query Macquarie search API: %s", exc)
+            return None, "macquarie-api-error"
+        except ValueError as exc:
+            logger.warning("MQG: Macquarie search API returned non-JSON: %s", exc)
+            return None, "macquarie-api-error"
+
+        candidates: list[tuple[int, str]] = []
+        for hit in payload.get("hits", []):
+            source = hit.get("_source", {})
+            target = str(source.get("target-url", ""))
+            tags = [str(t).lower() for t in source.get("tags", [])]
+            lower_target = target.lower()
+            if not lower_target.endswith(".pdf"):
+                continue
+            if "pillar" not in lower_target:
+                continue
+            if "macquarie-bank-limited" not in lower_target and "mbl-" not in lower_target:
+                continue
+            if any(token in lower_target for token in ("dec", "december", "jun", "june")):
+                continue
+            if not (
+                "sep" in lower_target
+                or "march" in lower_target
+                or "mar-" in lower_target
+                or lower_target.endswith("macquarie-bank-limited-pillar-3-disclosures.pdf")
+            ):
+                continue
+            year = 0
+            for tag in tags:
+                match = re.search(r"/year/(\d{4})|financial-year/(\d{4})", tag)
+                if match:
+                    year = max(year, int(match.group(1) or match.group(2)))
+            candidates.append((year, urljoin("https://www.macquarie.com", target)))
+
+        if not candidates:
+            return None, "macquarie-api-no-match"
+
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        return candidates[0][1], "macquarie-search-api"
+
     @staticmethod
     def _derive_filename(url: str, bank: str, fmt: str) -> str:
         tail = urlparse(url).path.rsplit("/", 1)[-1]
@@ -228,10 +306,10 @@ class Pillar3Downloader:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Download Big 4 Pillar 3 disclosures")
+    parser = argparse.ArgumentParser(description="Download bank Pillar 3 disclosures")
     parser.add_argument(
         "--bank",
-        choices=["cba", "cba_annual", "nab", "wbc", "anz", "all"],
+        choices=["cba", "cba_annual", "nab", "wbc", "anz", "mqg", "all"],
         default="all",
     )
     parser.add_argument("--cache-dir", default="data/raw/pillar3")

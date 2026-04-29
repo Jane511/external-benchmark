@@ -122,3 +122,31 @@ def test_raw_data_inventory_section_walks_directory(populated_registry, tmp_path
     assert "### non_bank" in md
     assert "CBA_FY25.pdf" in md
     assert "_MANUAL.md" in md
+
+
+def test_supporting_documentation_reads_rba_metadata(populated_registry, tmp_path):
+    raw = tmp_path / "raw"
+    rba = raw / "rba"
+    rba.mkdir(parents=True)
+    (rba / "RBA_FSR_March_2026.pdf").write_bytes(b"%PDF")
+    (rba / "RBA_FSR_March_2026.pdf.metadata.json").write_text(
+        """{
+          "source_key": "rba_fsr",
+          "source": "RBA Financial Stability Review",
+          "publisher": "Reserve Bank of Australia",
+          "url": "https://www.rba.gov.au/publications/fsr/",
+          "local_cached_file": "data/raw/rba/RBA_FSR_March_2026.pdf",
+          "period": "March 2026",
+          "retrieval_date": "2026-04-29"
+        }""",
+        encoding="utf-8",
+    )
+
+    report = BenchmarkCalibrationReport(
+        populated_registry, period_label="Q1 2026", raw_data_dir=raw,
+    )
+    data = report.generate()
+    docs = data["supporting_documentation"]
+    assert docs["documents"][0]["source"] == "RBA Financial Stability Review"
+    assert "Forward-looking commentary draws from RBA" in docs["lead_text"]
+    assert "These are not benchmark sources" in report.to_markdown()

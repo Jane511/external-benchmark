@@ -98,3 +98,17 @@ sources:
     frequency_days: 180
     quality_score: HIGH
     source_name: "ANZ_PILLAR3"
+
+  mqg_pillar3:
+    scraper: pillar3_mqg
+    url: "https://www.macquarie.com/investors/regulatory-disclosures.html"
+    frequency_days: 180
+    quality_score: HIGH
+    source_name: "MQG_PILLAR3"
+    asset_class_mapping:
+      "Corporate": corporate_general
+      "SME Corporate": corporate_sme
+      "Specialised lending - IPRE": commercial_property_investment
+      "Residential Mortgage": residential_mortgage
+      "SME Retail": retail_sme
+      "Other Retail": retail_other

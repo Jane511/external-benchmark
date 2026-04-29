@@ -37,7 +37,7 @@ class SourceType(str, Enum):
     INSOLVENCY = "insolvency"
 
     # ---- raw-observation taxonomy (Brief 1) --------------------------
-    BANK_PILLAR3 = "bank_pillar3"            # CBA, NAB, WBC, ANZ
+    BANK_PILLAR3 = "bank_pillar3"            # CBA, NAB, WBC, ANZ, Macquarie
     NON_BANK_LISTED = "non_bank_listed"      # Judo, Liberty, Pepper, MoneyMe, etc.
     APRA_QPEX = "apra_qpex"
     APRA_PERFORMANCE = "apra_performance"
@@ -138,7 +138,6 @@ BOUNDED_DATA_TYPES: frozenset[DataType] = frozenset({
     DataType.IMPAIRED_RATIO,
     DataType.RECOVERY_RATE,
     DataType.FAILURE_RATE,
-    DataType.SUPERVISORY_VALUE,
 })
 
 # Data types for which a component decomposition is meaningful.

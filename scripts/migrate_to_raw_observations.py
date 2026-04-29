@@ -15,7 +15,7 @@ Idempotent: rows already present in `raw_observations` for the same
 (source_id, segment, parameter, as_of_date) are skipped.
 
 Source-type mapping from legacy SourceType -> raw-only SourceType:
-    PILLAR3        -> BANK_PILLAR3 if source_id is one of {cba,nab,wbc,anz};
+    PILLAR3        -> BANK_PILLAR3 if source_id is one of {cba,nab,wbc,anz,mqg};
                       otherwise NON_BANK_LISTED
     APRA_ADI       -> APRA_PERFORMANCE
     LISTED_PEER    -> NON_BANK_LISTED
@@ -64,7 +64,7 @@ from ingestion.external_indices.sp_spin_adapter import SpSpinAdapter  # noqa: E4
 logger = logging.getLogger(__name__)
 
 
-_BIG4 = {"cba", "nab", "wbc", "anz"}
+_BANK_PILLAR3 = {"cba", "nab", "wbc", "anz", "mqg", "macquarie"}
 
 # Legacy source_type -> raw-only source_type. PILLAR3 is resolved per-row
 # (BANK_PILLAR3 for Big 4, NON_BANK_LISTED otherwise).
@@ -84,7 +84,7 @@ def _map_source_type(legacy: SourceType, source_id: str) -> SourceType:
     if legacy == SourceType.PILLAR3:
         sid = source_id.lower()
         head = sid.replace("-", "_").split("_", 1)[0]
-        if sid in _BIG4 or head in _BIG4:
+        if sid in _BANK_PILLAR3 or head in _BANK_PILLAR3 or sid.startswith("macquarie_bank_"):
             return SourceType.BANK_PILLAR3
         return SourceType.NON_BANK_LISTED
     return _TYPE_MAP.get(legacy, legacy)
