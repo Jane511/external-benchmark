@@ -114,10 +114,10 @@ class BenchmarkCalibrationReport:
                 observation_sets, segment_trend,
             ),
             "executive_summary":       self._build_executive_summary(observation_sets),
+            "pd_overview":             self._build_pd_overview(observation_sets),
             "per_source_observations": self._build_per_source_observations(observation_sets),
             "validation_summary":      self._build_validation_summary(observation_sets),
             "big4_vs_nonbank_spread":  self._build_big4_vs_nonbank_spread(observation_sets),
-            "reference_anchors":       self._build_reference_anchors(observation_sets),
             "provenance":              self._build_provenance(observation_sets),
             "segment_trend":           segment_trend,
         }
@@ -177,13 +177,44 @@ class BenchmarkCalibrationReport:
         # all available vintages per source. Friendly publisher names.
         lines.append("## 2. Latest figures by segment and metric")
         lines.append("")
+
+        # 2a — PD overview at a glance. One row per segment with the
+        # peer median PD or "—" if no peer has published a PD for it,
+        # plus a list of what *other* metrics that segment has so the
+        # reader doesn't think the data is missing — it just isn't a PD.
+        pd_overview = data.get("pd_overview") or []
+        if pd_overview:
+            lines.append("### 2a. PD overview by segment")
+            lines.append("")
+            lines.append(
+                "_Quick guide to where peer PDs exist. Segments with "
+                "\"—\" in both PD columns are not published as a PD by "
+                "any peer — typically because the segment is a "
+                "system-wide aggregate (regulator NPL / arrears) or a "
+                "specialist book where peers publish loss expense / "
+                "realised loss instead. The full breakout is in the "
+                "per-metric tables below._"
+            )
+            lines.append("")
+            lines.append("| Segment | Big 4 median PD | Big 4 N | Non-bank peer median PD | Non-bank N | Other metrics in this segment |")
+            lines.append("| --- | ---:| ---:| ---:| ---:| --- |")
+            for row in pd_overview:
+                lines.append(
+                    f"| {row['segment_label']} "
+                    f"| {_fmt_pct_value(row['big4_median_pd'])} "
+                    f"| {row['big4_count']} "
+                    f"| {_fmt_pct_value(row['nonbank_median_pd'])} "
+                    f"| {row['nonbank_count']} "
+                    f"| {', '.join(row['other_metrics']) or '—'} |"
+                )
+            lines.append("")
+
         lines.append(
-            "_Each segment's data is broken out by metric (PD, LGD, NPL, "
-            "etc). Within a metric, peer banks come first, then non-bank "
-            "peers, then references (regulators, rating agencies, "
-            "regulatory floors). The **Median** column is the median over "
-            "every vintage we have for that source. The **Cohort median** "
-            "rows summarise the group as a single number._"
+            "_The breakouts below show every source's latest figure plus "
+            "the median across every vintage we have for that source. "
+            "Within a metric, peer banks come first, then non-bank peers, "
+            "then references (regulators, rating agencies, regulatory "
+            "floors). A **Cohort medians** sub-table follows each metric._"
         )
         lines.append("")
         if not data["per_source_observations"]:
@@ -279,29 +310,9 @@ class BenchmarkCalibrationReport:
                 f"| {srow['nonbank_count']} |"
             )
         lines.append("")
-        anchor_blocks = data.get("reference_anchors") or []
-        if anchor_blocks:
-            lines.append("### 4a. Reference anchors (excluded from peer arithmetic)")
-            lines.append("")
-            lines.append(
-                "_Macquarie, regulator aggregates, rating-agency indices, "
-                "regulatory floors and industry-body references are listed "
-                "here for context. None are used to compute the Big 4 spread "
-                "or peer-vs-non-bank ratio above._"
-            )
-            lines.append("")
-            lines.append("| Segment | Cohort | Source | Value | As-of |")
-            lines.append("| --- | --- | --- | ---:| --- |")
-            for block in anchor_blocks:
-                for anchor in block["anchors"]:
-                    lines.append(
-                        f"| {segment_label(block['segment'])} "
-                        f"| {cohort_label(anchor['cohort'])} "
-                        f"| {friendly_name(anchor['source_id'])} "
-                        f"| {_fmt_pct_value(anchor['value'])} "
-                        f"| {anchor['as_of_date']} |"
-                    )
-            lines.append("")
+        # (Reference anchors are surfaced inside Section 2 already, under
+        # the regulator / rating-agency / regulatory-floor cohort rows.
+        # The duplicate "4a. Reference anchors" table has been dropped.)
 
         # 5
         lines.append("## 5. Provenance & methodology footnotes")
@@ -481,12 +492,39 @@ class BenchmarkCalibrationReport:
             add_bullet(doc, line)
 
         add_heading(doc, "2. Latest figures by segment and metric", level=2)
+
+        pd_overview = data.get("pd_overview") or []
+        if pd_overview:
+            add_heading(doc, "2a. PD overview by segment", level=3)
+            add_paragraph(
+                doc,
+                "Quick guide to where peer PDs exist. Segments with em-"
+                "dash in both PD columns are not published as a PD by any "
+                "peer — typically because the segment is a system-wide "
+                "aggregate or a specialist book where peers publish loss "
+                "expense / realised loss instead.",
+                italic=True,
+            )
+            add_table(
+                doc,
+                headers=["segment", "big4_median_pd", "big4_n",
+                         "nonbank_median_pd", "nonbank_n", "other_metrics"],
+                rows=[
+                    [row["segment_label"],
+                     _fmt_pct_value(row["big4_median_pd"]),
+                     str(row["big4_count"]),
+                     _fmt_pct_value(row["nonbank_median_pd"]),
+                     str(row["nonbank_count"]),
+                     ", ".join(row["other_metrics"]) or "—"]
+                    for row in pd_overview
+                ],
+            )
+
         add_paragraph(
             doc,
-            "Each segment is broken out by metric (PD, LGD, NPL, ...). "
-            "Within a metric, peer banks come first, then non-bank peers, "
-            "then references. Median is across the source's full vintage "
-            "history; cohort medians summarise the latest values.",
+            "The breakouts below show every source's latest figure plus "
+            "the median across every vintage. Within a metric, peer banks "
+            "come first, then non-bank peers, then references.",
             italic=True,
         )
         for seg_block in data["per_source_observations"]:
@@ -565,29 +603,9 @@ class BenchmarkCalibrationReport:
             ],
         )
 
-        anchor_blocks = data.get("reference_anchors") or []
-        if anchor_blocks:
-            add_heading(doc, "4a. Reference anchors (excluded from peer arithmetic)", level=3)
-            add_paragraph(
-                doc,
-                "Macquarie, regulator aggregates, rating-agency indices, "
-                "regulatory floors and industry-body references are listed "
-                "here for context. None are used to compute the Big 4 spread "
-                "or peer-vs-non-bank ratio above.",
-                italic=True,
-            )
-            add_table(
-                doc,
-                headers=["segment", "cohort", "source", "value", "as_of"],
-                rows=[
-                    [segment_label(block["segment"]),
-                     cohort_label(anchor["cohort"]),
-                     friendly_name(anchor["source_id"]),
-                     _fmt_pct_value(anchor["value"]), anchor["as_of_date"]]
-                    for block in anchor_blocks
-                    for anchor in block["anchors"]
-                ],
-            )
+        # Section 4a (reference anchors) intentionally not rendered in
+        # docx for the same reason as the markdown: regulator / rating-
+        # agency / regulatory-floor rows already appear in Section 2.
 
         add_heading(doc, "5. Provenance & methodology footnotes", level=2)
         for p in data["provenance"]:
@@ -992,21 +1010,49 @@ class BenchmarkCalibrationReport:
             })
         return out
 
-    def _build_reference_anchors(
+    def _build_pd_overview(
         self, sets: list[ObservationSet],
     ) -> list[dict[str, Any]]:
-        """Surface non-peer observations per segment for transparency.
+        """One-row-per-segment summary that fronts Section 2.
 
-        Each block is one segment with a list of (source_id, cohort,
-        value, as_of_date) entries pulled from the segment's
-        ``ValidationFlags.reference_anchors``. Empty blocks are dropped.
+        For every segment in the report we list:
+        - Big 4 median PD (or None if no Big 4 published a PD).
+        - Non-bank peer median PD (or None).
+        - The other metrics published for this segment, so the reader
+          can see at a glance "this segment has no peer PD; here's
+          what is published instead".
+
+        The table answers the most common board question — "where are
+        the PDs?" — and makes "no published PD for this segment"
+        explicit instead of leaving the reader guessing.
         """
+        from src.models import Cohort, cohort_for
+
         out: list[dict[str, Any]] = []
         for s in sets:
-            anchors = list(s.validation_flags.reference_anchors or [])
-            if not anchors:
-                continue
-            out.append({"segment": s.segment, "anchors": anchors})
+            big4_pds = [
+                o.value for o in s.observations
+                if o.value is not None and o.parameter == "pd"
+                and cohort_for(o.source_type, o.source_id) is Cohort.PEER_BIG4
+            ]
+            nonbank_pds = [
+                o.value for o in s.observations
+                if o.value is not None and o.parameter == "pd"
+                and cohort_for(o.source_type, o.source_id) is Cohort.PEER_NON_BANK
+            ]
+            other_params = sorted({
+                o.parameter for o in s.observations if o.parameter != "pd"
+            })
+            out.append({
+                "segment": s.segment,
+                "segment_label": segment_label(s.segment),
+                "big4_median_pd": _median(big4_pds) if big4_pds else None,
+                "big4_count": len(big4_pds),
+                "nonbank_median_pd": _median(nonbank_pds) if nonbank_pds else None,
+                "nonbank_count": len(nonbank_pds),
+                "other_metrics": [parameter_label(p) for p in other_params],
+            })
+        out.sort(key=lambda r: r["segment_label"].lower())
         return out
 
     def _build_provenance(self, sets: list[ObservationSet]) -> list[dict[str, Any]]:
