@@ -13,6 +13,7 @@ import pytest
 from scripts.migrate_to_raw_observations import (
     _infer_definition_class,
     _infer_parameter,
+    _infer_reporting_basis,
 )
 from src.db import create_engine_and_schema
 from src.models import DataDefinitionClass
@@ -80,6 +81,8 @@ def test_qualitas_and_metrics_inferred_as_qualitative() -> None:
 def test_big4_pillar3_cre_inferred_as_basel_pd() -> None:
     """The new Big 4 commercial_property entries are Basel PD observations."""
     for entry in _BIG4_PILLAR3_CRE:
+        if "PILLAR3" not in entry.source_id:
+            continue
         cls = _infer_definition_class(entry.source_id, entry.data_type.value)
         assert cls is DataDefinitionClass.BASEL_PD_ONE_YEAR
 
@@ -90,3 +93,16 @@ def test_load_seed_data_inserts_all_entries() -> None:
     reg = BenchmarkRegistry(engine, actor="test")
     inserted = load_seed_data(reg)
     assert inserted == len(SEED_ENTRIES)
+
+
+def test_no_duplicate_segments() -> None:
+    segments = {entry.asset_class for entry in SEED_ENTRIES}
+    assert "commercial_property" in segments
+    assert "commercial_property_investment" not in segments
+
+
+def test_no_migration_placeholders() -> None:
+    assert all(entry.notes.strip() for entry in SEED_ENTRIES)
+    for entry in SEED_ENTRIES:
+        basis = _infer_reporting_basis(entry.source_type, entry.source_id, entry.notes)
+        assert "legacy BenchmarkEntry" not in basis

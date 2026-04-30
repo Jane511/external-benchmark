@@ -260,17 +260,46 @@ def test_raw_observation_impaired_npl_accepted() -> None:
     assert npl.parameter == "npl"
 
 
-def test_raw_observation_qualitative_commentary_zero_value_allowed() -> None:
-    """parameter='commentary' relaxes the [0,1] value check (value=0.0 by convention)."""
+def test_raw_observation_qualitative_commentary_requires_value_none() -> None:
+    """parameter='commentary' must carry value=None (no numeric reading)."""
     obs = RawObservation(
         **_valid_obs_kwargs(
             parameter="commentary",
             data_definition_class=DataDefinitionClass.QUALITATIVE_COMMENTARY,
-            value=0.0,
+            value=None,
             methodology_note="QUALITATIVE: office sector under pressure",
         )
     )
-    assert obs.value == 0.0
+    assert obs.value is None
+
+
+def test_raw_observation_commentary_with_numeric_value_rejected() -> None:
+    """Any numeric value (including 0.0) for parameter='commentary' is a hard error."""
+    with pytest.raises(
+        ValidationError, match=r"value must be None for parameter='commentary'"
+    ):
+        RawObservation(
+            **_valid_obs_kwargs(
+                parameter="commentary",
+                data_definition_class=DataDefinitionClass.QUALITATIVE_COMMENTARY,
+                value=0.0,
+                methodology_note="QUALITATIVE",
+            )
+        )
+
+
+def test_raw_observation_non_commentary_requires_value() -> None:
+    """value=None is allowed *only* for commentary; everything else rejects None."""
+    with pytest.raises(
+        ValidationError, match=r"value is required for parameter='pd'"
+    ):
+        RawObservation(
+            **_valid_obs_kwargs(
+                parameter="pd",
+                data_definition_class=DataDefinitionClass.BASEL_PD_ONE_YEAR,
+                value=None,
+            )
+        )
 
 
 def test_raw_observation_unknown_parameter_rejected() -> None:
@@ -312,13 +341,39 @@ def test_raw_observation_loss_rate_accepts_two_definition_classes() -> None:
     assert back.value == pytest.approx(0.008)
 
 
-def test_raw_observation_lgd_with_regulatory_floor_accepted() -> None:
-    """APS 113 LGD floor migrates as parameter='lgd' + REGULATORY_FLOOR_PD."""
+def test_raw_observation_lgd_with_regulatory_floor_lgd_accepted() -> None:
+    """APS 113 LGD floor uses the dedicated REGULATORY_FLOOR_LGD class (post-P2.2)."""
     obs = RawObservation(
         **_valid_obs_kwargs(
             parameter="lgd",
-            data_definition_class=DataDefinitionClass.REGULATORY_FLOOR_PD,
+            data_definition_class=DataDefinitionClass.REGULATORY_FLOOR_LGD,
             value=0.075,
         )
     )
     assert obs.parameter == "lgd"
+
+
+def test_raw_observation_lgd_with_floor_pd_class_now_rejected() -> None:
+    """parameter='lgd' may NOT pair with REGULATORY_FLOOR_PD (P2.2 cleanup)."""
+    with pytest.raises(
+        ValidationError,
+        match=r"data_definition_class='regulatory_floor_pd' is not valid for parameter='lgd'",
+    ):
+        RawObservation(
+            **_valid_obs_kwargs(
+                parameter="lgd",
+                data_definition_class=DataDefinitionClass.REGULATORY_FLOOR_PD,
+                value=0.075,
+            )
+        )
+
+
+def test_no_placeholder_methodology_or_basis() -> None:
+    with pytest.raises(ValidationError, match="legacy migration placeholder"):
+        RawObservation(
+            **_valid_obs_kwargs(reporting_basis="legacy BenchmarkEntry v1")
+        )
+    with pytest.raises(ValidationError, match="migration placeholder"):
+        RawObservation(
+            **_valid_obs_kwargs(methodology_note="migrated from Westpac Banking Corporation")
+        )

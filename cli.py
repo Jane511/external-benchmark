@@ -27,6 +27,7 @@ from src.models import InstitutionType, SourceType
 from src.observations import PeerObservations
 from src.registry import BenchmarkRegistry
 from src.seed_data import load_seed_data
+from src.validation import SEGMENT_ALIASES
 
 # NOTE (Brief 1):
 #   src.adjustments, src.calibration_feed, src.triangulation are now
@@ -250,6 +251,7 @@ def report_benchmark(
     source_type: Optional[str],
 ) -> None:
     from src.benchmark_report import BenchmarkCalibrationReport
+    from src.governance import load_refresh_schedules
 
     if institution_type is not None:
         click.echo(
@@ -261,12 +263,14 @@ def report_benchmark(
 
     engine = create_engine_and_schema(ctx.obj["db"])
     registry = BenchmarkRegistry(engine, actor="cli")
-    peer = PeerObservations(registry)
+    refresh_schedules = load_refresh_schedules()
+    peer = PeerObservations(registry, refresh_schedules=refresh_schedules)
     report_obj = BenchmarkCalibrationReport(
         registry=registry,
         peer_observations=peer,
         period_label=period_label,
         raw_data_dir=Path("data/raw"),
+        refresh_schedules=refresh_schedules,
     )
 
     ext = {"docx": "docx", "html": "html", "markdown": "md"}[fmt]
@@ -329,6 +333,14 @@ def observations(
 ) -> None:
     registry = _get_registry(ctx.obj["db"])
     peer = PeerObservations(registry)
+    requested_segment = segment
+    canonical_segment = SEGMENT_ALIASES.get(segment, segment)
+    if requested_segment != canonical_segment:
+        click.echo(
+            f"NOTE: segment {requested_segment!r} is deprecated; using "
+            f"{canonical_segment!r}.",
+            err=True,
+        )
     st: Optional[SourceType] = None
     if source_type:
         try:
@@ -339,20 +351,20 @@ def observations(
                 f"{[s.value for s in SourceType]}"
             ) from exc
 
-    obs_set = peer.for_segment(segment, source_type=st)
+    obs_set = peer.for_segment(canonical_segment, source_type=st)
     rows = obs_set.observations
     if not include_non_banks:
         rows = obs_set.by_source_type(big4_only=True)
 
     if not rows:
-        click.echo(f"No observations for segment={segment!r}.")
+        click.echo(f"No observations for segment={canonical_segment!r}.")
         return
 
     if fmt == "json":
         payload = [o.model_dump(mode="json") for o in rows]
         flags = obs_set.validation_flags
         click.echo(json.dumps({
-            "segment": segment,
+            "segment": canonical_segment,
             "observations": payload,
             "validation_flags": {
                 "n_sources": flags.n_sources,
@@ -365,7 +377,7 @@ def observations(
         }, indent=2, default=str))
         return
 
-    click.echo(f"Segment: {segment}  ({len(rows)} observations)")
+    click.echo(f"Segment: {canonical_segment}  ({len(rows)} observations)")
     for o in rows:
         click.echo(
             f"  {o.source_id:<20} {o.source_type.value:<22} "
@@ -404,8 +416,8 @@ def export(ctx: click.Context, fmt: str, output: str | None) -> None:
 
 @cli.command(
     "export-csvs",
-    help="Emit the four-CSV bundle (raw_observations + validation_flags + "
-         "reality_check_bands + raw_data_inventory) into outputs/csv/. "
+    help="Emit the CSV bundle (raw_observations + validation_flags + "
+         "segment_trend + reality_check_bands + raw_data_inventory) into outputs/csv/. "
          "These are the engine's machine-readable contract for downstream "
          "projects (PD workbook, LGD project, dashboards).",
 )
@@ -418,11 +430,14 @@ def export(ctx: click.Context, fmt: str, output: str | None) -> None:
 @click.pass_context
 def export_csvs(ctx: click.Context, out_dir: str, raw_dir: str) -> None:
     from src.csv_exporter import export_all_csvs
+    from src.governance import load_refresh_schedules
     registry = _get_registry(ctx.obj["db"])
+    refresh_schedules = load_refresh_schedules()
     paths = export_all_csvs(
         registry,
         out_dir=Path(out_dir),
         raw_dir=Path(raw_dir),
+        refresh_schedules=refresh_schedules,
     )
     for name, p in paths.items():
         size = p.stat().st_size if p.exists() else 0
