@@ -97,6 +97,18 @@ def test_observations_command_runs(db_path) -> None:
     assert result.exit_code == 0
 
 
+def test_observations_command_warns_on_deprecated_cre_segment(db_path) -> None:
+    runner = CliRunner()
+    _invoke(runner, db_path, "seed")
+    result = _invoke(
+        runner, db_path, "observations",
+        "--segment", "commercial_property_investment",
+        "--format", "table",
+    )
+    assert result.exit_code == 0
+    assert "deprecated" in (result.output + (result.stderr or "")).lower()
+
+
 def test_export_json_stdout(db_path) -> None:
     runner = CliRunner()
     _invoke(runner, db_path, "seed")

@@ -30,6 +30,7 @@ from src.models import (
     RawObservation,
     SourceType,
 )
+from src.validation import SEGMENT_ALIASES, canonical_segment
 
 
 def _entry_to_row(entry: BenchmarkEntry) -> Benchmark:
@@ -315,7 +316,7 @@ def _row_to_obs(row: RawObservationRow) -> RawObservation:
     return RawObservation(
         source_id=row.source_id,
         source_type=SourceType(row.source_type),
-        segment=row.segment,
+        segment=canonical_segment(row.segment),
         product=row.product,
         parameter=row.parameter,
         data_definition_class=DataDefinitionClass(row.data_definition_class),
@@ -377,7 +378,13 @@ def _query_observations(
     with self._factory() as s:
         stmt = select(RawObservationRow)
         if segment is not None:
-            stmt = stmt.where(RawObservationRow.segment == segment)
+            canonical = canonical_segment(segment)
+            accepted_segments = [canonical]
+            accepted_segments.extend(
+                alias for alias, target in SEGMENT_ALIASES.items()
+                if target == canonical
+            )
+            stmt = stmt.where(RawObservationRow.segment.in_(accepted_segments))
         if product is not None:
             stmt = stmt.where(RawObservationRow.product == product)
         if source_type is not None:
@@ -421,7 +428,7 @@ def _list_segments(self: "BenchmarkRegistry") -> list[str]:
         stmt = select(RawObservationRow.segment).distinct().order_by(
             RawObservationRow.segment
         )
-        segments = [row for row in s.scalars(stmt).all()]
+        segments = sorted({canonical_segment(row) for row in s.scalars(stmt).all()})
         self._audit(s, "list_segments", "*", {}, f"{len(segments)} segments")
         s.commit()
         return segments

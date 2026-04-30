@@ -90,7 +90,11 @@ class RawObservationRow(Base):
         String, nullable=False, index=True,
         server_default="basel_pd_one_year",
     )
-    value: Mapped[float] = mapped_column(Float, nullable=False)
+    # value is nullable: parameter='commentary' rows carry value=None
+    # (qualitative narrative only). All other parameters require a value;
+    # the Pydantic RawObservation validator enforces that contract on the
+    # write path, so this column-level nullable=True only relaxes storage.
+    value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     as_of_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     reporting_basis: Mapped[str] = mapped_column(String, nullable=False)

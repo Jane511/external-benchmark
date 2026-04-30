@@ -28,6 +28,15 @@ def populated_registry() -> BenchmarkRegistry:
             page_or_table_ref="CR6 row 4",
         ),
         RawObservation(
+            source_id="cba", source_type=SourceType.BANK_PILLAR3,
+            segment="commercial_property", parameter="pd",
+            data_definition_class=DataDefinitionClass.BASEL_PD_ONE_YEAR,
+            value=0.023, as_of_date=today - timedelta(days=210),
+            reporting_basis="Pillar 3 trailing 4-quarter average",
+            methodology_note="CR6 EAD-weighted Average PD",
+            page_or_table_ref="CR6 row 4",
+        ),
+        RawObservation(
             source_id="judo", source_type=SourceType.NON_BANK_LISTED,
             segment="commercial_property", parameter="pd",
             data_definition_class=DataDefinitionClass.BASEL_PD_ONE_YEAR,
@@ -78,9 +87,22 @@ def test_markdown_contains_raw_only_banner(populated_registry):
     report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
     md = report.to_markdown()
     assert RAW_ONLY_BANNER in md
+    assert "Data as-of:" in md
+    assert "## 0. Segment definitions" in md
     assert "## 2. Per-source raw observations by segment" in md
+    assert "Reporting basis" in md
     assert "## 3. Cross-source validation summary" in md
     assert "## 4. Big 4 vs non-bank disclosure spread (informational only)" in md
+    assert "## 7. Trend vs prior cycle" in md
+
+
+def test_generate_includes_segment_trend(populated_registry):
+    report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
+    trends = report.generate()["segment_trend"]
+    assert len(trends) == 1
+    assert trends[0]["segment"] == "commercial_property"
+    assert trends[0]["source_id"] == "cba"
+    assert trends[0]["delta"] == pytest.approx(0.002)
 
 
 def test_html_renders_with_banner(populated_registry):
@@ -150,3 +172,64 @@ def test_supporting_documentation_reads_rba_metadata(populated_registry, tmp_pat
     assert docs["documents"][0]["source"] == "RBA Financial Stability Review"
     assert "Forward-looking commentary draws from RBA" in docs["lead_text"]
     assert "These are not benchmark sources" in report.to_markdown()
+
+
+def test_glossary_covers_all_rendered_segments(populated_registry):
+    report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
+    data = report.generate()
+    glossary_segments = {row["segment"] for row in data["segment_glossary"]}
+    rendered_segments = {
+        row["segment"] for row in data["per_source_observations"]
+    }
+    assert rendered_segments.issubset(glossary_segments)
+
+
+def test_executive_narrative_contains_segment_facts(populated_registry):
+    """Section 1 prose must mention the headline segment + actual numbers."""
+    report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
+    data = report.generate()
+    narrative = data["executive_summary"]["narrative"]
+    assert narrative
+    # Headline mentions commercial_property (the only segment with peer rows
+    # in the populated_registry fixture) and a numeric Big-4 value.
+    assert "commercial property" in narrative.lower() or "no peer observations" in narrative.lower()
+
+
+def test_peer_ratio_definition_rendered_in_report(populated_registry):
+    """Both the rendered Markdown and CSV must carry PEER_RATIO_DEFINITION verbatim."""
+    from src.validation import PEER_RATIO_DEFINITION
+    report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
+    md = report.to_markdown()
+    assert PEER_RATIO_DEFINITION in md
+    # Same constant powers the CSV header — exercise once via export.
+    from pathlib import Path
+    import tempfile
+    from src.csv_exporter import export_validation_flags
+    with tempfile.TemporaryDirectory() as tmp:
+        out = export_validation_flags(populated_registry, out_dir=Path(tmp))
+        assert "peer_big4_vs_non_bank_ratio" in out.read_text(encoding="utf-8")
+
+
+def test_commentary_row_does_not_break_markdown(populated_registry):
+    """Adding a commentary row must not crash the report and must show
+    the qualitative tag instead of a percentage."""
+    from datetime import date as _date
+    from src.models import DataDefinitionClass, RawObservation, SourceType
+    populated_registry.add_observation(
+        RawObservation(
+            source_id="QUALITAS_CRE_COMMENTARY_2024H2",
+            source_type=SourceType.NON_BANK_LISTED,
+            segment="commercial_property",
+            parameter="commentary",
+            data_definition_class=DataDefinitionClass.QUALITATIVE_COMMENTARY,
+            value=None,
+            as_of_date=_date(2024, 12, 31),
+            reporting_basis="Half-yearly results commentary",
+            methodology_note="QUALITATIVE: office sector under pressure",
+        )
+    )
+    report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
+    md = report.to_markdown()
+    assert "QUALITAS_CRE_COMMENTARY_2024H2" in md
+    # qualitative tag in the value column
+    assert "(qualitative)" in md

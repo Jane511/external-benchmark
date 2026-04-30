@@ -208,9 +208,9 @@ def test_seed_includes_pc_flagship_cre_pd_values(registry_and_inspector) -> None
     load_seed_data(registry)
 
     cre_pds = registry.get_by_segment(
-        asset_class="commercial_property_investment", data_type=DataType.PD,
+        asset_class="commercial_property", data_type=DataType.PD,
     )
-    cba_cre = next(e for e in cre_pds if e.source_id.startswith("CBA_"))
+    cba_cre = next(e for e in cre_pds if e.source_id == "CBA_PILLAR3_CRE_PD_2024H2")
     assert cba_cre.value == 0.025
 
 

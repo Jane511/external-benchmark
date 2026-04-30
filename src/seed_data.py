@@ -41,7 +41,38 @@ def _entry(**overrides: Any) -> BenchmarkEntry:
         "notes": "",
     }
     base.update(overrides)
+    if not str(base.get("notes") or "").strip():
+        base["notes"] = _default_notes(base)
     return BenchmarkEntry(**base)
+
+
+def _default_notes(payload: dict[str, Any]) -> str:
+    """Populate a non-placeholder methodology note for seed rows missing one."""
+    publisher = str(payload.get("publisher", "Source"))
+    asset_class = str(payload.get("asset_class", "portfolio")).replace("_", " ")
+    source_type = payload.get("source_type")
+    data_type = payload.get("data_type")
+    url = str(payload.get("url", ""))
+    source_id = str(payload.get("source_id", ""))
+    value_date = payload.get("value_date")
+    period = value_date.isoformat() if hasattr(value_date, "isoformat") else "current cycle"
+    metric = data_type.value.upper() if hasattr(data_type, "value") else "metric"
+
+    if source_type == SourceType.PILLAR3:
+        return f"{publisher} Pillar 3 {asset_class} {metric} disclosure ({period}); {url}"
+    if source_type == SourceType.REGULATORY:
+        return f"APRA APS 113 {asset_class} {metric} reference ({period}); {url}"
+    if source_type == SourceType.RBA:
+        return f"RBA aggregate {asset_class} {metric} reference ({period}); {url}"
+    if source_type == SourceType.RATING_AGENCY:
+        return f"{publisher} rating-agency {asset_class} {metric} reference ({period}); {url}"
+    if source_type == SourceType.INDUSTRY_BODY:
+        return f"{publisher} industry aggregate for {asset_class} ({period}); {url}"
+    if source_type == SourceType.BUREAU:
+        return f"{publisher} bureau reference for {asset_class} ({period}); {url}"
+    if source_type == SourceType.LISTED_PEER:
+        return f"{publisher} listed-peer disclosure for {asset_class} ({period}); {url}"
+    return f"{publisher} source note for {source_id or asset_class} ({period}); {url}"
 
 
 # ---------------------------------------------------------------------------
@@ -97,45 +128,7 @@ _RESIDENTIAL = [
 ]
 
 # ---------------------------------------------------------------------------
-# 2. Commercial property investment (Bank + PC)
-# ---------------------------------------------------------------------------
-_CRE_INVESTMENT = [
-    _entry(
-        source_id="CBA_PILLAR3_CRE_2024H2", publisher="Commonwealth Bank of Australia",
-        source_type=SourceType.PILLAR3, data_type=DataType.PD,
-        asset_class="commercial_property_investment",
-        url="https://www.commbank.com.au/pillar3", value=0.0250,
-    ),
-    _entry(
-        source_id="NAB_PILLAR3_CRE_2024H2", publisher="National Australia Bank",
-        source_type=SourceType.PILLAR3, data_type=DataType.PD,
-        asset_class="commercial_property_investment",
-        url="https://www.nab.com.au/pillar3", value=0.0220,
-    ),
-    _entry(
-        source_id="WBC_PILLAR3_CRE_2024H2", publisher="Westpac Banking Corporation",
-        source_type=SourceType.PILLAR3, data_type=DataType.PD,
-        asset_class="commercial_property_investment",
-        url="https://www.westpac.com.au/pillar3", value=0.0260,
-    ),
-    _entry(
-        source_id="ANZ_PILLAR3_CRE_2024H2", publisher="Australia and New Zealand Banking Group",
-        source_type=SourceType.PILLAR3, data_type=DataType.PD,
-        asset_class="commercial_property_investment",
-        url="https://www.anz.com/pillar3", value=0.0210,
-    ),
-    _entry(
-        source_id="APS113_CRE_LGD_FLOOR", publisher="APRA",
-        source_type=SourceType.REGULATORY, data_type=DataType.SUPERVISORY_VALUE,
-        asset_class="commercial_property_investment",
-        url="https://www.apra.gov.au/aps-113",
-        period_years=10, value=0.175,
-        notes="APS 113 commercial LGD floor (10-25%, midpoint)",
-    ),
-]
-
-# ---------------------------------------------------------------------------
-# 3. Corporate SME (Bank + PC)
+# 2. Corporate SME (Bank + PC)
 # ---------------------------------------------------------------------------
 _CORPORATE_SME = [
     _entry(
@@ -181,7 +174,7 @@ _CORPORATE_SME = [
 ]
 
 # ---------------------------------------------------------------------------
-# 4. Bridging residential (PC)
+# 3. Bridging residential (PC)
 # ---------------------------------------------------------------------------
 _BRIDGING_RESIDENTIAL = [
     _entry(
@@ -195,7 +188,7 @@ _BRIDGING_RESIDENTIAL = [
 ]
 
 # ---------------------------------------------------------------------------
-# 5. Development (PC) — APS 113 slotting grades
+# 4. Development (PC) — APS 113 slotting grades
 # ---------------------------------------------------------------------------
 _DEVELOPMENT = [
     _entry(
@@ -259,7 +252,7 @@ _DEVELOPMENT = [
 ]
 
 # ---------------------------------------------------------------------------
-# 6. Invoice finance (PC)
+# 5. Invoice finance (PC)
 # ---------------------------------------------------------------------------
 _INVOICE_FINANCE = [
     _entry(
@@ -280,7 +273,7 @@ _INVOICE_FINANCE = [
 ]
 
 # ---------------------------------------------------------------------------
-# 7. Working capital unsecured (PC)
+# 6. Working capital unsecured (PC)
 # ---------------------------------------------------------------------------
 _WORKING_CAPITAL = [
     _entry(
@@ -464,9 +457,7 @@ _SP_SPIN = [
 ]
 
 # Big 4 Pillar 3 commercial property PD — flagship reality-check anchor
-# under the canonical `commercial_property` segment (the existing
-# _CRE_INVESTMENT block uses `commercial_property_investment` for a
-# different breakdown).
+# under the canonical `commercial_property` segment.
 _BIG4_PILLAR3_CRE = [
     _entry(
         source_id="CBA_PILLAR3_CRE_PD_2024H2",
@@ -515,6 +506,18 @@ _BIG4_PILLAR3_CRE = [
         value=0.0210,
         quality_score=QualityScore.HIGH,
         notes="ANZ Pillar 3 commercial property PD, H2 2024.",
+    ),
+    _entry(
+        source_id="APS113_CRE_LGD_FLOOR",
+        publisher="APRA",
+        source_type=SourceType.REGULATORY,
+        data_type=DataType.SUPERVISORY_VALUE,
+        asset_class="commercial_property",
+        url="https://www.apra.gov.au/aps-113",
+        period_years=10,
+        value=0.175,
+        quality_score=QualityScore.HIGH,
+        notes="APS 113 commercial property LGD floor (10-25%, midpoint).",
     ),
 ]
 
@@ -573,7 +576,6 @@ _REALITY_CHECK_ENTRIES: list[BenchmarkEntry] = (
 
 SEED_ENTRIES: list[BenchmarkEntry] = (
     _RESIDENTIAL
-    + _CRE_INVESTMENT
     + _CORPORATE_SME
     + _BRIDGING_RESIDENTIAL
     + _DEVELOPMENT

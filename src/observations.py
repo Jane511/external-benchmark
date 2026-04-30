@@ -31,6 +31,7 @@ from src.models import DataDefinitionClass, RawObservation, SourceType
 from src.registry import BenchmarkRegistry
 from src.validation import (
     BIG4_SOURCE_IDS,
+    canonical_segment,
     ValidationFlags,
     compute_validation_flags,
     is_big4_source_id,
@@ -85,9 +86,13 @@ class PeerObservations:
         registry: BenchmarkRegistry,
         *,
         today: date | None = None,
+        refresh_schedules: Optional[dict[str, int]] = None,
+        refresh_pipeline_quiet: bool = False,
     ) -> None:
         self._registry = registry
         self._today = today or date.today()
+        self._refresh_schedules = refresh_schedules
+        self._refresh_pipeline_quiet = refresh_pipeline_quiet
 
     def for_segment(
         self,
@@ -106,17 +111,34 @@ class PeerObservations:
         restrict to a specific definition family — e.g. pass
         ``[DataDefinitionClass.BASEL_PD_ONE_YEAR]`` to exclude arrears /
         impaired / commentary observations.
+
+        When ``only_pd=False``, the displayed observation list still
+        includes every parameter (PD, LGD, arrears, commentary, ...) but
+        the validation arithmetic (spread, median, outlier detection,
+        peer ratio) is computed over the PD subset only. Mixing PD with
+        LGD in a single spread calc is meaningless: a 0.7% PD next to a
+        24% LGD gives a 33x spread that says nothing about either.
         """
+        canonical = canonical_segment(segment)
         rows = self._registry.query_observations(
-            segment=segment,
+            segment=canonical,
             product=product,
             source_type=source_type,
             parameter="pd" if only_pd else None,
             definition_classes=definition_classes,
         )
-        flags = compute_validation_flags(rows, today=self._today)
+        # Pass all rows; ``compute_validation_flags`` itself restricts
+        # spread / median / outlier / peer-ratio arithmetic to PD only
+        # (mixing PD with LGD in a single spread is meaningless) but
+        # uses the full row set for stale detection and source counts.
+        flags = compute_validation_flags(
+            rows,
+            today=self._today,
+            refresh_schedules=self._refresh_schedules,
+            refresh_pipeline_quiet=self._refresh_pipeline_quiet,
+        )
         return ObservationSet(
-            segment=segment,
+            segment=canonical,
             observations=rows,
             validation_flags=flags,
             queried_at=self._today,

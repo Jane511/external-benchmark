@@ -94,13 +94,54 @@ class DataDefinitionClass(str, Enum):
     Useful for LGD calibration, not directly PD."""
 
     REGULATORY_FLOOR_PD = "regulatory_floor_pd"
-    """Regulatory-prescribed PD by slot/grade. APS 113 slotting (Strong/
-    Good/Satisfactory/Weak), APS 113 minimum floors."""
+    """Regulatory-prescribed PD by slot/grade. APS 113 slotting PD bands
+    (Strong/Good/Satisfactory/Weak)."""
+
+    REGULATORY_FLOOR_LGD = "regulatory_floor_lgd"
+    """Regulatory-prescribed LGD by slot/grade. APS 113 slotting LGD
+    bands and APS 113 minimum LGD floors."""
 
     QUALITATIVE_COMMENTARY = "qualitative_commentary"
     """Source publishes only qualitative narrative; encoded as a tagged
-    text observation with no numeric value. Qualitas, Metrics. Stored
-    with value=0.0 and the commentary in methodology_note."""
+    text observation with ``value=None`` and the published narrative in
+    ``methodology_note``. Qualitas, Metrics."""
+
+
+class Cohort(str, Enum):
+    """Peer-grouping label, derived from ``source_type`` + ``source_id``.
+
+    Used by validation to keep regulatory floors, rating-agency indices,
+    and aggregate references out of peer-vs-peer arithmetic. The two
+    "peer" cohorts are the only ones that participate in outlier
+    detection and the Big-4-vs-non-bank ratio; everything else surfaces
+    separately as a reference anchor.
+    """
+
+    PEER_BIG4 = "peer_big4"
+    """ANZ, CBA, NAB, WBC — IRB-accredited major banks."""
+
+    PEER_OTHER_MAJOR_BANK = "peer_other_major_bank"
+    """Macquarie Bank — APRA-classified major bank but not Big 4. Kept
+    out of both peer_big4 and peer_non_bank to avoid distorting either
+    median; appears as a reference anchor."""
+
+    PEER_NON_BANK = "peer_non_bank"
+    """ASX-listed non-bank lenders: Judo, Liberty, Pepper, Resimac,
+    Plenti, Wisr, MoneyMe, Qualitas, Metrics, La Trobe."""
+
+    REGULATOR_AGGREGATE = "regulator_aggregate"
+    """APRA QPEX / quarterly ADI performance, RBA FSR / SMP / Chart Pack
+    aggregates. System-wide, not a peer."""
+
+    RATING_AGENCY = "rating_agency"
+    """S&P SPIN / corporate default index, Moody's RMBS performance.
+    Composite indices, not a peer."""
+
+    REGULATORY_FLOOR = "regulatory_floor"
+    """APS 113 PD / LGD slotting grades and supervisory minima."""
+
+    INDUSTRY_BODY = "industry_body"
+    """AFIA, illion BFRI etc. — industry-aggregate references."""
 
 
 class QualityScore(str, Enum):
@@ -242,9 +283,11 @@ _PARAMETER_TO_DEFINITION_CLASSES: dict[str, frozenset[DataDefinitionClass]] = {
     }),
     "lgd": frozenset({
         # LGD parameters can carry realised loss rates (back-looking) or
-        # supervisory floors when published as LGD; the engine just labels.
+        # supervisory LGD floors. APS 113 LGD slotting now uses the
+        # dedicated REGULATORY_FLOOR_LGD class — no more PD/LGD
+        # collision on REGULATORY_FLOOR_PD.
         DataDefinitionClass.REALISED_LOSS_RATE,
-        DataDefinitionClass.REGULATORY_FLOOR_PD,  # APS 113 LGD slotting reuses the floor class
+        DataDefinitionClass.REGULATORY_FLOOR_LGD,
     }),
     "arrears": frozenset({
         DataDefinitionClass.ARREARS_30_PLUS_DAYS,
@@ -282,9 +325,12 @@ class RawObservation(BaseModel):
     product: Optional[str] = None                     # finer granularity if available
     parameter: str = Field(..., min_length=1)         # broad category (see _ALLOWED_PARAMETERS)
     data_definition_class: DataDefinitionClass        # precise definition the source publishes
-    value: float = Field(..., ge=0.0)                 # raw published value (decimal)
+    # ``value`` is None *only* for parameter='commentary' rows — qualitative
+    # observations are stored as tagged narrative with no numeric reading.
+    # All other parameters require a value in [0, 1].
+    value: Optional[float] = Field(default=None)
 
-    # Vintage and methodology
+    # Reporting basis and methodology
     as_of_date: date
     reporting_basis: str = Field(..., min_length=1)   # e.g. "Pillar 3 quarterly"
     methodology_note: str = Field(..., min_length=1)  # what the source says this means
@@ -316,8 +362,24 @@ class RawObservation(BaseModel):
                 f"parameter must be one of {sorted(_ALLOWED_PARAMETERS)}; "
                 f"got {self.parameter!r}"
             )
-        # Numeric values bounded [0, 1]; commentary uses value=0.0 by convention.
-        if self.parameter != "commentary":
+        if self.parameter == "commentary":
+            if self.value is not None:
+                raise ValueError(
+                    "value must be None for parameter='commentary' "
+                    f"(got {self.value!r}); qualitative observations carry "
+                    "no numeric reading"
+                )
+            if self.data_definition_class is not DataDefinitionClass.QUALITATIVE_COMMENTARY:
+                raise ValueError(
+                    "parameter='commentary' requires "
+                    "data_definition_class=QUALITATIVE_COMMENTARY"
+                )
+        else:
+            if self.value is None:
+                raise ValueError(
+                    f"value is required for parameter={self.parameter!r}; "
+                    "only commentary rows may carry value=None"
+                )
             if not 0.0 <= self.value <= 1.0:
                 raise ValueError(
                     f"value={self.value} must be in [0, 1] for "
@@ -334,6 +396,10 @@ class RawObservation(BaseModel):
                 f"not valid for parameter={self.parameter!r}; "
                 f"valid: {sorted(c.value for c in valid)}"
             )
+        if self.reporting_basis == "legacy BenchmarkEntry v1":
+            raise ValueError("reporting_basis cannot use the legacy migration placeholder")
+        if self.methodology_note.lower().startswith("migrated from"):
+            raise ValueError("methodology_note cannot use the migration placeholder")
         return self
 
 
@@ -350,3 +416,66 @@ class GovernanceReport(BaseModel):
     institution_type: InstitutionType
     findings: list[dict[str, Any]] = Field(default_factory=list)
     flags: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Cohort derivation
+# ---------------------------------------------------------------------------
+
+_BIG4_HEADS: frozenset[str] = frozenset({"cba", "nab", "wbc", "anz"})
+_MACQUARIE_HEADS: frozenset[str] = frozenset({"mqg", "macquarie"})
+
+
+def cohort_for(source_type: SourceType, source_id: str) -> Cohort:
+    """Map a (source_type, source_id) pair to its peer-group cohort.
+
+    Source-id pattern wins over source_type — APS113 floors are filed under
+    APRA-family source types but should be treated as regulatory floors;
+    Macquarie is filed under BANK_PILLAR3 but should not be Big 4.
+    """
+    sid = source_id.lower().replace("-", "_")
+    head = sid.split("_", 1)[0]
+
+    if "APS113" in source_id.upper() or sid.startswith("aps113_"):
+        return Cohort.REGULATORY_FLOOR
+
+    if source_type in (SourceType.BANK_PILLAR3, SourceType.PILLAR3):
+        if head in _BIG4_HEADS or sid in _BIG4_HEADS:
+            return Cohort.PEER_BIG4
+        if head in _MACQUARIE_HEADS or sid.startswith("macquarie_bank_"):
+            return Cohort.PEER_OTHER_MAJOR_BANK
+        return Cohort.PEER_NON_BANK
+
+    if source_type in (
+        SourceType.APRA_PERFORMANCE,
+        SourceType.APRA_QPEX,
+        SourceType.APRA_ADI,
+        SourceType.APRA_NON_ADI,
+        SourceType.RBA_AGGREGATE,
+        SourceType.RBA,
+    ):
+        return Cohort.REGULATOR_AGGREGATE
+
+    if source_type in (SourceType.RATING_AGENCY_INDEX, SourceType.RATING_AGENCY):
+        return Cohort.RATING_AGENCY
+
+    if source_type == SourceType.REGULATORY:
+        return Cohort.REGULATORY_FLOOR
+
+    if source_type in (SourceType.INDUSTRY_BODY, SourceType.BUREAU, SourceType.INSOLVENCY):
+        return Cohort.INDUSTRY_BODY
+
+    if source_type in (SourceType.NON_BANK_LISTED, SourceType.LISTED_PEER):
+        return Cohort.PEER_NON_BANK
+
+    return Cohort.INDUSTRY_BODY
+
+
+PEER_COHORTS: frozenset[Cohort] = frozenset({
+    Cohort.PEER_BIG4,
+    Cohort.PEER_NON_BANK,
+})
+"""Cohorts that participate in peer-vs-peer arithmetic. Macquarie
+(``PEER_OTHER_MAJOR_BANK``) and all reference cohorts are excluded by
+design: outlier detection and the Big-4-vs-non-bank ratio compute only
+across these two."""

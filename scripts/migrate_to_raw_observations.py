@@ -59,6 +59,9 @@ from src.models import (  # noqa: E402
     SourceType,
 )
 from ingestion.external_indices.sp_spin_adapter import SpSpinAdapter  # noqa: E402
+from ingestion.adapters.apra_performance_adapter import ApraPerformanceAdapter  # noqa: E402
+from ingestion.adapters.apra_qpex_adapter import ApraQpexAdapter  # noqa: E402
+from src.validation import canonical_segment  # noqa: E402
 
 
 logger = logging.getLogger(__name__)
@@ -78,6 +81,45 @@ _TYPE_MAP: dict[SourceType, SourceType] = {
     # INSOLVENCY and INDUSTRY_BODY pass through unchanged (legacy enums
     # retained — they cover non-ABS/ASIC sources too, e.g. AFIA).
 }
+
+
+def _extract_period_token(source_id: str) -> str:
+    for token in source_id.replace("-", "_").split("_"):
+        if token.startswith("FY") or token.endswith(("H1", "H2")):
+            return token
+        if token[:4].isdigit() and any(ch.isalpha() for ch in token[4:]):
+            return token
+    return ""
+
+
+def _infer_reporting_basis(
+    source_type: SourceType,
+    source_id: str,
+    notes: str = "",
+) -> str:
+    note = (notes or "").strip()
+    if note.upper().startswith("BASIS:"):
+        return note.split(":", 1)[1].strip() or "Source disclosure"
+
+    period = _extract_period_token(source_id)
+    period_suffix = f", {period}" if period else ""
+    if source_type == SourceType.PILLAR3:
+        return f"Pillar 3 disclosure{period_suffix}"
+    if source_type == SourceType.APRA_ADI:
+        return "APRA quarterly statistics"
+    if source_type == SourceType.RATING_AGENCY:
+        return "S&P SPIN monthly aggregate"
+    if source_type == SourceType.RBA:
+        return "RBA FSR / SMP aggregate"
+    if source_type == SourceType.INDUSTRY_BODY:
+        return "Industry-body aggregate"
+    if source_type == SourceType.REGULATORY:
+        return "APS 113 supervisory floor"
+    if source_type == SourceType.LISTED_PEER:
+        return f"Listed-peer disclosure{period_suffix}"
+    if source_type == SourceType.BUREAU:
+        return "Bureau aggregate"
+    return f"{source_type.value} disclosure"
 
 
 def _map_source_type(legacy: SourceType, source_id: str) -> SourceType:
@@ -101,12 +143,14 @@ def _infer_definition_class(
     """
     sid = source_id.upper()
 
-    # Qualitative commentary takes priority — value is 0.0 by convention.
+    # Qualitative commentary takes priority — value is None by convention.
     if "COMMENTARY" in sid and ("QUALITAS" in sid or "METRICS" in sid):
         return DataDefinitionClass.QUALITATIVE_COMMENTARY
 
-    # APS 113 — regulatory floor (covers PD and LGD slotting + floors).
+    # APS 113 — regulatory floor. Split PD vs LGD using data_type / suffix.
     if "APS113" in sid:
+        if data_type == DataType.LGD.value or data_type == DataType.SUPERVISORY_VALUE.value or "_LGD" in sid:
+            return DataDefinitionClass.REGULATORY_FLOOR_LGD
         return DataDefinitionClass.REGULATORY_FLOOR_PD
 
     # APRA QPEX — system-wide impaired ratio.
@@ -158,13 +202,12 @@ def _infer_parameter(
 ) -> str:
     """Map definition class -> parameter category.
 
-    REGULATORY_FLOOR_PD is special: it covers both PD floors and LGD
-    floors (APS 113 has both). Decide by source_id / data_type.
+    REGULATORY_FLOOR_PD is now strictly PD (LGD floors use the dedicated
+    REGULATORY_FLOOR_LGD class) — see the post-P2.2 split.
     """
+    if definition_class is DataDefinitionClass.REGULATORY_FLOOR_LGD:
+        return "lgd"
     if definition_class is DataDefinitionClass.REGULATORY_FLOOR_PD:
-        sid = source_id.upper()
-        if data_type == DataType.LGD.value or "_LGD" in sid:
-            return "lgd"
         return "pd"
 
     return {
@@ -237,6 +280,101 @@ def _migrate_staged_spin_pdfs(session) -> int:
     return inserted
 
 
+def _migrate_staged_apra_time_series(session) -> int:
+    """Parse staged APRA workbooks into raw_observations as historical series."""
+    apra_dir = _REPO_ROOT / "data" / "raw" / "apra"
+    if not apra_dir.exists():
+        return 0
+
+    inserted = 0
+    for workbook in sorted(apra_dir.glob("*.xlsx")):
+        name = workbook.name.lower()
+        if "property" in name and "exposure" in name:
+            inserted += _migrate_apra_qpex_workbook(session, workbook)
+        elif "performance" in name:
+            inserted += _migrate_apra_performance_workbook(session, workbook)
+    return inserted
+
+
+def _migrate_apra_performance_workbook(session, workbook: Path) -> int:
+    adapter = ApraPerformanceAdapter()
+    df = adapter.normalise(workbook)
+    inserted = 0
+    for record in df.to_dict(orient="records"):
+        metric = str(record["metric_name"])
+        parameter = "npl" if metric == "npl_ratio" else "arrears"
+        definition = (
+            DataDefinitionClass.NPL_RATIO
+            if metric == "npl_ratio"
+            else DataDefinitionClass.ARREARS_90_PLUS_DAYS
+        )
+        sector = str(record["institution_sector"])
+        segment = canonical_segment(str(record["asset_class"]))
+        obs = RawObservation(
+            source_id=f"APRA_PERF_{sector.upper()}_{segment.upper()}_{metric.upper()}",
+            source_type=SourceType.APRA_PERFORMANCE,
+            segment=segment,
+            parameter=parameter,
+            data_definition_class=definition,
+            value=float(record["value"]),
+            as_of_date=record["as_of_date"],
+            reporting_basis="APRA quarterly ADI performance time series",
+            methodology_note=(
+                f"APRA ADI Performance {sector} {metric}; "
+                f"{record.get('_source_sheet', '')} row {record.get('_source_row', '')}"
+            ),
+            period_end=record["as_of_date"],
+            source_url=(
+                "https://www.apra.gov.au/quarterly-authorised-deposit-taking-"
+                "institution-performance-statistics"
+            ),
+            page_or_table_ref=str(record.get("_source_sheet", "")) or None,
+        )
+        if _raw_observation_already_present(session, obs):
+            continue
+        from src.registry import _obs_to_row
+        session.add(_obs_to_row(obs))
+        inserted += 1
+    return inserted
+
+
+def _migrate_apra_qpex_workbook(session, workbook: Path) -> int:
+    adapter = ApraQpexAdapter()
+    df = adapter.normalise(workbook)
+    inserted = 0
+    for record in df.to_dict(orient="records"):
+        sector = str(record["institution_sector"])
+        segment = canonical_segment(str(record["asset_class"]))
+        obs = RawObservation(
+            source_id=f"APRA_QPEX_{sector.upper()}_{segment.upper()}_NPL_RATIO",
+            source_type=SourceType.APRA_QPEX,
+            segment=segment,
+            parameter="npl",
+            data_definition_class=DataDefinitionClass.NPL_RATIO,
+            value=float(record["value"]),
+            as_of_date=record["as_of_date"],
+            reporting_basis="APRA quarterly property exposures time series",
+            methodology_note=(
+                f"APRA QPEX {sector} {segment} npl_ratio; "
+                f"{record.get('_source_sheet', '')} numerator row "
+                f"{record.get('_numerator_row', '')} denominator row "
+                f"{record.get('_denominator_row', '')}"
+            ),
+            period_end=record["as_of_date"],
+            source_url=(
+                "https://www.apra.gov.au/quarterly-authorised-deposit-taking-"
+                "institution-property-exposures-statistics"
+            ),
+            page_or_table_ref=str(record.get("_source_sheet", "")) or None,
+        )
+        if _raw_observation_already_present(session, obs):
+            continue
+        from src.registry import _obs_to_row
+        session.add(_obs_to_row(obs))
+        inserted += 1
+    return inserted
+
+
 def migrate(db_path: str | Path) -> tuple[int, int, int]:
     """Run migration. Returns (scanned, migrated, skipped)."""
     engine = create_engine_and_schema(db_path)
@@ -244,6 +382,7 @@ def migrate(db_path: str | Path) -> tuple[int, int, int]:
 
     scanned = migrated = skipped = 0
     with factory() as s:
+        migrated += _migrate_staged_apra_time_series(s)
         migrated += _migrate_staged_spin_pdfs(s)
 
         legacy_rows = s.scalars(
@@ -272,10 +411,15 @@ def migrate(db_path: str | Path) -> tuple[int, int, int]:
                     product=None,
                     parameter=parameter,
                     data_definition_class=definition_class,
-                    value=row.value,
+                    # Commentary rows are tagged narrative; value is None
+                    # by contract. All other parameters preserve the
+                    # legacy numeric value.
+                    value=None if parameter == "commentary" else row.value,
                     as_of_date=row.value_date,
-                    reporting_basis=f"legacy BenchmarkEntry v{row.version}",
-                    methodology_note=row.notes or f"migrated from {row.publisher}",
+                    reporting_basis=_infer_reporting_basis(
+                        SourceType(row.source_type), row.source_id, row.notes or "",
+                    ),
+                    methodology_note=row.notes or f"{row.publisher} disclosure note unavailable",
                     sample_size_n=None,
                     period_start=None,
                     period_end=row.value_date,
