@@ -111,7 +111,7 @@ def test_to_docx_round_trip(populated_registry, tmp_path: Path) -> None:
     assert "raw, source-attributable" in text
     # Section headings (rendered as paragraphs in docx_helpers)
     assert "1. Executive Summary" in text
-    assert "2. Latest figures by segment and metric" in text
+    assert "2. Latest figures by metric and segment" in text
     assert "3. Cross-source validation summary" in text
     assert "4. Big 4 vs non-bank disclosure spread" in text
     assert "5. Provenance" in text

@@ -71,21 +71,19 @@ def test_generate_does_not_include_adjusted_or_triangulated_sections(populated_r
 
 
 def test_per_source_observations_carry_full_attribution(populated_registry):
-    """Section 2 nests observations under by_parameter[].rows[]."""
+    """Section 2 is metric-first: per_source_observations[].by_segment[].rows[]."""
     report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
     data = report.generate()
     blocks = data["per_source_observations"]
-    assert any(b["segment"] == "commercial_property" for b in blocks)
-    cre = next(b for b in blocks if b["segment"] == "commercial_property")
-    pd_block = next(p for p in cre["by_parameter"] if p["parameter"] == "pd")
-    cba = next(r for r in pd_block["rows"] if r["source_id"] == "cba")
+    pd_metric = next(m for m in blocks if m["parameter"] == "pd")
+    cre = next(s for s in pd_metric["by_segment"] if s["segment"] == "commercial_property")
+    cba = next(r for r in cre["rows"] if r["source_id"] == "cba")
     assert cba["latest_as_of"]
     assert cba["reporting_basis"]
     assert cba["methodology_note"]
     assert cba["page_or_table_ref"] == "CR6 row 4"
     assert cba["friendly_name"] == "Commonwealth Bank"
-    # Cohort medians populated with at least the Big 4 row.
-    cohorts = {m["cohort"] for m in pd_block["cohort_medians"]}
+    cohorts = {m["cohort"] for m in cre["cohort_medians"]}
     assert "peer_big4" in cohorts
 
 
@@ -96,8 +94,8 @@ def test_markdown_contains_raw_only_banner(populated_registry):
     assert "Data as-of:" in md
     assert "## 0a. Glossary of terms" in md
     assert "## 0b. Segment definitions" in md
-    assert "## 2. Latest figures by segment and metric" in md
-    assert "#### Probability of default (PD)" in md
+    assert "## 2. Latest figures by metric and segment" in md
+    assert "### Probability of default (PD)" in md
     assert "Cohort medians" in md
     assert "## 3. Cross-source validation summary" in md
     assert "## 4. Big 4 vs non-bank disclosure spread (informational only)" in md
@@ -187,7 +185,9 @@ def test_glossary_covers_all_rendered_segments(populated_registry):
     data = report.generate()
     glossary_segments = {row["segment"] for row in data["segment_glossary"]}
     rendered_segments = {
-        row["segment"] for row in data["per_source_observations"]
+        seg["segment"]
+        for metric in data["per_source_observations"]
+        for seg in metric["by_segment"]
     }
     assert rendered_segments.issubset(glossary_segments)
 

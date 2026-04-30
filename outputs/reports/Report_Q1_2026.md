@@ -1,5 +1,5 @@
 # External Benchmark Report — Q1 2026
-_Generated: 2026-04-30T10:08:49+00:00 · Data as-of: 2019-03-31–2026-02-28_
+_Generated: 2026-04-30T11:12:28+00:00 · Data as-of: 2019-03-31–2026-02-28_
 
 > **The engine publishes raw, source-attributable observations only.** No adjustments — definition alignment, selection bias, downturn overlays — are applied. These have moved to consuming projects (PD workbook for PD, LGD project for LGD, etc.) so each use case can manage its own complete adjustment chain. Consumers of this report apply their own adjustments per their model documentation.
 
@@ -47,7 +47,7 @@ Big 4 peer commercial property values cluster between 2.10% and 2.60% (median 2.
 - 52 distinct sources: 15 Big 4 peers + 0 other major bank (Macquarie) + 3 non-bank peers + 34 reference / regulator / rating-agency / industry-body.
 - Every value in this report is the source-published raw figure. No multipliers, no triangulation, no adjustment.
 
-## 2. Latest figures by segment and metric
+## 2. Latest figures by metric and segment
 
 ### 2a. PD overview by segment
 
@@ -66,55 +66,13 @@ _Quick guide to where peer PDs exist. Segments with "—" in both PD columns are
 | SME Corporate | - | 0 | - | 0 | Arrears, Non-performing loans (NPL) |
 | Working Capital Unsecured | - | 0 | - | 0 | Loss given default (LGD) |
 
-_The breakouts below show every source's latest figure plus the median across every vintage we have for that source. Within a metric, peer banks come first, then non-bank peers, then references (regulators, rating agencies, regulatory floors). A **Cohort medians** sub-table follows each metric._
+_Below is one section per metric (PD first, then LGD, Arrears, NPL, Impaired loans, Loss rate, Qualitative commentary). Within each metric you'll find one sub-table per segment that has data for that metric, and a list of segments with no published value at the top of the metric section. Inside every sub-table, peer banks come first, then non-bank peers, then references (regulators, rating agencies, regulatory floors)._
 
-### ADI Sector Total
+### Probability of default (PD)
 
-#### Arrears
+_No published Probability of default (PD) for: ADI Sector Total, Bridging Residential, Invoice Finance, Residential Mortgage Specialist, SME Corporate, Working Capital Unsecured._
 
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Regulator aggregate | APRA performance (all ADIs, 90+ DPD) | 0.6000% | 2025-12-31 | 0.6000% | 16 |
-|  | APRA performance (banks, 90+ DPD) | 0.6000% | 2025-12-31 | 0.6000% | 16 |
-|  | APRA performance (major banks, 90+ DPD) | 0.7000% | 2025-12-31 | 0.6500% | 16 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Regulator aggregate | 3 | 0.6000% |
-
-#### Non-performing loans (NPL)
-
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Regulator aggregate | APRA performance (all ADIs, NPL) | 1.1000% | 2025-12-31 | 1.0000% | 16 |
-|  | APRA performance (banks, NPL) | 1.1000% | 2025-12-31 | 1.0000% | 16 |
-|  | APRA performance (major banks, NPL) | 1.1000% | 2025-12-31 | 1.0500% | 16 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Regulator aggregate | 3 | 1.1000% |
-
-### Bridging Residential
-
-#### Loss given default (LGD)
-
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Non-bank peers | La Trobe Financial (bridging realised loss) | 8.0000% | 2024-12-31 | 8.0000% | 1 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Non-bank peers | 1 | 8.0000% |
-
-### Commercial Property
-
-#### Probability of default (PD)
+#### Commercial Property
 
 | Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
 | --- | --- | ---:| --- | ---:| ---:|
@@ -129,54 +87,7 @@ _Cohort medians (across the latest value of every source):_
 | --- | ---:| ---:|
 | Big 4 banks | 4 | 2.3500% |
 
-#### Loss given default (LGD)
-
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Regulatory floor | APS 113 LGD floor (commercial) | 17.5000% | 2024-12-31 | 17.5000% | 1 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Regulatory floor | 1 | 17.5000% |
-
-#### Impaired loans
-
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Regulator aggregate | APRA QPEX (commercial property impaired ratio) | 1.2000% | 2024-12-31 | 1.2000% | 1 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Regulator aggregate | 1 | 1.2000% |
-
-#### Non-performing loans (NPL)
-
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Regulator aggregate | APRA QPEX (all ADIs, NPL) | 0.6577% | 2025-12-31 | 0.6825% | 16 |
-|  | APRA QPEX (banks, NPL) | 0.6582% | 2025-12-31 | 0.6830% | 16 |
-|  | APRA QPEX (major banks, NPL) | 0.6951% | 2025-12-31 | 0.7877% | 16 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Regulator aggregate | 3 | 0.6582% |
-
-#### Qualitative commentary
-
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Non-bank peers | Metrics Credit (commentary) | _(qualitative)_ | 2024-12-31 | _(qualitative)_ | 1 |
-|  | Qualitas (commentary) | _(qualitative)_ | 2024-12-31 | _(qualitative)_ | 1 |
-
-### Corporate SME
-
-#### Probability of default (PD)
+#### Corporate SME
 
 | Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
 | --- | --- | ---:| --- | ---:| ---:|
@@ -191,21 +102,7 @@ _Cohort medians (across the latest value of every source):_
 | --- | ---:| ---:|
 | Big 4 banks | 4 | 3.0000% |
 
-#### Arrears
-
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Rating agency | S&P (corporate default, global IG) | 1.7000% | 2024-12-31 | 1.7000% | 1 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Rating agency | 1 | 1.7000% |
-
-### Development
-
-#### Probability of default (PD)
+#### Development
 
 | Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
 | --- | --- | ---:| --- | ---:| ---:|
@@ -220,50 +117,7 @@ _Cohort medians (across the latest value of every source):_
 | --- | ---:| ---:|
 | Regulatory floor | 4 | 1.8000% |
 
-#### Loss given default (LGD)
-
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Regulatory floor | APS 113 slotting (Strong / Good / Satisfactory / Weak): Good LGD | 32.5000% | 2024-12-31 | 32.5000% | 1 |
-|  | APS 113 slotting (Strong / Good / Satisfactory / Weak): Satisfactory LGD | 37.5000% | 2024-12-31 | 37.5000% | 1 |
-|  | APS 113 slotting (Strong / Good / Satisfactory / Weak): Strong LGD | 27.5000% | 2024-12-31 | 27.5000% | 1 |
-|  | APS 113 slotting (Strong / Good / Satisfactory / Weak): Weak LGD | 45.0000% | 2024-12-31 | 45.0000% | 1 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Regulatory floor | 4 | 35.0000% |
-
-### Invoice Finance
-
-#### Loss given default (LGD)
-
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Regulatory floor | APS 113 LGD floor (invoice finance) | 35.0000% | 2024-12-31 | 35.0000% | 1 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Regulatory floor | 1 | 35.0000% |
-
-#### Arrears
-
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Industry body | AFIA (invoice finance loss rate) | 1.2000% | 2024-12-31 | 1.2000% | 1 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Industry body | 1 | 1.2000% |
-
-### Residential Mortgage
-
-#### Probability of default (PD)
+#### Residential Mortgage
 
 | Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
 | --- | --- | ---:| --- | ---:| ---:|
@@ -278,7 +132,62 @@ _Cohort medians (across the latest value of every source):_
 | --- | ---:| ---:|
 | Big 4 banks | 4 | 0.8400% |
 
-#### Loss given default (LGD)
+### Loss given default (LGD)
+
+_No published Loss given default (LGD) for: ADI Sector Total, Corporate SME, Residential Mortgage Specialist, SME Corporate._
+
+#### Bridging Residential
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Non-bank peers | La Trobe Financial (bridging realised loss) | 8.0000% | 2024-12-31 | 8.0000% | 1 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Non-bank peers | 1 | 8.0000% |
+
+#### Commercial Property
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Regulatory floor | APS 113 LGD floor (commercial) | 17.5000% | 2024-12-31 | 17.5000% | 1 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Regulatory floor | 1 | 17.5000% |
+
+#### Development
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Regulatory floor | APS 113 slotting (Strong / Good / Satisfactory / Weak): Good LGD | 32.5000% | 2024-12-31 | 32.5000% | 1 |
+|  | APS 113 slotting (Strong / Good / Satisfactory / Weak): Satisfactory LGD | 37.5000% | 2024-12-31 | 37.5000% | 1 |
+|  | APS 113 slotting (Strong / Good / Satisfactory / Weak): Strong LGD | 27.5000% | 2024-12-31 | 27.5000% | 1 |
+|  | APS 113 slotting (Strong / Good / Satisfactory / Weak): Weak LGD | 45.0000% | 2024-12-31 | 45.0000% | 1 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Regulatory floor | 4 | 35.0000% |
+
+#### Invoice Finance
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Regulatory floor | APS 113 LGD floor (invoice finance) | 35.0000% | 2024-12-31 | 35.0000% | 1 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Regulatory floor | 1 | 35.0000% |
+
+#### Residential Mortgage
 
 | Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
 | --- | --- | ---:| --- | ---:| ---:|
@@ -293,7 +202,63 @@ _Cohort medians (across the latest value of every source):_
 | Big 4 banks | 2 | 23.0000% |
 | Regulatory floor | 1 | 7.5000% |
 
-#### Arrears
+#### Working Capital Unsecured
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Big 4 banks | Commonwealth Bank (SME unsecured LGD) | 48.0000% | 2024-12-31 | 48.0000% | 1 |
+| Regulatory floor | APS 113 LGD floor (senior unsecured) | 45.0000% | 2024-12-31 | 45.0000% | 1 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Big 4 banks | 1 | 48.0000% |
+| Regulatory floor | 1 | 45.0000% |
+
+### Arrears
+
+_No published Arrears for: Bridging Residential, Commercial Property, Development, Working Capital Unsecured._
+
+#### ADI Sector Total
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Regulator aggregate | APRA performance (all ADIs, 90+ DPD) | 0.6000% | 2025-12-31 | 0.6000% | 16 |
+|  | APRA performance (banks, 90+ DPD) | 0.6000% | 2025-12-31 | 0.6000% | 16 |
+|  | APRA performance (major banks, 90+ DPD) | 0.7000% | 2025-12-31 | 0.6500% | 16 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Regulator aggregate | 3 | 0.6000% |
+
+#### Corporate SME
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Rating agency | S&P (corporate default, global IG) | 1.7000% | 2024-12-31 | 1.7000% | 1 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Rating agency | 1 | 1.7000% |
+
+#### Invoice Finance
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Industry body | AFIA (invoice finance loss rate) | 1.2000% | 2024-12-31 | 1.2000% | 1 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Industry body | 1 | 1.2000% |
+
+#### Residential Mortgage
 
 | Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
 | --- | --- | ---:| --- | ---:| ---:|
@@ -309,7 +274,79 @@ _Cohort medians (across the latest value of every source):_
 | Regulator aggregate | 1 | 0.9000% |
 | Rating agency | 3 | 0.9300% |
 
-#### Non-performing loans (NPL)
+#### Residential Mortgage Specialist
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Rating agency | S&P SPIN (non-conforming RMBS, 30+ DPD) | 3.9000% | 2026-02-28 | 3.9000% | 1 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Rating agency | 1 | 3.9000% |
+
+#### SME Corporate
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Regulator aggregate | RBA FSR (business arrears) | 1.4000% | 2024-12-31 | 1.4000% | 1 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Regulator aggregate | 1 | 1.4000% |
+
+### Impaired loans
+
+_No published Impaired loans for: ADI Sector Total, Bridging Residential, Corporate SME, Development, Invoice Finance, Residential Mortgage, Residential Mortgage Specialist, SME Corporate, Working Capital Unsecured._
+
+#### Commercial Property
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Regulator aggregate | APRA QPEX (commercial property impaired ratio) | 1.2000% | 2024-12-31 | 1.2000% | 1 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Regulator aggregate | 1 | 1.2000% |
+
+### Non-performing loans (NPL)
+
+_No published Non-performing loans (NPL) for: Bridging Residential, Corporate SME, Development, Invoice Finance, Residential Mortgage Specialist, Working Capital Unsecured._
+
+#### ADI Sector Total
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Regulator aggregate | APRA performance (all ADIs, NPL) | 1.1000% | 2025-12-31 | 1.0000% | 16 |
+|  | APRA performance (banks, NPL) | 1.1000% | 2025-12-31 | 1.0000% | 16 |
+|  | APRA performance (major banks, NPL) | 1.1000% | 2025-12-31 | 1.0500% | 16 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Regulator aggregate | 3 | 1.1000% |
+
+#### Commercial Property
+
+| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
+| --- | --- | ---:| --- | ---:| ---:|
+| Regulator aggregate | APRA QPEX (all ADIs, NPL) | 0.6577% | 2025-12-31 | 0.6825% | 16 |
+|  | APRA QPEX (banks, NPL) | 0.6582% | 2025-12-31 | 0.6830% | 16 |
+|  | APRA QPEX (major banks, NPL) | 0.6951% | 2025-12-31 | 0.7877% | 16 |
+
+_Cohort medians (across the latest value of every source):_
+
+| Cohort | N sources | Median of latest |
+| --- | ---:| ---:|
+| Regulator aggregate | 3 | 0.6582% |
+
+#### Residential Mortgage
 
 | Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
 | --- | --- | ---:| --- | ---:| ---:|
@@ -323,35 +360,7 @@ _Cohort medians (across the latest value of every source):_
 | --- | ---:| ---:|
 | Regulator aggregate | 3 | 0.9923% |
 
-### Residential Mortgage Specialist
-
-#### Arrears
-
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Rating agency | S&P SPIN (non-conforming RMBS, 30+ DPD) | 3.9000% | 2026-02-28 | 3.9000% | 1 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Rating agency | 1 | 3.9000% |
-
-### SME Corporate
-
-#### Arrears
-
-| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
-| --- | --- | ---:| --- | ---:| ---:|
-| Regulator aggregate | RBA FSR (business arrears) | 1.4000% | 2024-12-31 | 1.4000% | 1 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Regulator aggregate | 1 | 1.4000% |
-
-#### Non-performing loans (NPL)
+#### SME Corporate
 
 | Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
 | --- | --- | ---:| --- | ---:| ---:|
@@ -363,21 +372,16 @@ _Cohort medians (across the latest value of every source):_
 | --- | ---:| ---:|
 | Regulator aggregate | 1 | 1.3000% |
 
-### Working Capital Unsecured
+### Qualitative commentary
 
-#### Loss given default (LGD)
+_No published Qualitative commentary for: ADI Sector Total, Bridging Residential, Corporate SME, Development, Invoice Finance, Residential Mortgage, Residential Mortgage Specialist, SME Corporate, Working Capital Unsecured._
+
+#### Commercial Property
 
 | Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |
 | --- | --- | ---:| --- | ---:| ---:|
-| Big 4 banks | Commonwealth Bank (SME unsecured LGD) | 48.0000% | 2024-12-31 | 48.0000% | 1 |
-| Regulatory floor | APS 113 LGD floor (senior unsecured) | 45.0000% | 2024-12-31 | 45.0000% | 1 |
-
-_Cohort medians (across the latest value of every source):_
-
-| Cohort | N sources | Median of latest |
-| --- | ---:| ---:|
-| Big 4 banks | 1 | 48.0000% |
-| Regulatory floor | 1 | 45.0000% |
+| Non-bank peers | Metrics Credit (commentary) | _(qualitative)_ | 2024-12-31 | _(qualitative)_ | 1 |
+|  | Qualitas (commentary) | _(qualitative)_ | 2024-12-31 | _(qualitative)_ | 1 |
 
 
 ## 3. Cross-source validation summary

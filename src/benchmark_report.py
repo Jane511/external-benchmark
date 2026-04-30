@@ -172,10 +172,8 @@ class BenchmarkCalibrationReport:
             lines.append(f"- {bullet}")
         lines.append("")
 
-        # 2 — restructured: per segment, per parameter, with cohort
-        # medians under each parameter table. Latest value + median over
-        # all available vintages per source. Friendly publisher names.
-        lines.append("## 2. Latest figures by segment and metric")
+        # 2 — restructured: per metric, per segment, then cohort.
+        lines.append("## 2. Latest figures by metric and segment")
         lines.append("")
 
         # 2a — PD overview at a glance. One row per segment with the
@@ -210,25 +208,35 @@ class BenchmarkCalibrationReport:
             lines.append("")
 
         lines.append(
-            "_The breakouts below show every source's latest figure plus "
-            "the median across every vintage we have for that source. "
-            "Within a metric, peer banks come first, then non-bank peers, "
-            "then references (regulators, rating agencies, regulatory "
-            "floors). A **Cohort medians** sub-table follows each metric._"
+            "_Below is one section per metric (PD first, then LGD, "
+            "Arrears, NPL, Impaired loans, Loss rate, Qualitative "
+            "commentary). Within each metric you'll find one sub-table "
+            "per segment that has data for that metric, and a list of "
+            "segments with no published value at the top of the metric "
+            "section. Inside every sub-table, peer banks come first, "
+            "then non-bank peers, then references (regulators, rating "
+            "agencies, regulatory floors)._"
         )
         lines.append("")
         if not data["per_source_observations"]:
             lines.append("_No observations recorded._")
-        for seg_block in data["per_source_observations"]:
-            lines.append(f"### {seg_block['segment_label']}")
+        for metric_block in data["per_source_observations"]:
+            lines.append(f"### {metric_block['label']}")
             lines.append("")
-            for param_block in seg_block["by_parameter"]:
-                lines.append(f"#### {param_block['label']}")
+            if metric_block["segments_without_data"]:
+                lines.append(
+                    f"_No published {metric_block['label']} for: "
+                    + ", ".join(metric_block["segments_without_data"])
+                    + "._"
+                )
+                lines.append("")
+            for seg_block in metric_block["by_segment"]:
+                lines.append(f"#### {seg_block['segment_label']}")
                 lines.append("")
                 lines.append("| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |")
                 lines.append("| --- | --- | ---:| --- | ---:| ---:|")
                 last_cohort: str | None = None
-                for r in param_block["rows"]:
+                for r in seg_block["rows"]:
                     cohort_cell = (
                         r["cohort_label"] if r["cohort"] != last_cohort else ""
                     )
@@ -242,7 +250,7 @@ class BenchmarkCalibrationReport:
                         f"| {r['n_vintages']} |"
                     )
                 lines.append("")
-                medians = param_block["cohort_medians"]
+                medians = seg_block["cohort_medians"]
                 if medians:
                     lines.append("_Cohort medians (across the latest value of every source):_")
                     lines.append("")
@@ -491,7 +499,7 @@ class BenchmarkCalibrationReport:
         for line in data["executive_summary"]["lines"]:
             add_bullet(doc, line)
 
-        add_heading(doc, "2. Latest figures by segment and metric", level=2)
+        add_heading(doc, "2. Latest figures by metric and segment", level=2)
 
         pd_overview = data.get("pd_overview") or []
         if pd_overview:
@@ -522,15 +530,27 @@ class BenchmarkCalibrationReport:
 
         add_paragraph(
             doc,
-            "The breakouts below show every source's latest figure plus "
-            "the median across every vintage. Within a metric, peer banks "
-            "come first, then non-bank peers, then references.",
+            "Below is one section per metric (PD first, then LGD, "
+            "Arrears, NPL, etc.). Within each metric you'll find one "
+            "sub-table per segment that has data, and a list of "
+            "segments with no published value. Inside every sub-table, "
+            "peer banks come first, then non-bank peers, then references.",
             italic=True,
         )
-        for seg_block in data["per_source_observations"]:
-            add_heading(doc, seg_block["segment_label"], level=3)
-            for param_block in seg_block["by_parameter"]:
-                add_heading(doc, param_block["label"], level=4)
+        for metric_block in data["per_source_observations"]:
+            add_heading(doc, metric_block["label"], level=3)
+            if metric_block["segments_without_data"]:
+                add_paragraph(
+                    doc,
+                    "No published "
+                    + metric_block["label"]
+                    + " for: "
+                    + ", ".join(metric_block["segments_without_data"])
+                    + ".",
+                    italic=True,
+                )
+            for seg_block in metric_block["by_segment"]:
+                add_heading(doc, seg_block["segment_label"], level=4)
                 add_table(
                     doc,
                     headers=["cohort", "source", "latest", "as_of",
@@ -541,10 +561,10 @@ class BenchmarkCalibrationReport:
                          r["latest_as_of"],
                          _fmt_observation_value(r["median_value"]),
                          str(r["n_vintages"])]
-                        for r in param_block["rows"]
+                        for r in seg_block["rows"]
                     ],
                 )
-                medians = param_block["cohort_medians"]
+                medians = seg_block["cohort_medians"]
                 if medians:
                     add_paragraph(doc, "Cohort medians (across latest values):", italic=True)
                     add_table(
@@ -854,45 +874,94 @@ class BenchmarkCalibrationReport:
         return " ".join(sentences)
 
     def _build_per_source_observations(self, sets: list[ObservationSet]) -> list[dict[str, Any]]:
-        """One block per segment, internally grouped by parameter.
+        """Section 2 structure — metric first, then segment, then cohort.
 
-        Each parameter group renders as one table per cohort (Big 4,
-        Macquarie, non-bank peers, regulators, ...). For every source we
-        show its latest value plus the median across its available
-        vintages. We also compute a cohort-level median across the
-        latest values so the committee can see a single "Big 4 median"
-        / "Non-bank median" number per parameter without having to
-        eyeball the rows.
+        A reader looking for "PD for bridging" goes to the PD section
+        and scans for the bridging sub-table. If a metric isn't
+        published for a given segment, that segment is listed under
+        "No published <metric> for ..." at the top of the metric
+        section, so the absence is explicit.
+
+        Output shape::
+
+            [
+              {
+                "parameter": "pd",
+                "label": "Probability of default (PD)",
+                "segments_with_data":    ["Commercial Property", ...],
+                "segments_without_data": ["Bridging Residential", ...],
+                "by_segment": [
+                  {
+                    "segment": "commercial_property",
+                    "segment_label": "Commercial Property",
+                    "rows": [{cohort, source, latest, ...}, ...],
+                    "cohort_medians": [...],
+                  },
+                  ...
+                ],
+              },
+              ...
+            ]
         """
         from src.models import cohort_for
 
-        out: list[dict[str, Any]] = []
+        # Inventory every segment that has any observation, so we can
+        # tell readers which segments are missing this metric.
+        all_segments_with_obs = {s.segment for s in sets if s.observations}
+        all_segment_labels = {
+            seg: segment_label(seg) for seg in all_segments_with_obs
+        }
+
+        # Bucket observations by (parameter, segment, source_id).
+        by_param_segment: dict[str, dict[str, dict[str, list[Any]]]] = {}
         for s in sets:
             if not s.observations:
                 continue
-
-            # observation -> (parameter, cohort_value) bucket, then collapse
-            # multi-vintage rows down to a single source-level row.
-            by_param: dict[str, dict[str, list[Any]]] = {}
             for o in s.observations:
-                bucket = by_param.setdefault(o.parameter, {})
-                bucket.setdefault(o.source_id, []).append(o)
+                (
+                    by_param_segment
+                    .setdefault(o.parameter, {})
+                    .setdefault(s.segment, {})
+                    .setdefault(o.source_id, [])
+                    .append(o)
+                )
 
-            param_blocks: list[dict[str, Any]] = []
-            for parameter, sources in by_param.items():
+        _COHORT_ORDER = {
+            "peer_big4": 0,
+            "peer_other_major_bank": 1,
+            "peer_non_bank": 2,
+            "regulator_aggregate": 3,
+            "rating_agency": 4,
+            "regulatory_floor": 5,
+            "industry_body": 6,
+        }
+        _PARAM_ORDER = {
+            "pd": 0, "lgd": 1, "arrears": 2, "impaired": 3,
+            "npl": 4, "loss_rate": 5, "commentary": 6,
+        }
+
+        out: list[dict[str, Any]] = []
+        for parameter in sorted(
+            by_param_segment, key=lambda p: _PARAM_ORDER.get(p, 99),
+        ):
+            segments_dict = by_param_segment[parameter]
+            by_segment_blocks: list[dict[str, Any]] = []
+            segments_with_data: list[str] = []
+
+            for segment in sorted(segments_dict, key=lambda s: segment_label(s).lower()):
+                sources_dict = segments_dict[segment]
                 rows: list[dict[str, Any]] = []
-                for source_id, obs_list in sources.items():
+                for source_id, obs_list in sources_dict.items():
                     obs_sorted = sorted(obs_list, key=lambda o: o.as_of_date, reverse=True)
                     latest = obs_sorted[0]
                     numeric = [o.value for o in obs_sorted if o.value is not None]
                     median_value = _median(numeric) if numeric else None
+                    coh = cohort_for(latest.source_type, source_id).value
                     rows.append({
                         "source_id": source_id,
                         "friendly_name": friendly_name(source_id),
-                        "cohort": cohort_for(latest.source_type, source_id).value,
-                        "cohort_label": cohort_label(
-                            cohort_for(latest.source_type, source_id).value
-                        ),
+                        "cohort": coh,
+                        "cohort_label": cohort_label(coh),
                         "source_type": latest.source_type.value,
                         "latest_value": latest.value,
                         "latest_as_of": latest.as_of_date.isoformat(),
@@ -904,57 +973,47 @@ class BenchmarkCalibrationReport:
                         "source_url": latest.source_url,
                     })
 
-                # Cohort-level medians across the *latest* values.
-                cohort_medians: list[dict[str, Any]] = []
+                # Cohort-level median across latest values (per metric × segment).
                 grouped: dict[str, list[float]] = {}
                 for r in rows:
                     if r["latest_value"] is None:
                         continue
                     grouped.setdefault(r["cohort"], []).append(r["latest_value"])
-                for cohort_value, values in grouped.items():
-                    if not values:
-                        continue
-                    cohort_medians.append({
+                cohort_medians = [
+                    {
                         "cohort": cohort_value,
                         "cohort_label": cohort_label(cohort_value),
                         "median": _median(values),
                         "n": len(values),
-                    })
+                    }
+                    for cohort_value, values in grouped.items() if values
+                ]
 
-                # Stable cohort order: peers first, then references.
-                _COHORT_ORDER = {
-                    "peer_big4": 0,
-                    "peer_other_major_bank": 1,
-                    "peer_non_bank": 2,
-                    "regulator_aggregate": 3,
-                    "rating_agency": 4,
-                    "regulatory_floor": 5,
-                    "industry_body": 6,
-                }
                 rows.sort(key=lambda r: (
                     _COHORT_ORDER.get(r["cohort"], 99),
                     r["friendly_name"].lower(),
                 ))
                 cohort_medians.sort(key=lambda c: _COHORT_ORDER.get(c["cohort"], 99))
 
-                param_blocks.append({
-                    "parameter": parameter,
-                    "label": parameter_label(parameter),
+                by_segment_blocks.append({
+                    "segment": segment,
+                    "segment_label": segment_label(segment),
                     "rows": rows,
                     "cohort_medians": cohort_medians,
                 })
+                segments_with_data.append(segment_label(segment))
 
-            # Stable parameter order so reports are deterministic.
-            _PARAM_ORDER = {
-                "pd": 0, "lgd": 1, "arrears": 2, "impaired": 3,
-                "npl": 4, "loss_rate": 5, "commentary": 6,
-            }
-            param_blocks.sort(key=lambda b: _PARAM_ORDER.get(b["parameter"], 99))
+            segments_without_data = sorted(
+                label for seg, label in all_segment_labels.items()
+                if seg not in segments_dict
+            )
 
             out.append({
-                "segment": s.segment,
-                "segment_label": segment_label(s.segment),
-                "by_parameter": param_blocks,
+                "parameter": parameter,
+                "label": parameter_label(parameter),
+                "segments_with_data": segments_with_data,
+                "segments_without_data": segments_without_data,
+                "by_segment": by_segment_blocks,
             })
         return out
 
