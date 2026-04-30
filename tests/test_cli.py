@@ -377,7 +377,7 @@ def test_report_benchmark_markdown_writes_raw_only_file(db_path, tmp_path) -> No
     assert result.exit_code == 0
     text = out.read_text(encoding="utf-8")
     assert "## 1. Executive Summary" in text
-    assert "## 2. Per-source raw observations by segment" in text
+    assert "## 2. Latest figures by segment and metric" in text
     assert "raw, source-attributable observations only" in text
 
 
