@@ -1,5 +1,5 @@
 # External Benchmark Report — Q1 2026
-_Generated: 2026-04-30T09:52:08+00:00 · Data as-of: 2019-03-31–2026-02-28_
+_Generated: 2026-04-30T10:08:49+00:00 · Data as-of: 2019-03-31–2026-02-28_
 
 > **The engine publishes raw, source-attributable observations only.** No adjustments — definition alignment, selection bias, downturn overlays — are applied. These have moved to consuming projects (PD workbook for PD, LGD project for LGD, etc.) so each use case can manage its own complete adjustment chain. Consumers of this report apply their own adjustments per their model documentation.
 
@@ -49,7 +49,24 @@ Big 4 peer commercial property values cluster between 2.10% and 2.60% (median 2.
 
 ## 2. Latest figures by segment and metric
 
-_Each segment's data is broken out by metric (PD, LGD, NPL, etc). Within a metric, peer banks come first, then non-bank peers, then references (regulators, rating agencies, regulatory floors). The **Median** column is the median over every vintage we have for that source. The **Cohort median** rows summarise the group as a single number._
+### 2a. PD overview by segment
+
+_Quick guide to where peer PDs exist. Segments with "—" in both PD columns are not published as a PD by any peer — typically because the segment is a system-wide aggregate (regulator NPL / arrears) or a specialist book where peers publish loss expense / realised loss instead. The full breakout is in the per-metric tables below._
+
+| Segment | Big 4 median PD | Big 4 N | Non-bank peer median PD | Non-bank N | Other metrics in this segment |
+| --- | ---:| ---:| ---:| ---:| --- |
+| ADI Sector Total | - | 0 | - | 0 | Arrears, Non-performing loans (NPL) |
+| Bridging Residential | - | 0 | - | 0 | Loss given default (LGD) |
+| Commercial Property | 2.3500% | 4 | - | 0 | Qualitative commentary, Impaired loans, Loss given default (LGD), Non-performing loans (NPL) |
+| Corporate SME | 3.0000% | 4 | - | 0 | Arrears |
+| Development | - | 0 | - | 0 | Loss given default (LGD) |
+| Invoice Finance | - | 0 | - | 0 | Arrears, Loss given default (LGD) |
+| Residential Mortgage | 0.8400% | 4 | - | 0 | Arrears, Loss given default (LGD), Non-performing loans (NPL) |
+| Residential Mortgage Specialist | - | 0 | - | 0 | Arrears |
+| SME Corporate | - | 0 | - | 0 | Arrears, Non-performing loans (NPL) |
+| Working Capital Unsecured | - | 0 | - | 0 | Loss given default (LGD) |
+
+_The breakouts below show every source's latest figure plus the median across every vintage we have for that source. Within a metric, peer banks come first, then non-bank peers, then references (regulators, rating agencies, regulatory floors). A **Cohort medians** sub-table follows each metric._
 
 ### ADI Sector Total
 
@@ -391,47 +408,6 @@ _peer_big4_vs_non_bank_ratio = median(peer_non_bank values) / median(peer_big4 v
 | Corporate SME | 3.0000% | - | - | 4 | 0 |
 | Residential Mortgage | 0.8900% | - | - | 6 | 0 |
 | Working Capital Unsecured | 48.0000% | - | - | 1 | 0 |
-
-### 4a. Reference anchors (excluded from peer arithmetic)
-
-_Macquarie, regulator aggregates, rating-agency indices, regulatory floors and industry-body references are listed here for context. None are used to compute the Big 4 spread or peer-vs-non-bank ratio above._
-
-| Segment | Cohort | Source | Value | As-of |
-| --- | --- | --- | ---:| --- |
-| ADI Sector Total | Regulator aggregate | APRA performance (all ADIs, 90+ DPD) | 0.6000% | 2025-12-31 |
-| ADI Sector Total | Regulator aggregate | APRA performance (all ADIs, NPL) | 1.1000% | 2025-12-31 |
-| ADI Sector Total | Regulator aggregate | APRA performance (banks, 90+ DPD) | 0.6000% | 2025-12-31 |
-| ADI Sector Total | Regulator aggregate | APRA performance (banks, NPL) | 1.1000% | 2025-12-31 |
-| ADI Sector Total | Regulator aggregate | APRA performance (major banks, 90+ DPD) | 0.7000% | 2025-12-31 |
-| ADI Sector Total | Regulator aggregate | APRA performance (major banks, NPL) | 1.1000% | 2025-12-31 |
-| Commercial Property | Regulator aggregate | APRA QPEX (all ADIs, NPL) | 0.6577% | 2025-12-31 |
-| Commercial Property | Regulator aggregate | APRA QPEX (banks, NPL) | 0.6582% | 2025-12-31 |
-| Commercial Property | Regulator aggregate | APRA QPEX (commercial property impaired ratio) | 1.2000% | 2024-12-31 |
-| Commercial Property | Regulator aggregate | APRA QPEX (major banks, NPL) | 0.6951% | 2025-12-31 |
-| Commercial Property | Regulatory floor | APS 113 LGD floor (commercial) | 17.5000% | 2024-12-31 |
-| Corporate SME | Rating agency | S&P (corporate default, global IG) | 1.7000% | 2024-12-31 |
-| Development | Regulatory floor | APS 113 slotting (Strong / Good / Satisfactory / Weak): Good LGD | 32.5000% | 2024-12-31 |
-| Development | Regulatory floor | APS 113 slotting (Strong / Good / Satisfactory / Weak): Good PD | 0.8000% | 2024-12-31 |
-| Development | Regulatory floor | APS 113 slotting (Strong / Good / Satisfactory / Weak): Satisfactory LGD | 37.5000% | 2024-12-31 |
-| Development | Regulatory floor | APS 113 slotting (Strong / Good / Satisfactory / Weak): Satisfactory PD | 2.8000% | 2024-12-31 |
-| Development | Regulatory floor | APS 113 slotting (Strong / Good / Satisfactory / Weak): Strong LGD | 27.5000% | 2024-12-31 |
-| Development | Regulatory floor | APS 113 slotting (Strong / Good / Satisfactory / Weak): Strong PD | 0.4000% | 2024-12-31 |
-| Development | Regulatory floor | APS 113 slotting (Strong / Good / Satisfactory / Weak): Weak LGD | 45.0000% | 2024-12-31 |
-| Development | Regulatory floor | APS 113 slotting (Strong / Good / Satisfactory / Weak): Weak PD | 8.0000% | 2024-12-31 |
-| Invoice Finance | Regulatory floor | APS 113 LGD floor (invoice finance) | 35.0000% | 2024-12-31 |
-| Invoice Finance | Industry body | AFIA (invoice finance loss rate) | 1.2000% | 2024-12-31 |
-| Residential Mortgage | Regulator aggregate | APRA QPEX (all ADIs, NPL) | 0.9863% | 2025-12-31 |
-| Residential Mortgage | Regulator aggregate | APRA QPEX (banks, NPL) | 0.9923% | 2025-12-31 |
-| Residential Mortgage | Regulator aggregate | APRA QPEX (major banks, NPL) | 1.0316% | 2025-12-31 |
-| Residential Mortgage | Regulator aggregate | RBA FSR (household 90+ arrears) | 0.9000% | 2024-12-31 |
-| Residential Mortgage | Rating agency | S&P SPIN (non-conforming RMBS, 30+ DPD) | 3.9000% | 2024-12-31 |
-| Residential Mortgage | Rating agency | S&P SPIN (prime RMBS, 30+ DPD) | 0.9300% | 2024-12-31 |
-| Residential Mortgage | Rating agency | S&P SPIN (prime RMBS, 30+ DPD) | 0.7900% | 2026-02-28 |
-| Residential Mortgage | Regulatory floor | APS 113 LGD floor (residential) | 7.5000% | 2024-12-31 |
-| Residential Mortgage Specialist | Rating agency | S&P SPIN (non-conforming RMBS, 30+ DPD) | 3.9000% | 2026-02-28 |
-| SME Corporate | Regulator aggregate | APRA performance (commercial NPL) | 1.3000% | 2024-12-31 |
-| SME Corporate | Regulator aggregate | RBA FSR (business arrears) | 1.4000% | 2024-12-31 |
-| Working Capital Unsecured | Regulatory floor | APS 113 LGD floor (senior unsecured) | 45.0000% | 2024-12-31 |
 
 ## 5. Provenance & methodology footnotes
 - **AFIA (invoice finance loss rate)** (industry_body): Industry-body aggregate — https://afia.asn.au/research
