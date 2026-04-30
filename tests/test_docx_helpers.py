@@ -111,12 +111,16 @@ def test_to_docx_round_trip(populated_registry, tmp_path: Path) -> None:
     assert "raw, source-attributable" in text
     # Section headings (rendered as paragraphs in docx_helpers)
     assert "1. Executive Summary" in text
-    assert "2. Per-source raw observations by segment" in text
+    assert "2. Latest figures by segment and metric" in text
     assert "3. Cross-source validation summary" in text
     assert "4. Big 4 vs non-bank disclosure spread" in text
     assert "5. Provenance" in text
-    # Glossary (Section 0) appears because commercial_property is rendered.
-    assert "0. Segment definitions" in text
+    # Glossaries: acronyms + segment definitions.
+    assert "0a. Glossary of terms" in text
+    assert "0b. Segment definitions" in text
+    # Friendly publisher names — the raw source_id "cba" should be
+    # rendered as "Commonwealth Bank" in the per-source table.
+    assert "Commonwealth Bank" in text
     # Commentary observation must show up as the qualitative tag, NOT 0.0%.
     assert "(qualitative)" in text or "qualitative" in text.lower()
     # The peer-ratio definition sentence is rendered verbatim under Sec 4.

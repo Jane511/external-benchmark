@@ -33,6 +33,13 @@ from typing import Any, Optional
 from src.observations import ObservationSet, PeerObservations
 from src.registry import BenchmarkRegistry
 from src.segment_glossary import SEGMENT_GLOSSARY
+from src.source_naming import (
+    ACRONYM_GLOSSARY,
+    cohort_label,
+    friendly_name,
+    parameter_label,
+    segment_label,
+)
 from src.trend import build_segment_trends
 from src.validation import (
     BIG4_SOURCE_IDS,
@@ -102,6 +109,7 @@ class BenchmarkCalibrationReport:
         out: dict[str, Any] = {
             "meta":                    self._build_meta(observation_sets),
             "banner":                  RAW_ONLY_BANNER,
+            "acronym_glossary":        self._build_acronym_glossary(),
             "segment_glossary":        self._build_segment_glossary(
                 observation_sets, segment_trend,
             ),
@@ -133,9 +141,20 @@ class BenchmarkCalibrationReport:
         lines.append(f"> {data['banner']}")
         lines.append("")
 
+        # 0a. Acronym glossary — short, always rendered.
+        acronym_glossary = data.get("acronym_glossary") or []
+        if acronym_glossary:
+            lines.append("## 0a. Glossary of terms")
+            lines.append("")
+            lines.append("| Term | Meaning |")
+            lines.append("| --- | --- |")
+            for row in acronym_glossary:
+                lines.append(f"| {row['term']} | {row['definition']} |")
+            lines.append("")
+
         glossary = data["segment_glossary"]
         if glossary:
-            lines.append("## 0. Segment definitions")
+            lines.append("## 0b. Segment definitions")
             lines.append("")
             lines.append("| Segment | Definition |")
             lines.append("| --- | --- |")
@@ -153,27 +172,57 @@ class BenchmarkCalibrationReport:
             lines.append(f"- {bullet}")
         lines.append("")
 
-        # 2
-        lines.append("## 2. Per-source raw observations by segment")
+        # 2 — restructured: per segment, per parameter, with cohort
+        # medians under each parameter table. Latest value + median over
+        # all available vintages per source. Friendly publisher names.
+        lines.append("## 2. Latest figures by segment and metric")
+        lines.append("")
+        lines.append(
+            "_Each segment's data is broken out by metric (PD, LGD, NPL, "
+            "etc). Within a metric, peer banks come first, then non-bank "
+            "peers, then references (regulators, rating agencies, "
+            "regulatory floors). The **Median** column is the median over "
+            "every vintage we have for that source. The **Cohort median** "
+            "rows summarise the group as a single number._"
+        )
+        lines.append("")
         if not data["per_source_observations"]:
             lines.append("_No observations recorded._")
         for seg_block in data["per_source_observations"]:
-            lines.append(f"### {seg_block['segment']}")
+            lines.append(f"### {seg_block['segment_label']}")
             lines.append("")
-            lines.append("| Source | Source type | Param | Value | As-of | Reporting basis | Methodology | Page/Table |")
-            lines.append("| --- | --- | --- | ---:| --- | --- | --- | --- |")
-            for obs in seg_block["observations"]:
-                lines.append(
-                    f"| {obs['source_id']} "
-                    f"| {obs['source_type']} "
-                    f"| {obs['parameter']} "
-                    f"| {_fmt_observation_value(obs['value'])} "
-                    f"| {obs['as_of_date']} "
-                    f"| {obs['reporting_basis']} "
-                    f"| {obs['methodology_note']} "
-                    f"| {obs['page_or_table_ref'] or '-'} |"
-                )
-            lines.append("")
+            for param_block in seg_block["by_parameter"]:
+                lines.append(f"#### {param_block['label']}")
+                lines.append("")
+                lines.append("| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |")
+                lines.append("| --- | --- | ---:| --- | ---:| ---:|")
+                last_cohort: str | None = None
+                for r in param_block["rows"]:
+                    cohort_cell = (
+                        r["cohort_label"] if r["cohort"] != last_cohort else ""
+                    )
+                    last_cohort = r["cohort"]
+                    lines.append(
+                        f"| {cohort_cell} "
+                        f"| {r['friendly_name']} "
+                        f"| {_fmt_observation_value(r['latest_value'])} "
+                        f"| {r['latest_as_of']} "
+                        f"| {_fmt_observation_value(r['median_value'])} "
+                        f"| {r['n_vintages']} |"
+                    )
+                lines.append("")
+                medians = param_block["cohort_medians"]
+                if medians:
+                    lines.append("_Cohort medians (across the latest value of every source):_")
+                    lines.append("")
+                    lines.append("| Cohort | N sources | Median of latest |")
+                    lines.append("| --- | ---:| ---:|")
+                    for m in medians:
+                        lines.append(
+                            f"| {m['cohort_label']} | {m['n']} | "
+                            f"{_fmt_observation_value(m['median'])} |"
+                        )
+                    lines.append("")
         lines.append("")
 
         # 3
@@ -193,14 +242,16 @@ class BenchmarkCalibrationReport:
         lines.append("| Segment | N | Spread % | Big 4 spread % | Peer Big 4/Non-bank ratio | Outliers | Stale sources |")
         lines.append("| --- | ---:| ---:| ---:| ---:| --- | --- |")
         for vrow in data["validation_summary"]:
+            outliers = ", ".join(friendly_name(s) for s in vrow["outlier_sources"]) or "-"
+            stales = ", ".join(friendly_name(s) for s in vrow["stale_sources"]) or "-"
             lines.append(
-                f"| {vrow['segment']} "
+                f"| {segment_label(vrow['segment'])} "
                 f"| {vrow['n_sources']} "
                 f"| {_fmt_pct(vrow['spread_pct'])} "
                 f"| {_fmt_pct(vrow['big4_spread_pct'])} "
                 f"| {_fmt_ratio(vrow['peer_big4_vs_non_bank_ratio'])} "
-                f"| {', '.join(vrow['outlier_sources']) or '-'} "
-                f"| {', '.join(vrow['stale_sources']) or '-'} |"
+                f"| {outliers} "
+                f"| {stales} |"
             )
         lines.append("")
 
@@ -220,7 +271,7 @@ class BenchmarkCalibrationReport:
         lines.append("| --- | ---:| ---:| ---:| ---:| ---:|")
         for srow in data["big4_vs_nonbank_spread"]:
             lines.append(
-                f"| {srow['segment']} "
+                f"| {segment_label(srow['segment'])} "
                 f"| {_fmt_pct_value(srow['big4_median'])} "
                 f"| {_fmt_pct_value(srow['nonbank_median'])} "
                 f"| {_fmt_ratio(srow['ratio'])} "
@@ -244,9 +295,9 @@ class BenchmarkCalibrationReport:
             for block in anchor_blocks:
                 for anchor in block["anchors"]:
                     lines.append(
-                        f"| {block['segment']} "
-                        f"| {anchor['cohort']} "
-                        f"| {anchor['source_id']} "
+                        f"| {segment_label(block['segment'])} "
+                        f"| {cohort_label(anchor['cohort'])} "
+                        f"| {friendly_name(anchor['source_id'])} "
                         f"| {_fmt_pct_value(anchor['value'])} "
                         f"| {anchor['as_of_date']} |"
                     )
@@ -255,8 +306,11 @@ class BenchmarkCalibrationReport:
         # 5
         lines.append("## 5. Provenance & methodology footnotes")
         for prov in data["provenance"]:
-            lines.append(f"- **{prov['source_id']}** ({prov['source_type']}): "
-                         f"{prov['reporting_basis']} — {prov['source_url'] or 'n/a'}")
+            lines.append(
+                f"- **{friendly_name(prov['source_id'])}** "
+                f"({prov['source_type']}): {prov['reporting_basis']} — "
+                f"{prov['source_url'] or 'n/a'}"
+            )
         lines.append("")
 
         if data.get("supporting_documentation"):
@@ -341,13 +395,13 @@ class BenchmarkCalibrationReport:
                 "raw-observation vintages for the same segment and parameter._"
             )
             lines.append("")
-            lines.append("| Segment | Param | Source | Current | Current as-of | Prior | Prior as-of | Delta | % change |")
+            lines.append("| Segment | Metric | Source | Current | Current as-of | Prior | Prior as-of | Delta | % change |")
             lines.append("| --- | --- | --- | ---:| --- | ---:| --- | ---:| ---:|")
             for row in data["segment_trend"]:
                 lines.append(
-                    f"| {row['segment']} "
-                    f"| {row['parameter']} "
-                    f"| {row['source_id']} "
+                    f"| {segment_label(row['segment'])} "
+                    f"| {parameter_label(row['parameter'])} "
+                    f"| {friendly_name(row['source_id'])} "
                     f"| {_fmt_pct_value(row['current_value'])} "
                     f"| {row['current_as_of']} "
                     f"| {_fmt_pct_value(row['prior_value'])} "
@@ -401,9 +455,18 @@ class BenchmarkCalibrationReport:
 
         add_paragraph(doc, data["banner"], italic=True)
 
+        acronym_glossary = data.get("acronym_glossary") or []
+        if acronym_glossary:
+            add_heading(doc, "0a. Glossary of terms", level=2)
+            add_table(
+                doc,
+                headers=["term", "meaning"],
+                rows=[[row["term"], row["definition"]] for row in acronym_glossary],
+            )
+
         glossary = data["segment_glossary"]
         if glossary:
-            add_heading(doc, "0. Segment definitions", level=2)
+            add_heading(doc, "0b. Segment definitions", level=2)
             add_table(
                 doc,
                 headers=["segment", "definition"],
@@ -417,21 +480,44 @@ class BenchmarkCalibrationReport:
         for line in data["executive_summary"]["lines"]:
             add_bullet(doc, line)
 
-        add_heading(doc, "2. Per-source raw observations by segment", level=2)
+        add_heading(doc, "2. Latest figures by segment and metric", level=2)
+        add_paragraph(
+            doc,
+            "Each segment is broken out by metric (PD, LGD, NPL, ...). "
+            "Within a metric, peer banks come first, then non-bank peers, "
+            "then references. Median is across the source's full vintage "
+            "history; cohort medians summarise the latest values.",
+            italic=True,
+        )
         for seg_block in data["per_source_observations"]:
-            add_heading(doc, seg_block["segment"], level=3)
-            add_table(
-                doc,
-                headers=["source_id", "source_type", "param", "value", "as_of",
-                         "reporting_basis", "methodology", "page_or_table_ref"],
-                rows=[
-                    [o["source_id"], o["source_type"], o["parameter"],
-                     _fmt_observation_value(o["value"]), str(o["as_of_date"]),
-                     o["reporting_basis"], o["methodology_note"],
-                     o["page_or_table_ref"] or "-"]
-                    for o in seg_block["observations"]
-                ],
-            )
+            add_heading(doc, seg_block["segment_label"], level=3)
+            for param_block in seg_block["by_parameter"]:
+                add_heading(doc, param_block["label"], level=4)
+                add_table(
+                    doc,
+                    headers=["cohort", "source", "latest", "as_of",
+                             "median", "n_vintages"],
+                    rows=[
+                        [r["cohort_label"], r["friendly_name"],
+                         _fmt_observation_value(r["latest_value"]),
+                         r["latest_as_of"],
+                         _fmt_observation_value(r["median_value"]),
+                         str(r["n_vintages"])]
+                        for r in param_block["rows"]
+                    ],
+                )
+                medians = param_block["cohort_medians"]
+                if medians:
+                    add_paragraph(doc, "Cohort medians (across latest values):", italic=True)
+                    add_table(
+                        doc,
+                        headers=["cohort", "n_sources", "median_of_latest"],
+                        rows=[
+                            [m["cohort_label"], str(m["n"]),
+                             _fmt_observation_value(m["median"])]
+                            for m in medians
+                        ],
+                    )
 
         add_heading(doc, "3. Cross-source validation summary", level=2)
         banner_text = next(
@@ -446,11 +532,12 @@ class BenchmarkCalibrationReport:
             headers=["segment", "n_sources", "spread_pct", "big4_spread_pct",
                      "peer_big4_vs_non_bank_ratio", "outliers", "stale"],
             rows=[
-                [v["segment"], str(v["n_sources"]), _fmt_pct(v["spread_pct"]),
+                [segment_label(v["segment"]), str(v["n_sources"]),
+                 _fmt_pct(v["spread_pct"]),
                  _fmt_pct(v["big4_spread_pct"]),
                  _fmt_ratio(v["peer_big4_vs_non_bank_ratio"]),
-                 ", ".join(v["outlier_sources"]) or "-",
-                 ", ".join(v["stale_sources"]) or "-"]
+                 ", ".join(friendly_name(s) for s in v["outlier_sources"]) or "-",
+                 ", ".join(friendly_name(s) for s in v["stale_sources"]) or "-"]
                 for v in data["validation_summary"]
             ],
         )
@@ -469,7 +556,7 @@ class BenchmarkCalibrationReport:
             headers=["segment", "big4_median", "nonbank_median", "ratio",
                      "big4_count", "nonbank_count"],
             rows=[
-                [s["segment"],
+                [segment_label(s["segment"]),
                  _fmt_pct_value(s["big4_median"]),
                  _fmt_pct_value(s["nonbank_median"]),
                  _fmt_ratio(s["ratio"]),
@@ -491,9 +578,11 @@ class BenchmarkCalibrationReport:
             )
             add_table(
                 doc,
-                headers=["segment", "cohort", "source_id", "value", "as_of"],
+                headers=["segment", "cohort", "source", "value", "as_of"],
                 rows=[
-                    [block["segment"], anchor["cohort"], anchor["source_id"],
+                    [segment_label(block["segment"]),
+                     cohort_label(anchor["cohort"]),
+                     friendly_name(anchor["source_id"]),
                      _fmt_pct_value(anchor["value"]), anchor["as_of_date"]]
                     for block in anchor_blocks
                     for anchor in block["anchors"]
@@ -504,8 +593,8 @@ class BenchmarkCalibrationReport:
         for p in data["provenance"]:
             add_bullet(
                 doc,
-                f"{p['source_id']} ({p['source_type']}): {p['reporting_basis']} — "
-                f"{p['source_url'] or 'n/a'}",
+                f"{friendly_name(p['source_id'])} ({p['source_type']}): "
+                f"{p['reporting_basis']} — {p['source_url'] or 'n/a'}",
             )
 
         if data.get("supporting_documentation"):
@@ -578,14 +667,14 @@ class BenchmarkCalibrationReport:
             add_table(
                 doc,
                 headers=[
-                    "segment", "param", "source", "current", "current_as_of",
+                    "segment", "metric", "source", "current", "current_as_of",
                     "prior", "prior_as_of", "delta", "pct_change",
                 ],
                 rows=[
                     [
-                        row["segment"],
-                        row["parameter"],
-                        row["source_id"],
+                        segment_label(row["segment"]),
+                        parameter_label(row["parameter"]),
+                        friendly_name(row["source_id"]),
                         _fmt_pct_value(row["current_value"]),
                         row["current_as_of"],
                         _fmt_pct_value(row["prior_value"]),
@@ -652,6 +741,11 @@ class BenchmarkCalibrationReport:
             }
             for segment in sorted(rendered_segments)
         ]
+
+    def _build_acronym_glossary(self) -> list[dict[str, str]]:
+        """Two-column acronym glossary, ordered as defined in source_naming."""
+        return [{"term": term, "definition": definition}
+                for term, definition in ACRONYM_GLOSSARY.items()]
 
     def _build_executive_summary(self, sets: list[ObservationSet]) -> dict[str, Any]:
         from src.models import Cohort, cohort_for
@@ -742,25 +836,108 @@ class BenchmarkCalibrationReport:
         return " ".join(sentences)
 
     def _build_per_source_observations(self, sets: list[ObservationSet]) -> list[dict[str, Any]]:
+        """One block per segment, internally grouped by parameter.
+
+        Each parameter group renders as one table per cohort (Big 4,
+        Macquarie, non-bank peers, regulators, ...). For every source we
+        show its latest value plus the median across its available
+        vintages. We also compute a cohort-level median across the
+        latest values so the committee can see a single "Big 4 median"
+        / "Non-bank median" number per parameter without having to
+        eyeball the rows.
+        """
+        from src.models import cohort_for
+
         out: list[dict[str, Any]] = []
         for s in sets:
             if not s.observations:
                 continue
-            obs_rows = [
-                {
-                    "source_id": o.source_id,
-                    "source_type": o.source_type.value,
-                    "parameter": o.parameter,
-                    "value": o.value,
-                    "as_of_date": o.as_of_date.isoformat(),
-                    "reporting_basis": o.reporting_basis,
-                    "methodology_note": o.methodology_note,
-                    "page_or_table_ref": o.page_or_table_ref,
-                    "source_url": o.source_url,
+
+            # observation -> (parameter, cohort_value) bucket, then collapse
+            # multi-vintage rows down to a single source-level row.
+            by_param: dict[str, dict[str, list[Any]]] = {}
+            for o in s.observations:
+                bucket = by_param.setdefault(o.parameter, {})
+                bucket.setdefault(o.source_id, []).append(o)
+
+            param_blocks: list[dict[str, Any]] = []
+            for parameter, sources in by_param.items():
+                rows: list[dict[str, Any]] = []
+                for source_id, obs_list in sources.items():
+                    obs_sorted = sorted(obs_list, key=lambda o: o.as_of_date, reverse=True)
+                    latest = obs_sorted[0]
+                    numeric = [o.value for o in obs_sorted if o.value is not None]
+                    median_value = _median(numeric) if numeric else None
+                    rows.append({
+                        "source_id": source_id,
+                        "friendly_name": friendly_name(source_id),
+                        "cohort": cohort_for(latest.source_type, source_id).value,
+                        "cohort_label": cohort_label(
+                            cohort_for(latest.source_type, source_id).value
+                        ),
+                        "source_type": latest.source_type.value,
+                        "latest_value": latest.value,
+                        "latest_as_of": latest.as_of_date.isoformat(),
+                        "median_value": median_value,
+                        "n_vintages": len(obs_list),
+                        "reporting_basis": latest.reporting_basis,
+                        "methodology_note": latest.methodology_note,
+                        "page_or_table_ref": latest.page_or_table_ref,
+                        "source_url": latest.source_url,
+                    })
+
+                # Cohort-level medians across the *latest* values.
+                cohort_medians: list[dict[str, Any]] = []
+                grouped: dict[str, list[float]] = {}
+                for r in rows:
+                    if r["latest_value"] is None:
+                        continue
+                    grouped.setdefault(r["cohort"], []).append(r["latest_value"])
+                for cohort_value, values in grouped.items():
+                    if not values:
+                        continue
+                    cohort_medians.append({
+                        "cohort": cohort_value,
+                        "cohort_label": cohort_label(cohort_value),
+                        "median": _median(values),
+                        "n": len(values),
+                    })
+
+                # Stable cohort order: peers first, then references.
+                _COHORT_ORDER = {
+                    "peer_big4": 0,
+                    "peer_other_major_bank": 1,
+                    "peer_non_bank": 2,
+                    "regulator_aggregate": 3,
+                    "rating_agency": 4,
+                    "regulatory_floor": 5,
+                    "industry_body": 6,
                 }
-                for o in s.observations
-            ]
-            out.append({"segment": s.segment, "observations": obs_rows})
+                rows.sort(key=lambda r: (
+                    _COHORT_ORDER.get(r["cohort"], 99),
+                    r["friendly_name"].lower(),
+                ))
+                cohort_medians.sort(key=lambda c: _COHORT_ORDER.get(c["cohort"], 99))
+
+                param_blocks.append({
+                    "parameter": parameter,
+                    "label": parameter_label(parameter),
+                    "rows": rows,
+                    "cohort_medians": cohort_medians,
+                })
+
+            # Stable parameter order so reports are deterministic.
+            _PARAM_ORDER = {
+                "pd": 0, "lgd": 1, "arrears": 2, "impaired": 3,
+                "npl": 4, "loss_rate": 5, "commentary": 6,
+            }
+            param_blocks.sort(key=lambda b: _PARAM_ORDER.get(b["parameter"], 99))
+
+            out.append({
+                "segment": s.segment,
+                "segment_label": segment_label(s.segment),
+                "by_parameter": param_blocks,
+            })
         return out
 
     def _build_validation_summary(self, sets: list[ObservationSet]) -> list[dict[str, Any]]:
