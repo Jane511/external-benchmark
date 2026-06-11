@@ -1,0 +1,20 @@
+segment,segment_label,product,source_id,source_type,lgd_decimal,as_of_date
+commercial_property,Commercial Property,commercial_property,APS113_CRE_LGD_FLOOR,apra_performance,0.175,2024-12-31
+commercial_property,Commercial Property,commercial_property,MACQUARIE_BANK_COMMERCIAL_PROPERTY_INVESTMENT_LGD_H1FY2026,bank_pillar3,0.242459,2025-09-30
+corporate_general,Corporate General,corporate_general,MACQUARIE_BANK_CORPORATE_GENERAL_LGD_H1FY2026,bank_pillar3,0.454809,2025-09-30
+corporate_sme,Corporate SME,term_loan,MACQUARIE_BANK_CORPORATE_SME_LGD_H1FY2026,bank_pillar3,0.418057,2025-09-30
+development,Development,development,APS113_SLOTTING_GOOD_LGD,apra_performance,0.325,2024-12-31
+development,Development,development,APS113_SLOTTING_SATIS_LGD,apra_performance,0.375,2024-12-31
+development,Development,development,APS113_SLOTTING_STRONG_LGD,apra_performance,0.275,2024-12-31
+development,Development,development,APS113_SLOTTING_WEAK_LGD,apra_performance,0.45,2024-12-31
+financial_institution,Financial Institution,financial_institution,MACQUARIE_BANK_FINANCIAL_INSTITUTION_LGD_H1FY2026,bank_pillar3,0.489287,2025-09-30
+invoice_finance,Invoice Finance,invoice_finance,APS113_INVOICE_LGD_FLOOR,apra_performance,0.35,2024-12-31
+residential_mortgage,Residential Mortgage,residential_mortgage,APS113_RES_LGD_FLOOR,apra_performance,0.075,2024-12-31
+residential_mortgage,Residential Mortgage,residential_mortgage,CBA_PILLAR3_RES_LGD_2024H2,bank_pillar3,0.22,2024-12-31
+residential_mortgage,Residential Mortgage,residential_mortgage,MACQUARIE_BANK_RESIDENTIAL_MORTGAGE_LGD_H1FY2026,bank_pillar3,0.127374,2025-09-30
+residential_mortgage,Residential Mortgage,residential_mortgage,NAB_PILLAR3_RES_LGD_2024H2,bank_pillar3,0.24,2024-12-31
+retail_other,Retail Other,retail_other,MACQUARIE_BANK_RETAIL_OTHER_LGD_H1FY2026,bank_pillar3,0.363578,2025-09-30
+retail_sme,Retail SME,retail_sme,MACQUARIE_BANK_RETAIL_SME_LGD_H1FY2026,bank_pillar3,0.413695,2025-09-30
+sovereign,Sovereign,sovereign,MACQUARIE_BANK_SOVEREIGN_LGD_H1FY2026,bank_pillar3,0.052111,2025-09-30
+working_capital_unsecured,Working Capital Unsecured,line_of_credit,APS113_UNSECURED_LGD,apra_performance,0.45,2024-12-31
+working_capital_unsecured,Working Capital Unsecured,line_of_credit,CBA_PILLAR3_SME_UNSECURED_LGD,bank_pillar3,0.48,2024-12-31

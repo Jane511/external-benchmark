@@ -26,7 +26,7 @@ if the label only appears in standardised (e.g. "Other assets") the
 adapter falls back to that row. Implausible ratios (>10%) are dropped
 with a warning.
 
-See ``outputs/cba_pillar3_structure.md`` for the original structural
+See ``output/cba_pillar3_structure.md`` for the original structural
 inspection and column mapping.
 """
 

@@ -16,7 +16,7 @@ Two input shapes are supported:
    ``adi_sector_total`` rows.
 
 QPEX (Property Exposures) live support is deferred to Path B — see
-``outputs/apra_workbook_structure.md``. Until then, ``--source-key
+``output/apra_workbook_structure.md``. Until then, ``--source-key
 apra_qpex`` against a live file logs a warning and yields zero points.
 
 Live download is supported via ``fetch()``; in production the

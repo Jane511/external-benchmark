@@ -1,353 +1,194 @@
 # External Benchmark Engine
 
-## What it does
+**A reproducible Python pipeline that turns Australian bank and regulator
+disclosures into credit-risk model inputs — PD, LGD, expected loss,
+stress-test rates, and portfolio-monitoring metrics.**
 
-This project collects credit-risk numbers that Australian lenders and
-regulators publish — Big 4 bank Pillar 3 reports, APRA quarterly stats,
-RBA Financial Stability Review, S&P RMBS arrears, and the disclosures of
-ASX-listed non-bank lenders — and packages them into a single tidy
-report and a small set of CSV files that the rest of your modelling
-projects can read.
+Every quarter, the Big 4 banks, Macquarie, APRA, the RBA, S&P, and a long
+list of ASX-listed non-bank lenders publish credit-risk numbers — but they
+publish them in PDFs, spreadsheets, and HTML pages, each using its own
+definitions and reporting calendar. This project collects those numbers,
+aligns them to a common segment and definition scheme, and produces a clean
+set of model-input tables and a committee-ready report.
 
-It does **not** blend, average, or adjust the numbers. Each row is a
-single source's published figure, tagged with where it came from, when,
-and what the source says it means. Adjustments (definition alignment,
-downturn overlays, peer triangulation) are deliberately left to the
-projects that consume this output — that way each consumer manages its
-own complete adjustment chain.
+It is built the way a model-risk or credit-risk analytics function would
+want it built: every number is traced back to the source disclosure it came
+from, definitions are labelled explicitly rather than silently merged, and
+the same inputs always produce byte-identical outputs.
 
-> The engine answers one question: *"What did each external source
-> publish for this segment, in this period, under what definition?"*
-> Anything beyond that — what the consensus is, what the right LRA cap
-> should be — is the consuming project's call.
+---
 
-## What you get each cycle
+## What this project demonstrates
 
-Three rendered reports, in `outputs/reports/`:
+This is a portfolio project. If you are evaluating it for a credit-risk or
+quantitative-modelling role, here is what it shows:
 
-- `Report_<period>.md` — Markdown, easy to read in GitHub or email.
-- `Report_<period>.html` — single self-contained file, opens in any browser.
-- `Report_<period>.docx` — Word version, the one a committee usually reads.
-
-Six CSV files for downstream projects, in `outputs/csv/`:
-
-| File | What's in it |
+| Area | In this project |
 | --- | --- |
-| `raw_observations.csv` | One row per published figure. The contract for downstream PD / LGD / ECL projects. |
-| `validation_flags.csv` | Per-segment summary: spread, outliers, stale sources, peer-Big4-vs-non-bank ratio. |
-| `validation_flag_sources.csv` | Same flags in long form — one row per (segment, flag type, source) so spreadsheets handle it cleanly. |
-| `segment_trend.csv` | Latest vs prior vintage per source — only fires when at least two vintages exist. |
-| `reality_check_bands.csv` | Per-product upper/lower bands and the rationale, flattened from `config/reality_check_bands.yaml`. |
-| `raw_data_inventory.csv` | Every file currently staged on disk under `data/raw/`. |
+| **PD / LGD / EAD parameters** | Sources and standardises probability-of-default and loss-given-default observations per segment, and derives expected-loss rates (`EL = PD × LGD`). EAD is left to the consuming deal model by design — a deliberate, defensible scoping choice. |
+| **IFRS 9 / ECL** | Expected loss is published as a rate built from PD × LGD, the core of an IFRS 9 expected-credit-loss calculation. |
+| **Regulatory capital (Basel III / APRA APS 113)** | Ingests Basel-aligned 12-month PDs from Pillar 3 disclosures and APS 113 slotting grades and regulatory PD/LGD floors. |
+| **Stress testing** | Applies PD/LGD stress multipliers and regulatory upper-band floors to produce base-vs-stressed expected-loss rates per segment. |
+| **Australian regulatory landscape** | Works directly with Pillar 3, APRA Quarterly ADI Performance and Property Exposures (QPEX), the RBA Financial Stability Review, and S&P RMBS arrears. |
+| **Data engineering** | ETL from PDF, Excel, and HTML into a SQLite/SQLAlchemy registry with a full audit trail; a Click CLI; reproducible CSV and report outputs; and 55 test modules across the codebase. |
+| **Model governance** | Built-in staleness, coverage, and data-quality reports, plus an explicit "what this engine does *not* decide" boundary — the discipline a validation function looks for. |
 
-The report itself has eight sections:
+Written in **Python** (pandas, SQLAlchemy, pydantic, Click, pdfplumber,
+python-docx). The skills transfer directly to SAS/SQL/R model-development
+and validation work.
 
-0. **Segment definitions** — one-line glossary of every segment used in the report.
-1. **Executive summary** — short prose paragraph plus headline counts.
-2. **Per-source observations by segment** — the actual numbers, with reporting basis and methodology footnote on every row.
-3. **Cross-source validation summary** — spread, outliers, stale-vintage flags. No consensus value.
-4. **Big 4 vs non-bank disclosure spread** — peer-only medians and the ratio. Informational; no recommendation.
-4a. **Reference anchors** — regulator aggregates (APRA, RBA), rating-agency indices (S&P SPIN), regulatory floors (APS 113), Macquarie. Listed separately so they don't pollute peer arithmetic.
-5. **Provenance & methodology footnotes** — one line per source with URL.
-6. **Raw data inventory** — every file staged under `data/raw/`, including manual-download notes.
-7. **Trend vs prior cycle** — current-vs-prior delta per source, where two vintages exist.
+---
 
-## How to run it
+## What it produces
 
-End-to-end, from a fresh clone:
+Each cycle the engine emits two things.
+
+**Five model-input CSVs** in `output/csv/` — the stable contract for any
+downstream PD/LGD/ECL model:
+
+| File | Contents |
+| --- | --- |
+| `pd_inputs.csv` | Latest PD observation per source and segment |
+| `lgd_inputs.csv` | Latest LGD observation per source and segment |
+| `expected_loss_inputs.csv` | Segment-level median PD, median LGD, and EL rate |
+| `stress_testing_inputs.csv` | Base and stressed PD / LGD / EL rates |
+| `portfolio_monitor_inputs.csv` | Arrears, NPL, impaired, and loss-rate metrics |
+
+**A report in three formats** in `output/reports/` —
+`Report_<period>.md` / `.html` / `.docx` (the Word version is the one a
+committee reads). A sample is checked in at
+[`output/reports/`](output/reports/).
+
+A slice of the expected-loss table gives the flavour:
+
+| Segment | PD | LGD | EL rate | PD sources | LGD sources |
+| --- | --- | --- | --- | --- | --- |
+| Residential Mortgage | 0.01 | 0.17 | 0.00 | 5 | 4 |
+| Corporate SME | 0.03 | 0.42 | 0.01 | 5 | 1 |
+| Commercial Property | 0.02 | 0.21 | 0.00 | 5 | 2 |
+| Development | 0.02 | 0.35 | 0.01 | 4 | 4 |
+
+The report also includes a per-bank, per-industry exposure and
+non-performing-exposure monitor built from Big 4 Pillar 3 disclosures.
+
+---
+
+## How it works
+
+```text
+   Published disclosures              This engine                 Outputs
+ ┌────────────────────────┐    ┌──────────────────────────┐   ┌──────────────┐
+ │ Pillar 3 PDFs (Big 4,  │    │ adapters/  parse PDF/XLSX │   │ 5 CSV model  │
+ │   Macquarie)           │──▶ │            /HTML per src  │──▶│ input tables │
+ │ APRA QPEX + ADI stats  │    │ registry/  SQLite store + │   │              │
+ │ RBA FSR, S&P RMBS      │    │            audit trail    │   │ md/html/docx │
+ │ Non-bank lender IR     │    │ model_inputs/ derive PD,  │   │ report       │
+ │   disclosures          │    │            LGD, EL, stress│   │              │
+ └────────────────────────┘    └──────────────────────────┘   └──────────────┘
+```
+
+Two ideas hold the design together:
+
+- **Every observation is labelled, never silently merged.** A
+  `data_definition_class` records exactly what each source measured — a
+  Basel 12-month PD is not the same thing as a 90-day arrears rate or an
+  impaired-loan ratio — and a `cohort` records who published it (Big 4,
+  other major bank, non-bank, regulator, rating agency, regulatory floor).
+  Aligning those definitions is the consuming model's decision, made
+  explicit rather than hidden.
+
+- **The same inputs always produce the same outputs.** No randomness, no
+  hidden state; rerunning the pipeline on the same database yields
+  byte-identical CSVs, which is what makes the outputs auditable.
+
+---
+
+## Running it
+
+From a fresh clone:
 
 ```bash
 # 1. Install
 python -m venv .venv
-.venv\Scripts\activate          # Windows; on macOS/Linux use: source .venv/bin/activate
+.venv\Scripts\activate                 # Windows; macOS/Linux: source .venv/bin/activate
 pip install -e ".[ingestion,download,reports]"
 
-# 2. Build the database from seed data and migrations
+# 2. Build the database from the bundled Australian seed data
 python cli.py --db benchmarks.db seed
 python scripts/migrate_to_raw_observations.py --db benchmarks.db
 
-# 3. Generate the CSV bundle
+# 3. Produce the CSV bundle
 python cli.py --db benchmarks.db export-csvs
 
-# 4. Generate the three report formats
-python cli.py --db benchmarks.db report benchmark --format markdown --period-label "Q1 2026"
-python cli.py --db benchmarks.db report benchmark --format html     --period-label "Q1 2026"
-python cli.py --db benchmarks.db report benchmark --format docx     --period-label "Q1 2026"
+# 4. Produce the report (markdown / html / docx)
+python cli.py --db benchmarks.db report benchmark --format docx --period-label "Q1 2026"
 ```
 
-Each cycle, before step 2, refresh the source files. Use the cadence
-column in the source table below to decide which downloaders need to
-run — most people run the whole batch once a quarter:
+The `seed` command bootstraps a working database with canonical Australian
+data, so you can generate a full report without downloading anything. To
+refresh from live disclosures each quarter, see the
+[operations guide](docs/operations.md).
 
-```bash
-python scripts/download_sources/pillar3_downloader.py
-python scripts/download_sources/apra_downloader.py
-python scripts/download_sources/rba_downloader.py --target all
-python scripts/download_sources/non_bank_downloader.py
-python scripts/download_sources/external_indices_downloader.py --index sp_spin
-python scripts/download_sources/governance_publications_downloader.py
-```
+---
 
-The migration script is idempotent — running it twice doesn't duplicate
-rows. The `seed` command is only needed on a fresh empty database.
+## Data sources
 
-## Sources tracked
+| Source | Cadence | What it provides |
+| --- | --- | --- |
+| CBA / NAB / WBC / ANZ Pillar 3 | Half-yearly + quarterly | Basel PDs, LGDs, per-industry exposures |
+| Macquarie Pillar 3 | Half-yearly | Basel PDs / LGDs (classified separately from Big 4) |
+| APRA Quarterly ADI Performance + Property Exposures (QPEX) | Quarterly | NPL ratios, arrears, impaired-loan ratios |
+| RBA Financial Stability Review / SMP / Chart Pack | Semi-annual–quarterly | Sector arrears and stress context |
+| S&P SPIN | Monthly | Australian RMBS arrears |
+| APS 113 slotting + floors | — | Regulatory PD/LGD grades and minimum floors |
+| ASX-listed non-bank lenders (MoneyMe, Plenti, Pepper, La Trobe, Liberty, Resimac, Latitude, humm, Zip, Judo, Qualitas, Metrics) | Half-yearly–annual | Arrears, impaired and loss rates, commentary |
 
-| Source | Folder | Downloader | Cadence | Tier |
-| --- | --- | --- | --- | --- |
-| CBA Pillar 3 (annual + quarterly) | `pillar3/` | `pillar3_downloader.py --bank cba` | Half-yearly + quarterly | Automatic |
-| NAB Pillar 3 | `pillar3/` | `pillar3_downloader.py --bank nab` | Half-yearly | Automatic |
-| WBC Pillar 3 | `pillar3/` | `pillar3_downloader.py --bank wbc` | Half-yearly | Automatic |
-| ANZ Pillar 3 | `pillar3/` | `pillar3_downloader.py --bank anz` | Half-yearly | Automatic |
-| Macquarie Pillar 3 | `pillar3/` | `pillar3_downloader.py --bank mqg` | Half-yearly | Automatic |
-| APRA Quarterly ADI Performance | `apra/` | `apra_downloader.py` | Quarterly | Automatic |
-| APRA Quarterly Property Exposures (QPEX) | `apra/` | `apra_downloader.py` (same) | Quarterly | Automatic |
-| APRA Insight | `apra/insight/` | `governance_publications_downloader.py` | Irregular | Automatic, newest-first manifest |
-| Council of Financial Regulators publications | `cfr/` | `governance_publications_downloader.py` | Irregular | Automatic, newest-first manifest |
-| RBA Financial Stability Review | `rba/` | `rba_downloader.py --target rba_fsr` | Semi-annual | Automatic |
-| RBA Statement on Monetary Policy | `rba/` | `rba_downloader.py --target rba_smp` | Quarterly | Automatic |
-| RBA Chart Pack | `rba/` | `rba_downloader.py --target rba_chart_pack` | Quarterly | Automatic |
-| RBA Securitisation system | `rba/` | `rba_downloader.py --target securitisation` | Continuous | Snapshot + gate note (signed user agreement required for raw data) |
-| Pepper Money | `non_bank/pepper/` | `non_bank_downloader.py --lender pepper` | Half-yearly | Automatic + parsed |
-| Judo Bank | `non_bank/judo/` | `non_bank_downloader.py --lender judo` | Quarterly + half-yearly | Automatic + parsed |
-| Liberty Financial | `non_bank/liberty/` | `non_bank_downloader.py --lender liberty` | Annual + half-yearly | Automatic + parsed |
-| Plenti | `non_bank/plenti/` | `non_bank_downloader.py --lender plenti` | Quarterly + half-yearly | Automatic + parsed |
-| Resimac | `non_bank/resimac/` | `non_bank_downloader.py --lender resimac` | Half-yearly | URL fixed; manual until parser lands |
-| MoneyMe | `non_bank/moneyme/` | `non_bank_downloader.py --lender moneyme` | Half-yearly | URL fixed; manual until parser lands |
-| Wisr | `non_bank/wisr/` | `non_bank_downloader.py --lender wisr` | Quarterly | URL fixed; manual until parser lands |
-| Qualitas (ASX:QAL) | `non_bank/qualitas/` | `non_bank_downloader.py --lender qualitas` | Half-yearly + monthly QRI | Automatic; commentary-only by design |
-| Metrics Credit Partners (MREIF) | `non_bank/metrics_credit/` | `non_bank_downloader.py --lender metrics_credit` | Monthly + half-yearly | Automatic; commentary-only by design |
-| S&P SPIN (Australian RMBS arrears) | `external_indices/sp_spin/` | `external_indices_downloader.py --index sp_spin` | Monthly; staged quarterly | Manual download, parsed when staged |
+Full download cadence and manual-fetch instructions are in the
+[operations guide](docs/operations.md).
 
-When a downloader can't reach a source it writes a `_MANUAL.md` note in
-the per-source folder with the URL and a manual fetch instruction. The
-ingest pipeline treats "no input" as a valid outcome — no fabricated
-observations, ever.
-
-Per-source-type cadence thresholds live in
-`config/refresh_schedules.yaml`. Run
-`python cli.py report stale` before any committee report to flag
-overdue sources.
-
-## How observations are tagged
-
-Every row in `raw_observations.csv` carries three labels that consumers
-filter on:
-
-**`parameter`** — what kind of metric. One of: `pd`, `lgd`, `arrears`,
-`impaired`, `npl`, `loss_rate`, `commentary`. Commentary rows have no
-numeric value (the published narrative goes in `methodology_note`).
-
-**`data_definition_class`** — the precise definition the source uses,
-because different publishers measure different things:
-
-- `basel_pd_one_year` — Basel-aligned 12-month PD (Big 4 Pillar 3, Judo).
-- `arrears_30_plus_days`, `arrears_90_plus_days` — loans past due (S&P SPIN, APRA QPEX, Pepper, RBA FSR).
-- `impaired_loans_ratio` — loans flagged as impaired (Liberty, APRA QPEX).
-- `npl_ratio` — non-performing loans (APRA quarterly performance).
-- `loss_expense_rate`, `realised_loss_rate` — P&L-driven vs charge-offs (Pepper asset finance, La Trobe).
-- `regulatory_floor_pd`, `regulatory_floor_lgd` — APRA APS 113 slotting grades and minimum floors.
-- `qualitative_commentary` — narrative-only sources (Qualitas, Metrics).
-
-**`cohort`** — peer grouping, used by the validation arithmetic:
-
-- `peer_big4` — CBA, NAB, WBC, ANZ.
-- `peer_other_major_bank` — Macquarie. APRA classifies them as a major bank but they aren't Big 4, so they sit in their own bucket and don't distort either Big-4 or non-bank medians.
-- `peer_non_bank` — ASX-listed non-bank lenders (Judo, Liberty, Pepper, Plenti, Wisr, MoneyMe, Resimac, Qualitas, Metrics, La Trobe).
-- `regulator_aggregate` — APRA, RBA aggregates.
-- `rating_agency` — S&P, Moody's indices.
-- `regulatory_floor` — APS 113 PD/LGD slotting + floors.
-- `industry_body` — AFIA, illion BFRI.
-
-Outlier detection and the `peer_big4_vs_non_bank_ratio` look only at
-`peer_big4` and `peer_non_bank`. Macquarie and the four reference cohorts
-appear separately under "Reference anchors" in the report so a reader
-can see them without them poisoning the peer numbers.
-
-## CSV schemas
-
-The CSVs are the stable contract between this engine and downstream
-consumers. Same database content gives byte-identical CSVs.
-
-`raw_observations.csv`:
-> `source_id, source_type, cohort, is_big4, segment, product, parameter,
-> data_definition_class, value, as_of_date, reporting_basis,
-> methodology_note, sample_size_n, period_start, period_end, source_url,
-> page_or_table_ref`
-
-`value` is a decimal in `[0, 1]`, or empty for commentary rows.
-
-`validation_flags.csv`:
-> `segment, n_sources, spread_decimal, big4_spread_decimal,
-> peer_big4_vs_non_bank_ratio, outlier_sources, stale_sources,
-> frozen_dataset_banner`
-
-The first line is a `# units:` comment row that documents the
-decimal-vs-percent convention and the precise definition of the peer
-ratio. Spreadsheet importers should be told to skip lines starting with
-`#`. Source lists are deduped and pipe-separated.
-
-`validation_flag_sources.csv`:
-> `segment, flag_type, source_id` — long-form companion. Easier to pivot
-> in Excel than parsing pipe-delimited cells.
-
-`reality_check_bands.csv`:
-> `product, lower_band_pd, upper_band_pd, lower_sources, upper_sources,
-> rationale, last_review_date, next_review_due` — pipe-separated source
-> lists; multi-line rationales flattened with `\n`.
-
-`raw_data_inventory.csv`:
-> `source_family, subfamily, filename, relative_path, size_bytes,
-> modified_utc, kind` — walks `data/raw/` and lists every file (PDF,
-> XLSX, CSV, `_MANUAL.md`, `*_GATE.md`).
-
-`segment_trend.csv`:
-> `segment, parameter, source_id, current_value, current_as_of,
-> prior_value, prior_as_of, delta, pct_change` — only emits rows where
-> the same source has at least two vintages for the same (segment,
-> parameter).
-
-Recommended pandas wiring downstream:
-
-```python
-import pandas as pd
-
-obs = pd.read_csv("outputs/csv/raw_observations.csv", parse_dates=["as_of_date"])
-basel_pds = obs[obs["data_definition_class"] == "basel_pd_one_year"]
-
-# Skip the units comment row when reading validation_flags.csv
-flags = pd.read_csv("outputs/csv/validation_flags.csv", comment="#")
-
-bands = pd.read_csv("outputs/csv/reality_check_bands.csv")
-upper = bands.set_index("product")["upper_band_pd"].to_dict()
-```
-
-## Command reference
-
-```text
-# Database setup
-python cli.py [--db PATH] seed
-python scripts/migrate_to_raw_observations.py [--db PATH]
-
-# One-off data migrations (run on existing DBs after upgrade)
-python scripts/migrate_collapse_cre_segments.py --db benchmarks.db [--apply]
-python scripts/migrate_commentary_values_to_null.py --db benchmarks.db [--apply]
-python scripts/migrate_definition_class_consistency.py --db benchmarks.db [--apply]
-
-# Downloaders
-python scripts/download_sources/pillar3_downloader.py            [--bank cba|nab|wbc|anz|mqg|all]
-python scripts/download_sources/apra_downloader.py
-python scripts/download_sources/rba_downloader.py                [--target rba_fsr|rba_smp|rba_chart_pack|all]
-python scripts/download_sources/non_bank_downloader.py           [--lender pepper|judo|...|all]
-python scripts/download_sources/external_indices_downloader.py   [--index sp_spin|all]
-python scripts/download_sources/governance_publications_downloader.py [--target apra_insight|cfr_publications|all]
-
-# Ingest
-python cli.py ingest pillar3 [cba|nab|wbc|anz|mqg] [--reporting-date YYYY-MM-DD]
-python cli.py ingest apra
-python cli.py ingest status
-
-# Cache
-python cli.py cache status
-python cli.py cache clear [--source FAMILY] [--yes]
-
-# CSV exports
-python cli.py [--db PATH] export-csvs [--out-dir DIR] [--raw-dir DIR]
-
-# Reports
-python cli.py report stale | quality | coverage | annual    (governance subreports)
-python cli.py report benchmark --format docx|html|markdown \
-    [--output PATH] [--period-label "Q1 2026"] [--source-type X]
-
-# Read-only queries
-python cli.py list [--source-type X] [--limit N]
-python cli.py history SOURCE_ID
-python cli.py observations [--segment X] [--big4-only|--nonbank-only]
-python cli.py export [--format json|csv] [--output PATH]
-```
+---
 
 ## Repository layout
 
 ```text
 external_benchmark_engine/
-├── cli.py                              # Top-level Click CLI — start here
-├── config/
-│   ├── reality_check_bands.yaml        # Per-product upper / lower PD bands
-│   └── refresh_schedules.yaml          # Stale-source thresholds per source_type
-├── data/                               # Raw downloaded files (cached, git-ignored)
-│   └── raw/                            # apra/, cfr/, external_indices/, non_bank/, pillar3/, rba/
-├── scripts/download_sources/           # One downloader per publisher / family
+├── cli.py                      # Click CLI — start here
+├── config/                     # Reality-check bands + refresh schedules (YAML)
 ├── ingestion/
-│   ├── adapters/                       # Per-publisher PDF/XLSX/HTML adapters
-│   ├── pillar3/                        # Per-bank Pillar 3 entry points
-│   ├── external_indices/               # S&P SPIN and RBA aggregate adapters
-│   └── source_registry.py              # Catalog of every source URL + cache layout
-├── src/                                # Core engine — all Python lives here
-│   ├── models.py                       # RawObservation, Cohort, DataDefinitionClass
-│   ├── db.py                           # SQLAlchemy schema
-│   ├── registry.py                     # add / supersede / query (with audit trail)
-│   ├── observations.py                 # PeerObservations facade
-│   ├── validation.py                   # Spread / outlier / vintage / peer ratio
-│   ├── trend.py                        # Current-vs-prior trend rows
-│   ├── reality_check.py                # Reality-check band loader
-│   ├── seed_data.py                    # Canonical Australian seed entries
-│   ├── segment_glossary.py             # One-line definition per canonical segment
-│   ├── governance.py                   # Stale / quality / coverage / annual reports
-│   ├── benchmark_report.py             # Markdown + HTML + DOCX renderer
-│   ├── csv_exporter.py                 # CSV bundle for downstream consumers
-│   └── docx_helpers.py                 # python-docx primitives
-├── outputs/
-│   ├── reports/                        # Report_<period>.{md,html,docx}
-│   └── csv/                            # The six CSVs above
-├── tests/                              # 451 tests covering the raw-only path
-└── benchmarks.db                       # SQLite registry (created on first ingest)
+│   ├── adapters/               # One PDF/XLSX/HTML adapter per publisher
+│   ├── pillar3/                # Per-bank Pillar 3 entry points
+│   └── source_registry.py      # Catalogue of every source URL + cache layout
+├── src/
+│   ├── models.py               # RawObservation, Cohort, DataDefinitionClass
+│   ├── registry.py             # add / supersede / query, with audit trail
+│   ├── model_inputs.py         # Derive PD, LGD, EL, stress, monitor tables
+│   ├── validation.py           # Spread / outlier / vintage / peer-ratio checks
+│   ├── governance.py           # Staleness / quality / coverage reports
+│   ├── benchmark_report.py     # Markdown + HTML + DOCX renderer
+│   └── csv_exporter.py         # The five model-input CSVs
+├── output/                     # Generated reports and CSVs
+├── tests/                      # 55 test modules (unit + integration)
+└── docs/                       # Operations guide + design notes
 ```
-
-## Troubleshooting
-
-| Symptom | What to do |
-| --- | --- |
-| `Pillar3Downloader: no matching anchor` for a bank | The bank moved their disclosure page. Update the `BANKS` dict in `scripts/download_sources/pillar3_downloader.py` (the file's header keeps a change-log of past URL moves). |
-| `APRA scraper found no Series anchor` | APRA renamed their publication. Inspect the keyword list in `scripts/download_sources/apra_downloader.py`. |
-| Non-bank lender `_MANUAL.md` written to disk | The IR page is bot-protected or DNS-gated. Open the URL in `_MANUAL.md`, download by hand, drop the file in `data/raw/non_bank/<lender>/`. |
-| S&P SPIN `_MANUAL.md` written | The S&P release URL is generated per article. Download manually, drop into `data/raw/external_indices/sp_spin/`, re-run `migrate_to_raw_observations.py`. |
-| Migration script reports rows skipped | Skipped rows are legacy entries that don't map to a `data_definition_class`. Inspect the row's `source_id` and add a pattern to `_infer_definition_class` if it should be migrated. |
-| Tests fail with `ModuleNotFoundError: No module named 'src'` | Run from the repo root via `python cli.py ...` or `python scripts/<file>.py`. Don't run `python -c "from scripts..."` outside the repo root. |
-| Old DB still shows commentary `value=0.0` | Run `python scripts/migrate_commentary_values_to_null.py --db benchmarks.db --apply`. |
-| Old DB shows `regulatory_floor_pd` on LGD rows | Run `python scripts/migrate_definition_class_consistency.py --db benchmarks.db --apply`. |
-| Old DB has a duplicate `commercial_property_investment` segment | Run `python scripts/migrate_collapse_cre_segments.py --db benchmarks.db --apply`. |
-
-Cache management:
-
-```bash
-python cli.py cache status
-python cli.py cache clear --source pillar3 --yes
-```
-
-## The one rule
-
-The engine answers exactly one question: *"What did each external
-source publish for this segment, in this period, under what
-definition?"*
-
-It deliberately does **not** answer:
-
-- *What's the consensus benchmark across sources?* → triangulation; consuming project's call.
-- *What does this source mean once aligned to Basel definitions?* → definition alignment; consuming project's call.
-- *Should our LRA be capped at this level?* → calibration decision; consuming project's call.
-
-Heterogeneity is a feature, not a bug. Different sources publish
-different things — Pepper publishes asset-finance arrears, Liberty
-publishes impaired-loan ratios, Judo publishes Basel PDs. The engine
-labels these differences explicitly via `data_definition_class` and
-`cohort`. Consumers (PD, LGD, ECL projects) decide how to align them.
-
-## Contact
-
-- **Model Risk Committee** — quality flags, governance reports, calibration changes downstream.
-- **Data engineering** — broken scrapers, adapter failures, cache corruption.
-- **Owner of the brief documents** — scope, roadmap.
 
 ---
 
-_Last updated: see `git log README.md`._
+## Scope — the one question it answers
+
+The engine answers exactly one question:
+
+> *What did each external source publish for this segment, in this period,
+> under what definition?*
+
+It deliberately does **not** decide what the consensus benchmark is, how to
+align definitions to a single Basel view, or where a loss-rate assumption
+should be capped. Those are calibration decisions that belong to the PD,
+LGD, or ECL model that consumes these inputs. Keeping that boundary sharp —
+data assembly here, modelling judgement there — is what makes the outputs
+trustworthy as a benchmark.
+
+---
+
+*Built by Jane Wu. Licensed MIT. For operational detail (downloaders,
+migrations, troubleshooting) see [`docs/operations.md`](docs/operations.md).*
+</content>

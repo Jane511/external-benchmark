@@ -29,7 +29,7 @@ Time coverage:
 Expected yield: **132 entries** for a full file; fewer if any sector
 sheet is absent.
 
-See ``outputs/apra_workbook_structure.md`` (QPEX deep dive) for the
+See ``output/apra_workbook_structure.md`` (QPEX deep dive) for the
 spec behind these decisions.
 """
 

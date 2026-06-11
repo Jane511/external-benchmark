@@ -1,0 +1,10 @@
+segment,segment_label,product,base_pd_decimal,base_lgd_decimal,base_expected_loss_rate_decimal,pd_stress_multiplier,pd_upper_band_decimal,stressed_pd_decimal,lgd_stress_multiplier,stressed_lgd_decimal,stressed_expected_loss_rate_decimal,as_of_date
+commercial_property,Commercial Property,commercial_property,0.022,0.20873,0.004592,1.5,0.05,0.05,1.2,0.250476,0.012524,2025-09-30
+corporate_general,Corporate General,corporate_general,0.016959,0.454809,0.007713,1.5,,0.025438,1.2,0.545771,0.013884,2025-09-30
+corporate_sme,Corporate SME,term_loan,0.028,0.418057,0.011706,1.5,0.06,0.06,1.2,0.501668,0.0301,2025-09-30
+development,Development,development,0.018,0.35,0.0063,1.5,0.05,0.05,1.2,0.42,0.021,2024-12-31
+financial_institution,Financial Institution,financial_institution,0.004938,0.489287,0.002416,1.5,,0.007407,1.2,0.587144,0.004349,2025-09-30
+residential_mortgage,Residential Mortgage,residential_mortgage,0.008,0.173687,0.001389,1.5,,0.012,1.2,0.208424,0.002501,2025-09-30
+retail_other,Retail Other,retail_other,0.015546,0.363578,0.005652,1.5,,0.023319,1.2,0.436294,0.010174,2025-09-30
+retail_sme,Retail SME,retail_sme,0.028911,0.413695,0.01196,1.5,,0.043367,1.2,0.496434,0.021529,2025-09-30
+sovereign,Sovereign,sovereign,0.009,0.052111,0.000469,1.5,,0.0135,1.2,0.062533,0.000844,2025-09-30

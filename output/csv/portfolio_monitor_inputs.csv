@@ -1,0 +1,10 @@
+segment,segment_label,product,arrears_decimal,arrears_source_count,npl_decimal,npl_source_count,impaired_decimal,impaired_source_count,loss_rate_decimal,loss_rate_source_count,monitor_source_count,as_of_date
+adi_sector_total,ADI Sector Total,adi_sector_total,0.006,3,0.011,3,,0,,0,6,2025-12-31
+bridging_residential,Bridging Residential,bridging,,0,,0,,0,0.08,1,1,2024-12-31
+commercial_property,Commercial Property,commercial_property,,0,0.006582,3,0.012,1,,0,4,2025-12-31
+consumer_secured,Consumer Secured,consumer_secured,,0,,0,0.0032,1,,0,1,2025-12-31
+corporate_sme,Corporate SME,term_loan,0.017,1,,0,0.0305,2,0.0052,1,4,2025-12-31
+invoice_finance,Invoice Finance,invoice_finance,0.012,1,,0,,0,,0,1,2024-12-31
+residential_mortgage,Residential Mortgage,residential_mortgage,0.00915,4,0.009923,3,,0,0.0039,1,8,2026-02-28
+residential_mortgage_specialist,Residential Mortgage Specialist,residential_mortgage_specialist,0.033,2,,0,0.0118,2,0.0023,3,7,2026-02-28
+sme_corporate,SME Corporate,term_loan,0.014,1,0.013,1,,0,,0,2,2024-12-31

@@ -70,7 +70,7 @@ For each sample above:
 If they match within 0.01%: write down "match"
 If they differ by more than that: write down both values and which PDF
 
-Open a text file in outputs/ called 'spot_check_verification.md' and record:
+Open a text file in output/ called 'spot_check_verification.md' and record:
 
   Sample 1: Bank=ANZ  asset=X  band=Y  metric=LGD  engine=32.00%  pdf=32.00%  MATCH
   Sample 2: ...

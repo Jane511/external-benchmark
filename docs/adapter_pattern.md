@@ -87,7 +87,7 @@ adapter; the live APRA workbook (which doesn't) always does.
 
 1. **Inspect the live file first.** Write a small script that opens the
    workbook / PDF and dumps sheet names, row labels, first-row samples.
-   Save the dump to `outputs/<source>_structure.md`. That document is
+   Save the dump to `output/<source>_structure.md`. That document is
    the spec the adapter targets. Do not guess.
 2. **Subclass `AbstractAdapter`** in
    `ingestion/adapters/<source>_adapter.py`:

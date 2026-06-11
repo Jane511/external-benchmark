@@ -94,6 +94,7 @@ docs/*
 !docs/adapter_pattern.md
 !docs/pillar3_pdf_spec.md
 !docs/migration_from_adjusted_to_raw.md
+!docs/operations.md
 PROGRESS.md
 
 # Local working artefacts — internal briefs and analyst reference docs
@@ -112,13 +113,13 @@ benchmarks.db
 # ---------------------------------------------------------------------------
 # Project-specific: generated outputs
 # ---------------------------------------------------------------------------
-# Default: outputs/ not tracked. Exception: the Brief 1 raw-only sample
-# report is committed so GitHub visitors can see example output without
-# having to run the pipeline themselves. Future cycles add their
+# Default: output/ not tracked. Exception: one sample report and the
+# model-input CSVs are committed so GitHub visitors can see example output
+# without having to run the pipeline themselves. Future cycles add their
 # period-specific whitelist entries.
-outputs/*
-!outputs/reports/
-outputs/reports/*
-!outputs/reports/Report_Q1_2026.md
-!outputs/csv/
-!outputs/csv/*.csv
+output/*
+!output/reports/
+output/reports/*
+!output/reports/Report_Q2_2026.md
+!output/csv/
+!output/csv/*.csv

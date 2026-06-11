@@ -20,7 +20,7 @@ the table grid). Line-by-line parsing driven by a **PD-range regex** for
 CR6 and a **known-category prefix** for CR10 is more robust and makes
 the section-header carry-forward explicit.
 
-See ``outputs/cba_pillar3_pdf_structure.md`` for the column map, page
+See ``output/cba_pillar3_pdf_structure.md`` for the column map, page
 locations, and expected entry counts.
 """
 

@@ -1,0 +1,25 @@
+segment,segment_label,product,source_id,source_type,pd_decimal,as_of_date
+commercial_property,Commercial Property,commercial_property,ANZ_PILLAR3_CRE_PD_2024H2,bank_pillar3,0.021,2024-12-31
+commercial_property,Commercial Property,commercial_property,CBA_PILLAR3_CRE_PD_2024H2,bank_pillar3,0.025,2024-12-31
+commercial_property,Commercial Property,commercial_property,MACQUARIE_BANK_COMMERCIAL_PROPERTY_INVESTMENT_PD_H1FY2026,bank_pillar3,0.013616,2025-09-30
+commercial_property,Commercial Property,commercial_property,NAB_PILLAR3_CRE_PD_2024H2,bank_pillar3,0.022,2024-12-31
+commercial_property,Commercial Property,commercial_property,WBC_PILLAR3_CRE_PD_2024H2,bank_pillar3,0.026,2024-12-31
+corporate_general,Corporate General,corporate_general,MACQUARIE_BANK_CORPORATE_GENERAL_PD_H1FY2026,bank_pillar3,0.016959,2025-09-30
+corporate_sme,Corporate SME,term_loan,ANZ_PILLAR3_CORP_SME_2024H2,bank_pillar3,0.034,2024-12-31
+corporate_sme,Corporate SME,term_loan,CBA_PILLAR3_CORP_SME_2024H2,bank_pillar3,0.028,2024-12-31
+corporate_sme,Corporate SME,term_loan,MACQUARIE_BANK_CORPORATE_SME_PD_H1FY2026,bank_pillar3,0.027788,2025-09-30
+corporate_sme,Corporate SME,term_loan,NAB_PILLAR3_CORP_SME_2024H2,bank_pillar3,0.032,2024-12-31
+corporate_sme,Corporate SME,term_loan,WBC_PILLAR3_CORP_SME_2024H2,bank_pillar3,0.027,2024-12-31
+development,Development,development,APS113_SLOTTING_GOOD_PD,apra_performance,0.008,2024-12-31
+development,Development,development,APS113_SLOTTING_SATIS_PD,apra_performance,0.028,2024-12-31
+development,Development,development,APS113_SLOTTING_STRONG_PD,apra_performance,0.004,2024-12-31
+development,Development,development,APS113_SLOTTING_WEAK_PD,apra_performance,0.08,2024-12-31
+financial_institution,Financial Institution,financial_institution,MACQUARIE_BANK_FINANCIAL_INSTITUTION_PD_H1FY2026,bank_pillar3,0.004938,2025-09-30
+residential_mortgage,Residential Mortgage,residential_mortgage,ANZ_PILLAR3_RES_2024H2,bank_pillar3,0.008,2024-12-31
+residential_mortgage,Residential Mortgage,residential_mortgage,CBA_PILLAR3_RES_2024H2,bank_pillar3,0.0072,2024-12-31
+residential_mortgage,Residential Mortgage,residential_mortgage,MACQUARIE_BANK_RESIDENTIAL_MORTGAGE_PD_H1FY2026,bank_pillar3,0.006321,2025-09-30
+residential_mortgage,Residential Mortgage,residential_mortgage,NAB_PILLAR3_RES_2024H2,bank_pillar3,0.009,2024-12-31
+residential_mortgage,Residential Mortgage,residential_mortgage,WBC_PILLAR3_RES_2024H2,bank_pillar3,0.0088,2024-12-31
+retail_other,Retail Other,retail_other,MACQUARIE_BANK_RETAIL_OTHER_PD_H1FY2026,bank_pillar3,0.015546,2025-09-30
+retail_sme,Retail SME,retail_sme,MACQUARIE_BANK_RETAIL_SME_PD_H1FY2026,bank_pillar3,0.028911,2025-09-30
+sovereign,Sovereign,sovereign,MACQUARIE_BANK_SOVEREIGN_PD_H1FY2026,bank_pillar3,0.009,2025-09-30
