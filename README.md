@@ -61,6 +61,9 @@ plain-English executive summary, then the PD, LGD, expected-loss,
 stress-testing, portfolio-monitor, and per-bank industry tables. A sample
 is checked in: [`output/Credit_Risk_Report_Q2_2026.md`](output/Credit_Risk_Report_Q2_2026.md).
 
+> **Reviewing this project?** [`output/README.md`](output/README.md) is a
+> one-page, plain-English guide to every deliverable — start there.
+
 A slice of the expected-loss table gives the flavour:
 
 | Segment | PD | LGD | EL rate | PD sources | LGD sources |
@@ -173,7 +176,7 @@ external_benchmark_engine/
 │   └── migrate_to_raw_observations.py  # Loader into the raw-observation store
 ├── output/                     # Credit-risk report (md/html/docx) + data/ CSVs
 ├── tests/                      # 595 tests (unit + integration), all passing
-└── docs/                       # Operations guide + design notes
+└── docs/                       # Operations guide + data dictionary
 ```
 
 ---

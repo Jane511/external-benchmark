@@ -88,12 +88,9 @@ Thumbs.db
 # ---------------------------------------------------------------------------
 # Project-specific: internal docs and planning (not for public GitHub)
 # ---------------------------------------------------------------------------
-# Exclude docs/ by default, but re-include the two extension references
-# that are genuinely useful for readers on GitHub.
+# Exclude docs/ by default, but re-include the operations guide, which is
+# genuinely useful for readers on GitHub.
 docs/*
-!docs/adapter_pattern.md
-!docs/pillar3_pdf_spec.md
-!docs/migration_from_adjusted_to_raw.md
 !docs/operations.md
 PROGRESS.md
 
@@ -119,6 +116,7 @@ benchmarks.db
 # pipeline. The glob auto-tracks future periods; the regenerable HTML stays
 # ignored.
 output/*
+!output/README.md
 !output/data/
 !output/data/*.csv
 !output/Credit_Risk_Report_*.md
