@@ -84,7 +84,7 @@ def test_markdown_contains_direct_inputs_and_excludes_audit_sections(
     assert "## 5. Portfolio Monitor Inputs" in md
     assert "## 6. Per-Bank Industry Inputs" in md
     assert "PD decimal" in md
-    assert "%" not in md
+    assert "EL rate (bps)" in md      # expected loss shown in basis points, not 0.00 decimals
     assert "0.025000" not in md
     assert "0.03" in md
     assert "Methodology" not in md

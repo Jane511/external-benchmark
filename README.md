@@ -4,6 +4,20 @@
 disclosures into credit-risk model inputs — PD, LGD, expected loss,
 stress-test rates, and portfolio-monitoring metrics.**
 
+## See it in 30 seconds
+
+- 📄 **Sample report** — [`output/Credit_Risk_Report_Q2_2026.md`](output/Credit_Risk_Report_Q2_2026.md): executive summary followed by PD, LGD, expected-loss, stress-test, portfolio-monitor and per-bank industry tables (also available as [`.docx`](output/Credit_Risk_Report_Q2_2026.docx)).
+- 📊 **Model-input data** — [`output/data/expected_loss_inputs.csv`](output/data/expected_loss_inputs.csv): median PD, median LGD and the expected-loss rate (in basis points) per segment.
+
+> *From the report's executive summary:* "This report consolidates
+> externally-disclosed credit-risk parameters for Australian bank and
+> non-bank lenders into a single set of model-ready benchmarks… aligned to
+> the APRA APS 113 / Basel IRB framework. Every figure is a source-published
+> value — no adjustment, triangulation, or modelling overlay — so each
+> number traces back to a named disclosure and reporting date."
+
+---
+
 Every quarter, the Big 4 banks, Macquarie, APRA, the RBA, S&P, and a long
 list of ASX-listed non-bank lenders publish credit-risk numbers — but they
 publish them in PDFs, spreadsheets, and HTML pages, each using its own
@@ -32,11 +46,34 @@ quantitative-modelling role, here is what it shows:
 | **Concentration & portfolio risk** | Builds a per-bank, per-industry view of exposure, non-performing exposure, provisions, and write-offs from Big 4 Pillar 3 disclosures — the basis for industry-concentration monitoring. |
 | **Australian regulatory landscape** | Works directly with Pillar 3, APRA Quarterly ADI Performance and Property Exposures (QPEX), the RBA Financial Stability Review, and S&P RMBS arrears. |
 | **Data engineering** | ETL from PDF, Excel, and HTML into a SQLite/SQLAlchemy registry with a full audit trail; a Click CLI; reproducible CSV and report outputs; and a pytest suite of 595 tests (all passing). |
-| **Model governance** | Built-in staleness, coverage, and data-quality reports, plus an explicit "what this engine does *not* decide" boundary — the discipline a validation function looks for. |
+| **Model validation** | [`src/validation.py`](src/validation.py) runs cross-source checks per segment — spread (max−min across peers), outlier detection (a peer source vs the peer median), vintage staleness, and a Big-4-vs-non-bank peer ratio. It *flags* anomalies and surfaces regulator/floor anchors separately; it never overwrites or filters the underlying data. |
+| **Monitoring & governance** | [`src/governance.py`](src/governance.py) is a read-only observer that produces staleness, a 5-dimension data-quality matrix, coverage (segments with < 2 independent sources), and peer-divergence (> 30% vs peer median) reports — the recurring checks a model-monitoring function runs each cycle, with the audit trail preserved. |
+
+These two map directly to a **model validation & monitoring** role: the
+engine already implements the anomaly, coverage, vintage and peer-divergence
+checks such a function performs, and stops short of the calibration
+judgement that belongs to the model owner.
 
 Written in **Python** (pandas, SQLAlchemy, pydantic, Click, pdfplumber,
 python-docx). The skills transfer directly to SAS/SQL/R model-development
 and validation work.
+
+---
+
+## Related projects
+
+This repo is the **data & benchmark** layer of a three-stage credit-risk
+capability — *data & benchmarks → model development → validation*:
+
+- **Data & benchmarks** — this repo: traceable PD/LGD/ECL/stress model
+  inputs assembled from Australian regulatory disclosures.
+- **Model development** —
+  [`consumer-credit-pd-ead-scorecard`](https://github.com/Jane511/consumer-credit-pd-ead-scorecard):
+  a PD scorecard build with validation. Mortgage PD/LGD/EAD models —
+  *(link to be added once published)*.
+- **Validation & monitoring** — the cross-source and governance checks built
+  into this engine ([`validation.py`](src/validation.py),
+  [`governance.py`](src/governance.py)).
 
 ---
 

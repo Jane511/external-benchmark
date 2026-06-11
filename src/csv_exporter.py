@@ -58,6 +58,7 @@ _MODEL_INPUT_COLUMNS: dict[str, list[str]] = {
         "pd_decimal",
         "lgd_decimal",
         "expected_loss_rate_decimal",
+        "expected_loss_rate_bps",
         "pd_source_count",
         "lgd_source_count",
         "as_of_date",

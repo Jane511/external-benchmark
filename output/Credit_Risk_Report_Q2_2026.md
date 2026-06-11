@@ -1,5 +1,5 @@
 # Australian Credit Risk Benchmarks - Q2 2026
-_Generated: 2026-06-11T04:36:41+00:00 | Data as-of: 2024-12-31–2026-02-28_
+_Generated: 2026-06-11T08:24:40+00:00 | Data as-of: 2024-12-31–2026-02-28_
 
 ## Executive summary
 
@@ -25,7 +25,7 @@ Every figure is a source-published value — no adjustment, triangulation, or mo
 ### How to read the numbers
 
 - Rates are decimals in [0, 1]; for example, 0.03 represents three percent.
-- Expected-loss rate = PD × LGD.
+- Expected-loss rate = PD × LGD, shown in basis points (bps); 1 bp = 0.01%, so 14 bps = 0.14%.
 - Stressed PD/LGD apply 1.5× / 1.2× multipliers, floored at APS 113 bands.
 - "As-of" is the disclosure date of the most recent source.
 
@@ -84,31 +84,31 @@ Every figure is a source-published value — no adjustment, triangulation, or mo
 
 ## 3. Expected Loss Inputs
 
-| Segment | Product | PD decimal | LGD decimal | EL rate decimal | PD N | LGD N | As-of |
+| Segment | Product | PD decimal | LGD decimal | EL rate (bps) | PD N | LGD N | As-of |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Commercial Property | commercial_property | 0.02 | 0.21 | 0.00 | 5 | 2 | 2025-09-30 |
-| Corporate General | corporate_general | 0.02 | 0.45 | 0.01 | 1 | 1 | 2025-09-30 |
-| Corporate SME | term_loan | 0.03 | 0.42 | 0.01 | 5 | 1 | 2025-09-30 |
-| Development | development | 0.02 | 0.35 | 0.01 | 4 | 4 | 2024-12-31 |
-| Financial Institution | financial_institution | 0.00 | 0.49 | 0.00 | 1 | 1 | 2025-09-30 |
-| Residential Mortgage | residential_mortgage | 0.01 | 0.17 | 0.00 | 5 | 4 | 2025-09-30 |
-| Retail Other | retail_other | 0.02 | 0.36 | 0.01 | 1 | 1 | 2025-09-30 |
-| Retail SME | retail_sme | 0.03 | 0.41 | 0.01 | 1 | 1 | 2025-09-30 |
-| Sovereign | sovereign | 0.01 | 0.05 | 0.00 | 1 | 1 | 2025-09-30 |
+| Commercial Property | commercial_property | 0.02 | 0.21 | 46 bps | 5 | 2 | 2025-09-30 |
+| Corporate General | corporate_general | 0.02 | 0.45 | 77 bps | 1 | 1 | 2025-09-30 |
+| Corporate SME | term_loan | 0.03 | 0.42 | 117 bps | 5 | 1 | 2025-09-30 |
+| Development | development | 0.02 | 0.35 | 63 bps | 4 | 4 | 2024-12-31 |
+| Financial Institution | financial_institution | 0.00 | 0.49 | 24 bps | 1 | 1 | 2025-09-30 |
+| Residential Mortgage | residential_mortgage | 0.01 | 0.17 | 14 bps | 5 | 4 | 2025-09-30 |
+| Retail Other | retail_other | 0.02 | 0.36 | 57 bps | 1 | 1 | 2025-09-30 |
+| Retail SME | retail_sme | 0.03 | 0.41 | 120 bps | 1 | 1 | 2025-09-30 |
+| Sovereign | sovereign | 0.01 | 0.05 | 5 bps | 1 | 1 | 2025-09-30 |
 
 ## 4. Stress Testing Inputs
 
-| Segment | Product | Base EL decimal | Stressed PD decimal | Stressed LGD decimal | Stressed EL decimal | As-of |
+| Segment | Product | Base EL (bps) | Stressed PD decimal | Stressed LGD decimal | Stressed EL (bps) | As-of |
 | --- | --- | --- | --- | --- | --- | --- |
-| Commercial Property | commercial_property | 0.00 | 0.05 | 0.25 | 0.01 | 2025-09-30 |
-| Corporate General | corporate_general | 0.01 | 0.03 | 0.55 | 0.01 | 2025-09-30 |
-| Corporate SME | term_loan | 0.01 | 0.06 | 0.50 | 0.03 | 2025-09-30 |
-| Development | development | 0.01 | 0.05 | 0.42 | 0.02 | 2024-12-31 |
-| Financial Institution | financial_institution | 0.00 | 0.01 | 0.59 | 0.00 | 2025-09-30 |
-| Residential Mortgage | residential_mortgage | 0.00 | 0.01 | 0.21 | 0.00 | 2025-09-30 |
-| Retail Other | retail_other | 0.01 | 0.02 | 0.44 | 0.01 | 2025-09-30 |
-| Retail SME | retail_sme | 0.01 | 0.04 | 0.50 | 0.02 | 2025-09-30 |
-| Sovereign | sovereign | 0.00 | 0.01 | 0.06 | 0.00 | 2025-09-30 |
+| Commercial Property | commercial_property | 46 bps | 0.05 | 0.25 | 125 bps | 2025-09-30 |
+| Corporate General | corporate_general | 77 bps | 0.03 | 0.55 | 139 bps | 2025-09-30 |
+| Corporate SME | term_loan | 117 bps | 0.06 | 0.50 | 301 bps | 2025-09-30 |
+| Development | development | 63 bps | 0.05 | 0.42 | 210 bps | 2024-12-31 |
+| Financial Institution | financial_institution | 24 bps | 0.01 | 0.59 | 43 bps | 2025-09-30 |
+| Residential Mortgage | residential_mortgage | 14 bps | 0.01 | 0.21 | 25 bps | 2025-09-30 |
+| Retail Other | retail_other | 57 bps | 0.02 | 0.44 | 102 bps | 2025-09-30 |
+| Retail SME | retail_sme | 120 bps | 0.04 | 0.50 | 215 bps | 2025-09-30 |
+| Sovereign | sovereign | 5 bps | 0.01 | 0.06 | 8 bps | 2025-09-30 |
 
 ## 5. Portfolio Monitor Inputs
 

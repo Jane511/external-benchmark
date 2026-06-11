@@ -162,6 +162,7 @@ def build_expected_loss_rows(registry: BenchmarkRegistry) -> list[dict[str, Any]
             "pd_decimal": _round_rate(pd_value),
             "lgd_decimal": _round_rate(lgd_value),
             "expected_loss_rate_decimal": _round_rate(expected_loss),
+            "expected_loss_rate_bps": round(expected_loss * 10000),
             "pd_source_count": pd_row["source_count"],
             "lgd_source_count": lgd_row["source_count"],
             "as_of_date": max(pd_row["as_of_date"], lgd_row["as_of_date"]),

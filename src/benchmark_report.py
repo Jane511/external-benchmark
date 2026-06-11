@@ -153,7 +153,9 @@ class BenchmarkCalibrationReport:
             ("bullet",
              "Rates are decimals in [0, 1]; for example, 0.03 represents "
              "three percent."),
-            ("bullet", "Expected-loss rate = PD × LGD."),
+            ("bullet",
+             "Expected-loss rate = PD × LGD, shown in basis points (bps); "
+             "1 bp = 0.01%, so 14 bps = 0.14%."),
             ("bullet",
              f"Stressed PD/LGD apply {PD_STRESS_MULTIPLIER}× / "
              f"{LGD_STRESS_MULTIPLIER}× multipliers, floored at APS 113 bands."),
@@ -241,7 +243,7 @@ class BenchmarkCalibrationReport:
             "3. Expected Loss Inputs",
             [
                 "Segment", "Product", "PD decimal", "LGD decimal",
-                "EL rate decimal", "PD N", "LGD N", "As-of",
+                "EL rate (bps)", "PD N", "LGD N", "As-of",
             ],
             [
                 [
@@ -249,7 +251,7 @@ class BenchmarkCalibrationReport:
                     row["product"],
                     _fmt_decimal(row["pd_decimal"]),
                     _fmt_decimal(row["lgd_decimal"]),
-                    _fmt_decimal(row["expected_loss_rate_decimal"]),
+                    _fmt_bps(row["expected_loss_rate_decimal"]),
                     row["pd_source_count"],
                     row["lgd_source_count"],
                     row["as_of_date"],
@@ -262,20 +264,20 @@ class BenchmarkCalibrationReport:
             [
                 "Segment",
                 "Product",
-                "Base EL decimal",
+                "Base EL (bps)",
                 "Stressed PD decimal",
                 "Stressed LGD decimal",
-                "Stressed EL decimal",
+                "Stressed EL (bps)",
                 "As-of",
             ],
             [
                 [
                     row["segment_label"],
                     row["product"],
-                    _fmt_decimal(row["base_expected_loss_rate_decimal"]),
+                    _fmt_bps(row["base_expected_loss_rate_decimal"]),
                     _fmt_decimal(row["stressed_pd_decimal"]),
                     _fmt_decimal(row["stressed_lgd_decimal"]),
-                    _fmt_decimal(row["stressed_expected_loss_rate_decimal"]),
+                    _fmt_bps(row["stressed_expected_loss_rate_decimal"]),
                     row["as_of_date"],
                 ]
                 for row in data["stress_testing_inputs"]
@@ -432,7 +434,7 @@ class BenchmarkCalibrationReport:
             "3. Expected Loss Inputs",
             [
                 "segment", "product", "pd_decimal", "lgd_decimal",
-                "el_rate_decimal", "pd_n", "lgd_n", "as_of",
+                "el_rate_bps", "pd_n", "lgd_n", "as_of",
             ],
             [
                 [
@@ -440,7 +442,7 @@ class BenchmarkCalibrationReport:
                     row["product"],
                     _fmt_decimal(row["pd_decimal"]),
                     _fmt_decimal(row["lgd_decimal"]),
-                    _fmt_decimal(row["expected_loss_rate_decimal"]),
+                    _fmt_bps(row["expected_loss_rate_decimal"]),
                     str(row["pd_source_count"]),
                     str(row["lgd_source_count"]),
                     row["as_of_date"],
@@ -450,16 +452,16 @@ class BenchmarkCalibrationReport:
         )
         add_input_table(
             "4. Stress Testing Inputs",
-            ["segment", "product", "base_el_decimal", "stressed_pd_decimal",
-             "stressed_lgd_decimal", "stressed_el_decimal", "as_of"],
+            ["segment", "product", "base_el_bps", "stressed_pd_decimal",
+             "stressed_lgd_decimal", "stressed_el_bps", "as_of"],
             [
                 [
                     row["segment_label"],
                     row["product"],
-                    _fmt_decimal(row["base_expected_loss_rate_decimal"]),
+                    _fmt_bps(row["base_expected_loss_rate_decimal"]),
                     _fmt_decimal(row["stressed_pd_decimal"]),
                     _fmt_decimal(row["stressed_lgd_decimal"]),
-                    _fmt_decimal(row["stressed_expected_loss_rate_decimal"]),
+                    _fmt_bps(row["stressed_expected_loss_rate_decimal"]),
                     row["as_of_date"],
                 ]
                 for row in data["stress_testing_inputs"]
@@ -1136,6 +1138,15 @@ def _fmt_pct_or_blank(v: object) -> str:
 
 def _fmt_decimal(v: object) -> str:
     return f"{float(v):.2f}"
+
+
+def _fmt_bps(v: object) -> str:
+    """Format a small loss-rate decimal as basis points (0.0014 -> '14 bps').
+
+    Loss rates are tiny as decimals, so rounding to 2dp reads as "0.00" and
+    looks like zero loss. Basis points keep them legible (1 bp = 0.01%).
+    """
+    return f"{round(float(v) * 10000)} bps"
 
 
 def _fmt_decimal_or_blank(v: object) -> str:
