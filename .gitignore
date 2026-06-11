@@ -116,7 +116,6 @@ benchmarks.db
 # pipeline. The glob auto-tracks future periods; the regenerable HTML stays
 # ignored.
 output/*
-!output/README.md
 !output/data/
 !output/data/*.csv
 !output/Credit_Risk_Report_*.md
