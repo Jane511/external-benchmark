@@ -1,17 +1,23 @@
 """Download non-bank ASX-listed lender disclosures (graceful per-source).
 
 Usage:
-    python scripts/download_sources/non_bank_downloader.py
-    python scripts/download_sources/non_bank_downloader.py --lender judo
-    python scripts/download_sources/non_bank_downloader.py --force-refresh
+    python src/download_sources/non_bank_downloader.py
+    python src/download_sources/non_bank_downloader.py --lender judo
+    python src/download_sources/non_bank_downloader.py --force-refresh
 
 Coverage
 --------
-Targets the 9 non-bank lenders identified in
+Targets the non-bank lenders identified in
 ``ingestion/segment_mapping.yaml``:
 
-  judo, liberty, pepper, resimac, moneyme, plenti, wisr, qualitas,
-  metrics_credit
+  liberty, pepper, resimac, moneyme, plenti, qualitas,
+  metrics_credit, latrobe, latitude, humm, zip
+
+(Judo Bank is an APRA-authorised ADI — its disclosures live under
+``data/raw/other_bank/judo/`` and are seeded directly via
+``src/seed_data.py`` rather than scraped here. Bluestone Mortgages
+Australia is a private RMBS issuer with no consolidated IR PDF; if you
+need it, fetch the trustee disclosure manually.)
 
 Each has a different investor-relations layout. Some IR pages are
 actively bot-protected (Cloudflare / Akamai / 403) or JS-rendered, in
@@ -81,18 +87,6 @@ _UA = (
 #   fallback_ext:     extension to require during fallback search
 #   manual_hint:      one-line guidance written into _MANUAL.md if blocked
 _LENDERS: dict[str, dict] = {
-    "judo": {
-        "ir_url": "https://www.judo.bank/regulatory-disclosures",
-        "file_pattern": "*pillar*3*.pdf",
-        "fallback_keywords": [
-            "pillar 3", "pillar-3", "basel iii", "fy25", "fy26", "h1", "apra",
-        ],
-        "fallback_ext": ".pdf",
-        "manual_hint": (
-            "Judo Bank Pillar 3 disclosures are on /regulatory-disclosures, "
-            "not the marketing /about/investor-centre. Quarterly cadence."
-        ),
-    },
     "liberty": {
         "ir_url": "https://www.lfgroup.com.au/reports/asx-announcements",
         "ir_url_secondary": "https://www.lfgroup.com.au/",
@@ -109,13 +103,18 @@ _LENDERS: dict[str, dict] = {
         ),
     },
     "pepper": {
-        "ir_url": "https://www.peppermoney.com.au/about/debt-investors",
-        "file_pattern": "*results*.pdf",
+        "ir_url": "https://www.peppermoney.com.au/about/shareholders",
+        "ir_url_secondary": "https://www.peppermoney.com.au/about/debt-investors",
+        "file_pattern": "*investor*presentation*.pdf",
         "fallback_keywords": [
-            "results presentation", "fy24", "fy25", "fy26",
-            "1h", "2h", "annual report",
+            "investor presentation", "results presentation",
+            "annual report", "appendix 4e", "appendix 4d",
+            "fy24", "fy25", "fy26", "cy25", "cy26", "1h", "2h",
         ],
-        "exclude_keywords": ["green bond", "bond framework", "framework"],
+        "exclude_keywords": [
+            "green bond", "bond framework", "framework", "annual review",
+            "use of proceeds", "sustainalytics",
+        ],
         "fallback_ext": ".pdf",
         "manual_hint": (
             "Pepper Money debt-investors page. ASX:PPM. Half-yearly + "
@@ -168,19 +167,6 @@ _LENDERS: dict[str, dict] = {
             "rates in its quarterly updates."
         ),
     },
-    "wisr": {
-        "ir_url": "https://investorhub.wisr.com.au/",
-        "ir_url_secondary": "https://wisr.com.au/shareholders",
-        "file_pattern": "*results*.pdf",
-        "fallback_keywords": [
-            "results", "annual report", "quarterly", "fy25", "fy26",
-        ],
-        "fallback_ext": ".pdf",
-        "manual_hint": (
-            "Wisr now uses dedicated investorhub.wisr.com.au for "
-            "announcements. ASX:WZR. Quarterly trading updates."
-        ),
-    },
     "qualitas": {
         "ir_url": "https://investors.qualitas.com.au/investor-centre/",
         "file_pattern": "*results*.pdf",
@@ -193,6 +179,71 @@ _LENDERS: dict[str, dict] = {
             "Qualitas IR is on dedicated subdomain "
             "investors.qualitas.com.au (main domain has SSL handshake "
             "quirks). ASX:QAL. Half-yearly + annual."
+        ),
+    },
+    "latitude": {
+        "ir_url": "https://investors.latitudefinancial.com.au/Investors/?page=results-and-presentations",
+        "ir_url_secondary": "https://investors.latitudefinancial.com.au/Investors/",
+        "file_pattern": "*results*.pdf",
+        "fallback_keywords": [
+            "results presentation", "annual report", "1h", "2h",
+            "fy24", "fy25", "fy26", "investor presentation",
+        ],
+        "fallback_ext": ".pdf",
+        "manual_hint": (
+            "Latitude Financial IR portal at "
+            "investors.latitudefinancial.com.au. ASX:LFS. Half-yearly + "
+            "annual cadence; results presentations include net charge-off "
+            "rate and 90+ DPD by product."
+        ),
+    },
+    "humm": {
+        "ir_url": "https://shareholders.hummgroup.com.au/Investors/?page=results-presentations",
+        "ir_url_secondary": "https://shareholders.hummgroup.com.au/Investors/",
+        "file_pattern": "*results*.pdf",
+        "fallback_keywords": [
+            "results presentation", "annual report", "1h", "2h",
+            "fy24", "fy25", "fy26", "investor presentation",
+        ],
+        "fallback_ext": ".pdf",
+        "manual_hint": (
+            "humm Group IR portal at shareholders.hummgroup.com.au. "
+            "ASX:HUM. Half-yearly + annual cadence; reports break out net "
+            "loss / impairment expense by Commercial vs Consumer book."
+        ),
+    },
+    "zip": {
+        "ir_url": "https://zip.co/au/investors/financial-information",
+        "ir_url_secondary": "https://zip.co/au/investors",
+        "file_pattern": "*results*.pdf",
+        "fallback_keywords": [
+            "results presentation", "annual report", "1h", "2h",
+            "fy24", "fy25", "fy26", "investor presentation",
+            "quarterly update", "trading update",
+        ],
+        "fallback_ext": ".pdf",
+        "manual_hint": (
+            "Zip Co IR at zip.co/au/investors. ASX:ZIP. Quarterly trading "
+            "updates + half-yearly results; net bad debts as a percentage "
+            "of TTV is the key disclosed credit metric."
+        ),
+    },
+    "latrobe": {
+        # La Trobe Financial is privately held — no ASX feed. The
+        # forms-library page lists fund disclosures (annual reports,
+        # half-yearly investment metrics snapshots, monthly fund updates).
+        "ir_url": "https://www.latrobefinancial.com.au/investments/forms-library/",
+        "ir_url_secondary": "https://www.latrobefinancial.com.au/disclosures",
+        "file_pattern": "*annual*report*.pdf",
+        "fallback_keywords": [
+            "annual report", "half-year", "half year", "fund report",
+            "investment snapshot", "metrics", "fy24", "fy25", "fy26",
+        ],
+        "fallback_ext": ".pdf",
+        "manual_hint": (
+            "La Trobe Financial is private; disclosures live in "
+            "/investments/forms-library/. Look for the Credit Fund "
+            "annual report and the Investment Snapshot & Metrics PDFs."
         ),
     },
     "metrics_credit": {

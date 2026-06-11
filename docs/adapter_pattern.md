@@ -19,7 +19,7 @@
 > `["asset_class", "metric_name", ...]` shape for the transitional
 > period — they continue to feed the legacy `BenchmarkEntry` table and
 > are migrated to `RawObservation` via
-> [`scripts/migrate_to_raw_observations.py`](../scripts/migrate_to_raw_observations.py).
+> [`src/migrate_to_raw_observations.py`](../src/migrate_to_raw_observations.py).
 
 ## Why
 

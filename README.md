@@ -29,8 +29,9 @@ quantitative-modelling role, here is what it shows:
 | **IFRS 9 / ECL** | Expected loss is published as a rate built from PD × LGD, the core of an IFRS 9 expected-credit-loss calculation. |
 | **Regulatory capital (Basel III / APRA APS 113)** | Ingests Basel-aligned 12-month PDs from Pillar 3 disclosures and APS 113 slotting grades and regulatory PD/LGD floors. |
 | **Stress testing** | Applies PD/LGD stress multipliers and regulatory upper-band floors to produce base-vs-stressed expected-loss rates per segment. |
+| **Concentration & portfolio risk** | Builds a per-bank, per-industry view of exposure, non-performing exposure, provisions, and write-offs from Big 4 Pillar 3 disclosures — the basis for industry-concentration monitoring. |
 | **Australian regulatory landscape** | Works directly with Pillar 3, APRA Quarterly ADI Performance and Property Exposures (QPEX), the RBA Financial Stability Review, and S&P RMBS arrears. |
-| **Data engineering** | ETL from PDF, Excel, and HTML into a SQLite/SQLAlchemy registry with a full audit trail; a Click CLI; reproducible CSV and report outputs; and 55 test modules across the codebase. |
+| **Data engineering** | ETL from PDF, Excel, and HTML into a SQLite/SQLAlchemy registry with a full audit trail; a Click CLI; reproducible CSV and report outputs; and a pytest suite of 595 tests (all passing). |
 | **Model governance** | Built-in staleness, coverage, and data-quality reports, plus an explicit "what this engine does *not* decide" boundary — the discipline a validation function looks for. |
 
 Written in **Python** (pandas, SQLAlchemy, pydantic, Click, pdfplumber,
@@ -43,7 +44,7 @@ and validation work.
 
 Each cycle the engine emits two things.
 
-**Five model-input CSVs** in `output/csv/` — the stable contract for any
+**Five model-input CSVs** in `output/data/` — the stable contract for any
 downstream PD/LGD/ECL model:
 
 | File | Contents |
@@ -54,10 +55,11 @@ downstream PD/LGD/ECL model:
 | `stress_testing_inputs.csv` | Base and stressed PD / LGD / EL rates |
 | `portfolio_monitor_inputs.csv` | Arrears, NPL, impaired, and loss-rate metrics |
 
-**A report in three formats** in `output/reports/` —
-`Report_<period>.md` / `.html` / `.docx` (the Word version is the one a
-committee reads). A sample is checked in at
-[`output/reports/`](output/reports/).
+**A credit-risk report** at the top of [`output/`](output/) —
+`Credit_Risk_Report_<period>.md` / `.html` / `.docx`. It opens with a
+plain-English executive summary, then the PD, LGD, expected-loss,
+stress-testing, portfolio-monitor, and per-bank industry tables. A sample
+is checked in: [`output/Credit_Risk_Report_Q2_2026.md`](output/Credit_Risk_Report_Q2_2026.md).
 
 A slice of the expected-loss table gives the flavour:
 
@@ -115,7 +117,7 @@ pip install -e ".[ingestion,download,reports]"
 
 # 2. Build the database from the bundled Australian seed data
 python cli.py --db benchmarks.db seed
-python scripts/migrate_to_raw_observations.py --db benchmarks.db
+python src/migrate_to_raw_observations.py --db benchmarks.db
 
 # 3. Produce the CSV bundle
 python cli.py --db benchmarks.db export-csvs
@@ -156,6 +158,7 @@ external_benchmark_engine/
 ├── config/                     # Reality-check bands + refresh schedules (YAML)
 ├── ingestion/
 │   ├── adapters/               # One PDF/XLSX/HTML adapter per publisher
+│   ├── aggregation/            # Big 4 per-industry exposure aggregation
 │   ├── pillar3/                # Per-bank Pillar 3 entry points
 │   └── source_registry.py      # Catalogue of every source URL + cache layout
 ├── src/
@@ -165,9 +168,11 @@ external_benchmark_engine/
 │   ├── validation.py           # Spread / outlier / vintage / peer-ratio checks
 │   ├── governance.py           # Staleness / quality / coverage reports
 │   ├── benchmark_report.py     # Markdown + HTML + DOCX renderer
-│   └── csv_exporter.py         # The five model-input CSVs
-├── output/                     # Generated reports and CSVs
-├── tests/                      # 55 test modules (unit + integration)
+│   ├── csv_exporter.py         # The five model-input CSVs
+│   ├── download_sources/       # Source downloaders (APRA, RBA, Pillar 3, non-bank)
+│   └── migrate_to_raw_observations.py  # Loader into the raw-observation store
+├── output/                     # Credit-risk report (md/html/docx) + data/ CSVs
+├── tests/                      # 595 tests (unit + integration), all passing
 └── docs/                       # Operations guide + design notes
 ```
 

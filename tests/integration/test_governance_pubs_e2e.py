@@ -1,17 +1,12 @@
 """End-to-end test for the APRA Insight + CFR governance pipeline.
 
-Covers the four acceptance points from the build prompt:
+Covers the two acceptance points for the download/manifest layer:
 
 1. Run the ``GovernancePublicationsDownloader`` against fixture landing pages
    listing 5 APRA Insight items and 4 CFR items; assert each manifest holds
    the expected count.
 2. Re-run with the same fixtures; assert idempotency (no manifest growth,
    no new audit-log rows).
-3. Generate the Board report and assert the "Recent regulator commentary"
-   subsection lists the 3 most recent of each.
-4. With empty manifests (no scrape yet), the report's commentary subsection
-   gracefully emits the "No recent regulator commentary captured." line
-   instead of crashing.
 """
 
 from __future__ import annotations
@@ -23,10 +18,9 @@ import pytest
 from sqlalchemy import select
 
 import ingestion.adapters.apra_insight_adapter as apra_module
-from scripts.download_sources.governance_publications_downloader import (
+from src.download_sources.governance_publications_downloader import (
     GovernancePublicationsDownloader,
 )
-from src.benchmark_report import BenchmarkCalibrationReport
 from src.db import AuditLog, create_engine_and_schema, make_session_factory
 from src.registry import BenchmarkRegistry
 
@@ -184,64 +178,3 @@ def test_downloader_captures_5_apra_and_4_cfr_then_is_idempotent(
             select(AuditLog).where(AuditLog.operation == "read_source_document"),
         ).all())
     assert len(rows_after) == 9
-
-
-# ---------------------------------------------------------------------------
-# 3: report subsection lists 3 most recent of each
-# ---------------------------------------------------------------------------
-
-
-def test_benchmark_report_lists_three_most_recent_of_each(
-    tmp_path: Path, patched_requests: _FakeSession,
-) -> None:
-    db = tmp_path / "audit.db"
-    cache = tmp_path / "raw"
-    GovernancePublicationsDownloader(
-        cache_base=cache, db_path=db,
-    ).download_all()
-
-    registry = BenchmarkRegistry(create_engine_and_schema(db), actor="test")
-    report = BenchmarkCalibrationReport(
-        registry=registry, period_label="Q1 2026", raw_data_dir=cache,
-    )
-    data = report.generate()
-    commentary = data["supporting_documentation"]["recent_regulator_commentary"]
-
-    apra = commentary["apra_insight"]
-    cfr = commentary["cfr_publications"]
-    assert len(apra) == 3
-    assert len(cfr) == 3
-    assert [r["published_date"] for r in apra] == ["2026-04-20", "2026-03-15", "2026-02-10"]
-    assert [r["published_date"] for r in cfr] == ["2026-03-25", "2026-02-12", "2025-12-18"]
-    assert commentary["empty_message"] == ""
-
-    md = report.to_markdown()
-    assert "### Recent regulator commentary" in md
-    assert "Insight Issue Five 2026" in md
-    assert "CFR Statement March 2026" in md
-    # The 4th-newest CFR item must NOT be in the top-3 list.
-    assert "Financial Stability Q3 2025" not in md
-
-
-# ---------------------------------------------------------------------------
-# 4: empty manifests fall back to the friendly message
-# ---------------------------------------------------------------------------
-
-
-def test_report_handles_empty_manifests(tmp_path: Path) -> None:
-    cache = tmp_path / "raw"  # no governance scrape ran -> manifests don't exist
-    db = tmp_path / "audit.db"
-    registry = BenchmarkRegistry(create_engine_and_schema(db), actor="test")
-
-    report = BenchmarkCalibrationReport(
-        registry=registry, period_label="Q1 2026", raw_data_dir=cache,
-    )
-    data = report.generate()
-    commentary = data["supporting_documentation"]["recent_regulator_commentary"]
-    assert commentary["apra_insight"] == []
-    assert commentary["cfr_publications"] == []
-    assert commentary["empty_message"] == "No recent regulator commentary captured."
-
-    md = report.to_markdown()
-    assert "### Recent regulator commentary" in md
-    assert "No recent regulator commentary captured." in md

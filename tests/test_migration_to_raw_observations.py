@@ -1,4 +1,4 @@
-"""Tests for scripts/migrate_to_raw_observations.py.
+"""Tests for src/migrate_to_raw_observations.py.
 
 Covers the new `data_definition_class` inference plus end-to-end
 migration of seed data into raw_observations.
@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.migrate_to_raw_observations import (
+from src.migrate_to_raw_observations import (
     _infer_definition_class,
     _infer_parameter,
     migrate,

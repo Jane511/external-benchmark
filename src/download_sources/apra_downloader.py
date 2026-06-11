@@ -5,9 +5,9 @@ Scrapes the APRA quarterly-ADI-statistics listing page, finds the latest
 under ``data/raw/apra/``.
 
 Usage:
-    python scripts/download_sources/apra_downloader.py
-    python scripts/download_sources/apra_downloader.py --force-refresh
-    python scripts/download_sources/apra_downloader.py --cache-dir /tmp/apra
+    python src/download_sources/apra_downloader.py
+    python src/download_sources/apra_downloader.py --force-refresh
+    python src/download_sources/apra_downloader.py --cache-dir /tmp/apra
 
 Selector notes
 --------------

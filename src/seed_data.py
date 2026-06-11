@@ -305,7 +305,7 @@ _WORKING_CAPITAL = [
 #
 # These rows seed the BenchmarkEntry table with the canonical reality-check
 # observations identified in the verification analysis. After running
-# `scripts/migrate_to_raw_observations.py`, each row appears in
+# `src/migrate_to_raw_observations.py`, each row appears in
 # `raw_observations` with parameter and data_definition_class inferred
 # from the source_id pattern. The downstream PD/LGD/ECL projects read
 # these via `PeerObservations.for_segment(...)` to apply per-product
@@ -563,6 +563,215 @@ _METRICS_CREDIT_COMMENTARY = [
 ]
 
 
+# Non-bank disclosures — values transcribed directly from the cached
+# investor presentations / annual reports under data/raw/non_bank/. Each
+# row carries the published figure plus a methodology note pointing at the
+# source page so a reviewer can spot-check.
+_NON_BANK_DISCLOSURES = [
+    # Pepper Money — CY2025 Investor Presentation (calendar year ended
+    # 31 Dec 2025), p14 "Credit Performance | Loan Loss Expense".
+    _entry(
+        source_id="PEPPER_MORTGAGES_90DPD_CY2025",
+        publisher="Pepper Money",
+        source_type=SourceType.LISTED_PEER,
+        data_type=DataType.IMPAIRED_RATIO,
+        asset_class="residential_mortgage_specialist",
+        url="https://www.peppermoney.com.au/about/shareholders",
+        value=0.0189,
+        value_date=date(2025, 12, 31),
+        retrieval_date=date(2026, 5, 1),
+        period_years=1,
+        notes=(
+            "Pepper Money mortgages 90+ Day Arrears as % of AUM (CY2025, "
+            "incl. NZ + CRE; excl. HSBC NZ acquired portfolio). Source: "
+            "PPM CY2025 Investor Presentation, p14."
+        ),
+    ),
+    _entry(
+        source_id="PEPPER_ASSET_FINANCE_90DPD_CY2025",
+        publisher="Pepper Money",
+        source_type=SourceType.LISTED_PEER,
+        data_type=DataType.IMPAIRED_RATIO,
+        asset_class="consumer_secured",
+        url="https://www.peppermoney.com.au/about/shareholders",
+        value=0.0032,
+        value_date=date(2025, 12, 31),
+        retrieval_date=date(2026, 5, 1),
+        period_years=1,
+        notes=(
+            "Pepper Money asset finance 90+ Day Arrears as % of AUM "
+            "(CY2025; excludes loans in 120+ DPD charge-off). Source: "
+            "PPM CY2025 Investor Presentation, p14."
+        ),
+    ),
+    # Liberty Financial — FY25 Annual Report (year ended 30 Jun 2025),
+    # Note 6 Financial Risk Management, p72: portfolio expected loss rate.
+    _entry(
+        source_id="LIBERTY_PORTFOLIO_ECL_FY25",
+        publisher="Liberty Financial",
+        source_type=SourceType.LISTED_PEER,
+        data_type=DataType.LGD,
+        asset_class="residential_mortgage",
+        url="https://www.lfgroup.com.au/reports/annual-reports",
+        value=0.0039,
+        value_date=date(2025, 6, 30),
+        retrieval_date=date(2026, 5, 1),
+        period_years=1,
+        notes=(
+            "Liberty Group portfolio expected credit loss rate across "
+            "$14.67bn gross book (Stage 1 0.31% / Stage 2 2.31% / Stage 3 "
+            "1.62%; total 0.39%). Reported as a realised-loss-style "
+            "indicator — not a Basel LGD. Source: LFG FY25 Annual Report "
+            "Note 6, p72."
+        ),
+    ),
+    _entry(
+        source_id="LIBERTY_STAGE3_ECL_FY25",
+        publisher="Liberty Financial",
+        source_type=SourceType.LISTED_PEER,
+        data_type=DataType.LGD,
+        asset_class="residential_mortgage_specialist",
+        url="https://www.lfgroup.com.au/reports/annual-reports",
+        value=0.0162,
+        value_date=date(2025, 6, 30),
+        retrieval_date=date(2026, 5, 1),
+        period_years=1,
+        notes=(
+            "Liberty Stage 3 (credit-impaired) expected loss rate; the "
+            "closest disclosed proxy for LGD on a non-prime book. Source: "
+            "LFG FY25 Annual Report Note 6, p72."
+        ),
+    ),
+    # Resimac — FY25 Annual Report (year ended 30 Jun 2025), Note 2.6
+    # "Loan impairment".
+    _entry(
+        source_id="RESIMAC_IMPAIRMENT_RATIO_FY25",
+        publisher="Resimac",
+        source_type=SourceType.LISTED_PEER,
+        data_type=DataType.LGD,
+        asset_class="residential_mortgage_specialist",
+        url="https://www.resimac.com.au/investors/annual-reports",
+        value=0.0023,
+        value_date=date(2025, 6, 30),
+        retrieval_date=date(2026, 5, 1),
+        period_years=1,
+        notes=(
+            "Resimac loan impairment expense $22.56m on $9.82bn loans and "
+            "advances (~0.23% loss rate); ECL allowance $56.5m on AUM. "
+            "Source: Resimac FY25 Annual Report Note 2.6 (p23) + Note "
+            "lending receivables (p35)."
+        ),
+    ),
+    # La Trobe Financial — Credit Fund Half-Year Report FY2026 (period
+    # ended 31 Dec 2025) plus Investment Snapshot & Metrics PDF.
+    _entry(
+        source_id="LATROBE_CREDIT_FUND_ARREARS_HY26",
+        publisher="La Trobe Financial",
+        source_type=SourceType.LISTED_PEER,
+        data_type=DataType.IMPAIRED_RATIO,
+        asset_class="residential_mortgage_specialist",
+        url="https://www.latrobefinancial.com.au/investments/forms-library/",
+        value=0.0047,
+        value_date=date(2025, 12, 31),
+        retrieval_date=date(2026, 5, 1),
+        period_years=1,
+        notes=(
+            "La Trobe Australian Credit Fund total amount in arrears as % "
+            "of total loan balance (0.47% at 31 Dec 2025; 0.45% prior). "
+            "Source: La Trobe FY2026 Half-Year Report (LACF), p14."
+        ),
+    ),
+    _entry(
+        source_id="LATROBE_DEFAULT_RATE_2025",
+        publisher="La Trobe Financial",
+        source_type=SourceType.LISTED_PEER,
+        data_type=DataType.DEFAULT_RATE,
+        asset_class="residential_mortgage_specialist",
+        url="https://www.latrobefinancial.com.au/investments/forms-library/",
+        value=0.027,
+        value_date=date(2025, 12, 31),
+        retrieval_date=date(2026, 5, 1),
+        period_years=1,
+        notes=(
+            "La Trobe 'Default loans > 30 days' as % of investment "
+            "account balance (12-month Term Account 2.7%). Source: La "
+            "Trobe Investment Snapshot & Metrics, p1."
+        ),
+    ),
+    # Judo Bank — APRA-authorised ADI (ASX:JDO), Standardised approach.
+    # Source: Judo 1H26 Half-Year Report (period ended 31 Dec 2025), p11
+    # "Asset quality" + p8 result overview.
+    _entry(
+        source_id="JUDO_NPL_RATIO_HY26",
+        publisher="Judo Bank",
+        source_type=SourceType.PILLAR3,
+        data_type=DataType.IMPAIRED_RATIO,
+        asset_class="corporate_sme",
+        url="https://www.judo.bank/regulatory-disclosures",
+        value=0.0344,
+        value_date=date(2025, 12, 31),
+        retrieval_date=date(2026, 5, 1),
+        period_years=1,
+        notes=(
+            "Judo Bank non-performing loans / GLA = 3.44% (Dec-25; "
+            "Jun-25: 3.18%). Standardised-approach ADI; not a Basel "
+            "PD. Source: Judo 1H26 Half-Year Report, p11."
+        ),
+    ),
+    _entry(
+        source_id="JUDO_90DPD_IMPAIRED_HY26",
+        publisher="Judo Bank",
+        source_type=SourceType.PILLAR3,
+        data_type=DataType.IMPAIRED_RATIO,
+        asset_class="corporate_sme",
+        url="https://www.judo.bank/regulatory-disclosures",
+        value=0.0266,
+        value_date=date(2025, 12, 31),
+        retrieval_date=date(2026, 5, 1),
+        period_years=1,
+        notes=(
+            "Judo Bank 90+ DPD and impaired assets / GLA = 2.66% "
+            "(Dec-25; Jun-25: 2.43%). Source: Judo 1H26 Half-Year "
+            "Report, p8 + p11."
+        ),
+    ),
+    _entry(
+        source_id="JUDO_LOSS_RATE_HY26",
+        publisher="Judo Bank",
+        source_type=SourceType.PILLAR3,
+        data_type=DataType.LGD,
+        asset_class="corporate_sme",
+        url="https://www.judo.bank/regulatory-disclosures",
+        value=0.0052,
+        value_date=date(2025, 12, 31),
+        retrieval_date=date(2026, 5, 1),
+        period_years=1,
+        notes=(
+            "Judo Bank annualised losses ratio = 0.52% of GLA (Dec-25; "
+            "Jun-25: 0.35%). Realised-loss style indicator, not a "
+            "Basel LGD. Source: Judo 1H26 Half-Year Report, p11."
+        ),
+    ),
+    _entry(
+        source_id="LATROBE_ANNUAL_IMPAIRMENT_2025",
+        publisher="La Trobe Financial",
+        source_type=SourceType.LISTED_PEER,
+        data_type=DataType.LGD,
+        asset_class="residential_mortgage_specialist",
+        url="https://www.latrobefinancial.com.au/investments/forms-library/",
+        value=0.001,
+        value_date=date(2025, 12, 31),
+        retrieval_date=date(2026, 5, 1),
+        period_years=1,
+        notes=(
+            "La Trobe annualised asset impairment as % of AUM (12-month "
+            "Term Account 0.10%). Realised-loss style indicator. Source: "
+            "La Trobe Investment Snapshot & Metrics, p1."
+        ),
+    ),
+]
+
+
 _REALITY_CHECK_ENTRIES: list[BenchmarkEntry] = (
     _APRA_QPEX_CRE_NPL
     + _APRA_QUARTERLY_NPL
@@ -571,6 +780,7 @@ _REALITY_CHECK_ENTRIES: list[BenchmarkEntry] = (
     + _BIG4_PILLAR3_CRE
     + _QUALITAS_COMMENTARY
     + _METRICS_CREDIT_COMMENTARY
+    + _NON_BANK_DISCLOSURES
 )
 
 

@@ -87,7 +87,8 @@ class MqgPillar3PdfAdapter(CbaPillar3PdfAdapter):
         period_code = _derive_mqg_period_code(reporting)
         target_label = _format_mqg_report_date(reporting)
 
-        records: list[dict[str, Any]] = []
+        cr6_band_records: list[dict[str, Any]] = []
+        other_records: list[dict[str, Any]] = []
         in_target_cr6 = False
 
         with pdfplumber.open(file_path) as pdf:
@@ -102,16 +103,17 @@ class MqgPillar3PdfAdapter(CbaPillar3PdfAdapter):
                     in_target_cr6 = False
 
                 if in_target_cr6 and _looks_like_mqg_cr6_page(text):
-                    records.extend(self._extract_cr6_page(
+                    cr6_band_records.extend(self._extract_cr6_page(
                         text, page_num, reporting, period_code,
                     ))
 
                 if "Table 9: CR10" in text and target_label in dates_on_page:
                     section = _section_for_report_date(text, target_label)
-                    records.extend(self._extract_cr10_page(
+                    other_records.extend(self._extract_cr10_page(
                         section, page_num, reporting, period_code,
                     ))
 
+        records = _aggregate_cr6_to_portfolio(cr6_band_records) + other_records
         df = (
             pd.DataFrame.from_records(records)
             if records else pd.DataFrame(columns=self._CANONICAL_COLUMNS)
@@ -147,7 +149,7 @@ class MqgPillar3PdfAdapter(CbaPillar3PdfAdapter):
 
             band = m.group("band")
             rest_tokens = _combine_percent_tokens(m.group("rest").split())
-            pd_pct, lgd_pct = _pick_mqg_cr6_pd_lgd(rest_tokens)
+            pd_pct, lgd_pct, ead_mn = _pick_mqg_cr6_pd_lgd_ead(rest_tokens)
 
             for metric_name, raw_pct in (("pd", pd_pct), ("lgd", lgd_pct)):
                 if raw_pct is None:
@@ -164,6 +166,7 @@ class MqgPillar3PdfAdapter(CbaPillar3PdfAdapter):
                     "asset_class": current_portfolio,
                     "metric_name": metric_name,
                     "value": value,
+                    "ead_mn": ead_mn,
                     "as_of_date": reporting,
                     "period_code": period_code,
                     "value_basis": self.VALUE_BASIS_CR6,
@@ -252,18 +255,66 @@ def _combine_percent_tokens(tokens: list[str]) -> list[str]:
     return out
 
 
-def _pick_mqg_cr6_pd_lgd(tokens: list[str]) -> tuple[float | None, float | None]:
-    """Return (PD %, LGD %) from Macquarie's CR6 token stream.
+def _pick_mqg_cr6_pd_lgd_ead(
+    tokens: list[str],
+) -> tuple[float | None, float | None, float | None]:
+    """Return (PD %, LGD %, EAD $m) from Macquarie's CR6 token stream.
 
     After the PD band, APS 330 columns are:
     original exposure, off-balance exposure, CCF, EAD, average PD,
     number of obligors, average LGD, then maturity/RWA columns.
     """
-    def pct_at(index: int) -> float | None:
+    def num_at(index: int) -> float | None:
         if index >= len(tokens):
             return None
-        token = tokens[index].rstrip("%")
+        token = tokens[index].rstrip("%").replace(",", "")
         return _parse_numeric(token)
 
-    return pct_at(4), pct_at(6)
+    return num_at(4), num_at(6), num_at(3)
+
+
+def _aggregate_cr6_to_portfolio(
+    band_records: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Collapse band-level CR6 rows into one EAD-weighted row per portfolio.
+
+    Excludes the ``100.00 (Non-Performing)`` band so the portfolio average
+    matches the performing book — the same shape Big 4 banks publish.
+    Bands with missing EAD fall back to a simple mean across remaining
+    performing bands.
+    """
+    NON_PERFORMING = "100.00 (Non-Performing)"
+    by_key: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for r in band_records:
+        if r["pd_band"] == NON_PERFORMING:
+            continue
+        by_key.setdefault((r["asset_class"], r["metric_name"]), []).append(r)
+
+    out: list[dict[str, Any]] = []
+    for (asset_class, metric_name), rows in by_key.items():
+        weighted = [
+            (r["value"], r["ead_mn"]) for r in rows
+            if r.get("ead_mn") is not None and r["ead_mn"] > 0
+        ]
+        if weighted:
+            num = sum(v * w for v, w in weighted)
+            den = sum(w for _, w in weighted)
+            value = num / den if den > 0 else None
+        else:
+            value = sum(r["value"] for r in rows) / len(rows) if rows else None
+        if value is None:
+            continue
+        first = rows[0]
+        out.append({
+            "asset_class": asset_class,
+            "metric_name": metric_name,
+            "value": value,
+            "as_of_date": first["as_of_date"],
+            "period_code": first["period_code"],
+            "value_basis": first["value_basis"],
+            "source_table": "CR6",
+            "source_page": first["source_page"],
+            "pd_band": "aggregate",
+        })
+    return out
 

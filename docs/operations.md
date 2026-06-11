@@ -11,12 +11,12 @@ cadence column in the [source table](../README.md#data-sources) to decide
 which downloaders to run — most users run the whole batch once a quarter.
 
 ```bash
-python scripts/download_sources/pillar3_downloader.py
-python scripts/download_sources/apra_downloader.py
-python scripts/download_sources/rba_downloader.py --target all
-python scripts/download_sources/non_bank_downloader.py
-python scripts/download_sources/external_indices_downloader.py --index sp_spin
-python scripts/download_sources/governance_publications_downloader.py
+python src/download_sources/pillar3_downloader.py
+python src/download_sources/apra_downloader.py
+python src/download_sources/rba_downloader.py --target all
+python src/download_sources/non_bank_downloader.py
+python src/download_sources/external_indices_downloader.py --index sp_spin
+python src/download_sources/governance_publications_downloader.py
 ```
 
 When a downloader cannot reach a source it writes a `_MANUAL.md` note in
@@ -49,16 +49,13 @@ folder shown below (the adapter matches on folder + glob, not filename).
 Once a real PDF lands in the folder, the `_MANUAL.md` note clears on the
 next successful run.
 
-## One-off migrations
+## Migrations
 
-Run these on an existing database after a schema upgrade. Each is
-idempotent and supports `--apply` to commit (dry-run by default).
+The raw-observation migration is part of the standard setup flow (it is
+idempotent — running it twice does not duplicate rows):
 
 ```bash
-python scripts/migrate_to_raw_observations.py --db benchmarks.db
-python scripts/migrate_collapse_cre_segments.py --db benchmarks.db --apply
-python scripts/migrate_commentary_values_to_null.py --db benchmarks.db --apply
-python scripts/migrate_definition_class_consistency.py --db benchmarks.db --apply
+python src/migrate_to_raw_observations.py --db benchmarks.db
 ```
 
 ## Cache management
@@ -73,7 +70,7 @@ python cli.py cache clear --source pillar3 --yes
 ```text
 # Database setup
 python cli.py [--db PATH] seed
-python scripts/migrate_to_raw_observations.py [--db PATH]
+python src/migrate_to_raw_observations.py [--db PATH]
 
 # Ingest
 python cli.py ingest pillar3 [cba|nab|wbc|anz|mqg] [--reporting-date YYYY-MM-DD]
@@ -99,13 +96,8 @@ python cli.py export [--format json|csv] [--output PATH]
 
 | Symptom | What to do |
 | --- | --- |
-| `Pillar3Downloader: no matching anchor` | The bank moved their disclosure page. Update the `BANKS` dict in `scripts/download_sources/pillar3_downloader.py`. |
-| `APRA scraper found no Series anchor` | APRA renamed a publication. Inspect the keyword list in `scripts/download_sources/apra_downloader.py`. |
+| `Pillar3Downloader: no matching anchor` | The bank moved their disclosure page. Update the `BANKS` dict in `src/download_sources/pillar3_downloader.py`. |
+| `APRA scraper found no Series anchor` | APRA renamed a publication. Inspect the keyword list in `src/download_sources/apra_downloader.py`. |
 | `_MANUAL.md` written for a lender | The IR page is bot-protected. Open the URL in the note, download by hand, drop the file in the folder shown above. |
 | Migration reports rows skipped | Skipped rows are legacy entries with no `data_definition_class`. Inspect `source_id` and extend `_infer_definition_class` if it should migrate. |
 | `ModuleNotFoundError: No module named 'src'` | Run from the repo root via `python cli.py ...`. |
-| Old DB shows commentary `value=0.0` | `python scripts/migrate_commentary_values_to_null.py --db benchmarks.db --apply` |
-| Old DB shows `regulatory_floor_pd` on LGD rows | `python scripts/migrate_definition_class_consistency.py --db benchmarks.db --apply` |
-| Duplicate `commercial_property_investment` segment | `python scripts/migrate_collapse_cre_segments.py --db benchmarks.db --apply` |
-</content>
-</invoke>

@@ -26,7 +26,6 @@ from ingestion.adapters.non_bank_base import (
 from ingestion.adapters.pepper_money_adapter import PepperMoneyAdapter
 from ingestion.adapters.plenti_disclosure_adapter import PlentiDisclosureAdapter
 from ingestion.adapters.resimac_disclosure_adapter import ResimacDisclosureAdapter
-from ingestion.adapters.wisr_disclosure_adapter import WisrDisclosureAdapter
 
 
 _NON_BANK_ADAPTERS = [
@@ -36,7 +35,6 @@ _NON_BANK_ADAPTERS = [
     ResimacDisclosureAdapter,
     MoneyMeDisclosureAdapter,
     PlentiDisclosureAdapter,
-    WisrDisclosureAdapter,
 ]
 
 

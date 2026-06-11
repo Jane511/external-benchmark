@@ -364,7 +364,7 @@ def test_ingest_pillar3_mqg_subcommand_is_registered(db_path) -> None:
 # ---------------------------------------------------------------------------
 
 def test_report_benchmark_markdown_writes_raw_only_file(db_path, tmp_path) -> None:
-    """Markdown emits a single raw-only file with the new section structure."""
+    """Markdown emits a lean private-credit model input report."""
     runner = CliRunner()
     _invoke(runner, db_path, "seed")
     out = tmp_path / "report.md"
@@ -376,9 +376,10 @@ def test_report_benchmark_markdown_writes_raw_only_file(db_path, tmp_path) -> No
     )
     assert result.exit_code == 0
     text = out.read_text(encoding="utf-8")
-    assert "## 1. Executive Summary" in text
-    assert "## 2. Latest figures by metric and segment" in text
-    assert "raw, source-attributable observations only" in text
+    assert "# Australian Credit Risk Benchmarks - Q3 2025" in text
+    assert "## 1. PD Inputs" in text
+    assert "## 5. Portfolio Monitor Inputs" in text
+    assert "Glossary" not in text
 
 
 def test_report_benchmark_html_writes_self_contained_file(db_path, tmp_path) -> None:
@@ -394,7 +395,7 @@ def test_report_benchmark_html_writes_self_contained_file(db_path, tmp_path) -> 
     assert result.exit_code == 0
     text = out.read_text(encoding="utf-8")
     assert "<style>" in text
-    assert "raw, source-attributable observations only" in text
+    assert "Australian Credit Risk Benchmarks" in text
 
 
 def test_download_rba_source_command_is_registered(db_path, tmp_path) -> None:

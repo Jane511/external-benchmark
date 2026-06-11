@@ -1,7 +1,7 @@
 """One-shot migration: BenchmarkEntry rows -> RawObservation rows.
 
 Usage:
-    python scripts/migrate_to_raw_observations.py [--db PATH]
+    python src/migrate_to_raw_observations.py [--db PATH]
 
 Reads the existing `benchmarks` table (legacy BenchmarkEntry shape) and
 inserts a parallel `raw_observations` row for every PD, LGD, impaired,
@@ -67,7 +67,7 @@ from src.validation import canonical_segment  # noqa: E402
 logger = logging.getLogger(__name__)
 
 
-_BANK_PILLAR3 = {"cba", "nab", "wbc", "anz", "mqg", "macquarie"}
+_BANK_PILLAR3 = {"cba", "nab", "wbc", "anz", "mqg", "macquarie", "judo"}
 
 # Legacy source_type -> raw-only source_type. PILLAR3 is resolved per-row
 # (BANK_PILLAR3 for Big 4, NON_BANK_LISTED otherwise).

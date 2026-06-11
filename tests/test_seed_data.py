@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.migrate_to_raw_observations import (
+from src.migrate_to_raw_observations import (
     _infer_definition_class,
     _infer_parameter,
     _infer_reporting_basis,

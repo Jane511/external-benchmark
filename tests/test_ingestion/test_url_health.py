@@ -11,7 +11,7 @@ import urllib.parse
 
 import pytest
 
-from scripts.download_sources.non_bank_downloader import _LENDERS
+from src.download_sources.non_bank_downloader import _LENDERS
 
 
 def test_every_lender_has_well_formed_url() -> None:
@@ -27,7 +27,7 @@ def test_lenders_with_known_split_paths_have_secondary() -> None:
     secondary URL so the downloader can fall through gracefully.
     """
     requires_secondary = {
-        "liberty", "resimac", "moneyme", "plenti", "wisr", "metrics_credit",
+        "liberty", "resimac", "moneyme", "plenti", "metrics_credit",
     }
     for lender in requires_secondary:
         cfg = _LENDERS[lender]
@@ -60,7 +60,6 @@ def test_no_url_uses_known_broken_paths() -> None:
     # but other lenders may legitimately use that path on a different host.
     legacy_path_by_lender = {
         "plenti":   "/investors/",
-        "wisr":     "/investor-centre/",
         "qualitas": "https://www.qualitas.com.au/investor-centre/",
     }
     for lender, broken in legacy_path_by_lender.items():

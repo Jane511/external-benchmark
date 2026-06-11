@@ -6,12 +6,26 @@ different portfolio labels — e.g. ``"Retail SME"`` (word order reversed
 vs CBA's ``"SME retail"``) and ``"Bank"`` in place of ``"Financial
 institution"``. NAB's fiscal year ends 30 September rather than CBA's
 30 June.
+
+Phase 3.B.2 addition (2026-05-04): the ``extract_industry_rows()``
+method delegates to
+:func:`ingestion.adapters.nab_pillar3_industry.extract_nab_industry_rows`
+to emit per-bank ANZSIC industry rows (exposure + NPE + Stage 3
+individually-assessed provision). Pre-existing CR6/CR10/``normalise``
+behaviour is unchanged.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pandas as pd
+
 from ingestion.adapters.cba_pillar3_pdf_adapter import (
     CbaPillar3PdfAdapter,
+)
+from ingestion.adapters.nab_pillar3_industry import (
+    extract_nab_industry_rows,
 )
 
 
@@ -34,3 +48,8 @@ class NabPillar3PdfAdapter(CbaPillar3PdfAdapter):
         ("sovereign and central bank",       "sovereign"),
         ("bank",                             "financial_institution"),
     ) + CbaPillar3PdfAdapter.PORTFOLIO_PATTERNS
+
+    # Phase 3.B.2 addition. Independent of the CR6/CR10 ``normalise`` path.
+    def extract_industry_rows(self, file_path: Path) -> pd.DataFrame:
+        """Per-bank Pillar 3 industry-table extraction (NAB EaD/NPE/Provision)."""
+        return extract_nab_industry_rows(Path(file_path))

@@ -1,10 +1,10 @@
 """Download external rating-agency RMBS indices (S&P SPIN).
 
 Usage:
-    python scripts/download_sources/external_indices_downloader.py
-    python scripts/download_sources/external_indices_downloader.py --index sp_spin
-    python scripts/download_sources/external_indices_downloader.py --dry-run
-    python scripts/download_sources/external_indices_downloader.py --force-refresh
+    python src/download_sources/external_indices_downloader.py
+    python src/download_sources/external_indices_downloader.py --index sp_spin
+    python src/download_sources/external_indices_downloader.py --dry-run
+    python src/download_sources/external_indices_downloader.py --force-refresh
 
 Coverage and access tier
 ------------------------

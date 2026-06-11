@@ -113,13 +113,13 @@ benchmarks.db
 # ---------------------------------------------------------------------------
 # Project-specific: generated outputs
 # ---------------------------------------------------------------------------
-# Default: output/ not tracked. Exception: one sample report and the
-# model-input CSVs are committed so GitHub visitors can see example output
-# without having to run the pipeline themselves. Future cycles add their
-# period-specific whitelist entries.
+# Default: output/ not tracked. Exception: the credit-risk report (Markdown
+# for GitHub rendering + Word for download) and the model-input CSVs are
+# committed so visitors and HR can see example output without running the
+# pipeline. The glob auto-tracks future periods; the regenerable HTML stays
+# ignored.
 output/*
-!output/reports/
-output/reports/*
-!output/reports/Report_Q2_2026.md
-!output/csv/
-!output/csv/*.csv
+!output/data/
+!output/data/*.csv
+!output/Credit_Risk_Report_*.md
+!output/Credit_Risk_Report_*.docx

@@ -126,8 +126,9 @@ class Cohort(str, Enum):
     median; appears as a reference anchor."""
 
     PEER_NON_BANK = "peer_non_bank"
-    """ASX-listed non-bank lenders: Judo, Liberty, Pepper, Resimac,
-    Plenti, Wisr, MoneyMe, Qualitas, Metrics, La Trobe."""
+    """ASX-listed and private non-bank lenders: Judo, Liberty, Pepper,
+    Resimac, Plenti, MoneyMe, Qualitas, Metrics, La Trobe, Bluestone,
+    Latitude, humm, Zip."""
 
     REGULATOR_AGGREGATE = "regulator_aggregate"
     """APRA QPEX / quarterly ADI performance, RBA FSR / SMP / Chart Pack

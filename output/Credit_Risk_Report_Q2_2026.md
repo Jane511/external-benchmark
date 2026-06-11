@@ -1,7 +1,33 @@
-# Private Credit Model Inputs - Q2 2026
-_Generated: 2026-06-11T03:07:10+00:00 | Data as-of: 2024-12-31–2026-02-28_
+# Australian Credit Risk Benchmarks - Q2 2026
+_Generated: 2026-06-11T04:36:41+00:00 | Data as-of: 2024-12-31–2026-02-28_
 
-Direct inputs only. Rates are decimals in [0, 1], rounded to 2 decimal places. Expected-loss rate = PD x LGD.
+## Executive summary
+
+This report consolidates externally-disclosed credit-risk parameters for Australian bank and non-bank lenders into a single set of model-ready benchmarks. It is built from public Basel Pillar 3 disclosures, APRA and RBA statistics, and non-bank lender reports, and is aligned to the APRA APS 113 / Basel IRB framework.
+
+Every figure is a source-published value — no adjustment, triangulation, or modelling overlay — so each number traces back to a named disclosure and reporting date.
+
+### What this report covers
+
+- **Probability of default (PD)** — likelihood a borrower defaults within 12 months, by credit segment (Section 1).
+- **Loss given default (LGD)** — share of exposure not recovered after default (Section 2).
+- **Expected loss (EL = PD × LGD)** — the headline credit-loss rate per segment (Section 3).
+- **Stress testing** — PD and LGD under a downturn, using stress multipliers floored at APS 113 regulatory bands (Section 4).
+- **Portfolio monitoring** — arrears, non-performing, impaired and loss-rate metrics for early-warning tracking (Section 5).
+- **Per-bank industry exposures** — Big 4 exposure, non-performing, provision and write-off by industry sector (Section 6).
+
+### Coverage at a glance
+
+- 295 source observations across 16 credit segments.
+- 4 banks in the industry-exposure view (ANZ, CBA, NAB, WBC), plus non-bank lenders and regulatory references.
+- Data as-of window: 2024-12-31–2026-02-28.
+
+### How to read the numbers
+
+- Rates are decimals in [0, 1]; for example, 0.03 represents three percent.
+- Expected-loss rate = PD × LGD.
+- Stressed PD/LGD apply 1.5× / 1.2× multipliers, floored at APS 113 bands.
+- "As-of" is the disclosure date of the most recent source.
 
 ## 1. PD Inputs
 

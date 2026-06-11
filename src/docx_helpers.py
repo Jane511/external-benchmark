@@ -234,6 +234,48 @@ def _format_cell(val: Any) -> str:
 # Footer (institution-agnostic)
 # ---------------------------------------------------------------------------
 
+def add_footnote(doc, paragraph, text: str) -> int:
+    """Attach a numbered footnote-style note to ``paragraph``.
+
+    python-docx 1.x does not expose Word's native footnote XML in a
+    convenient form, so this helper accumulates footnote text on a
+    document-level pending list and inserts a superscript ``[N]``
+    reference inline. :func:`finalize_footnotes` is called at end of
+    render to emit the collected notes as a "Footnotes" section. The
+    discipline (Phase 3.D recovery sub-step 5.3 / B.8) is "footnotes
+    not as inline brackets in the data cell" — the data cell carries
+    only the short label + small superscript reference; the full text
+    lives in the dedicated section.
+
+    Returns the assigned footnote number.
+    """
+    d = _require_docx()
+    Pt = d["Pt"]
+
+    pending = getattr(doc, "_pending_footnotes", None)
+    if pending is None:
+        pending = []
+        doc._pending_footnotes = pending
+    n = len(pending) + 1
+    run = paragraph.add_run(f"[{n}]")
+    run.font.superscript = True
+    run.font.name = "Arial"
+    run.font.size = Pt(9)
+    pending.append((n, text))
+    return n
+
+
+def finalize_footnotes(doc) -> None:
+    """Emit a 'Footnotes' section listing all accumulated footnotes."""
+    pending = getattr(doc, "_pending_footnotes", None)
+    if not pending:
+        return
+    add_heading(doc, "Footnotes", level=2)
+    for n, text in pending:
+        add_paragraph(doc, f"[{n}] {text}", italic=True)
+    doc._pending_footnotes = []
+
+
 def set_footer(doc, text: str) -> None:
     """Plain footer text. Page numbers require more XML plumbing; skipping for now.
 

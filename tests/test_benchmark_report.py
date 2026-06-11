@@ -1,14 +1,13 @@
-"""Tests for the rewritten raw-only BenchmarkCalibrationReport (Brief 1)."""
+"""Tests for the lean private-credit model input report."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 
 import pytest
 
-from src.benchmark_report import BenchmarkCalibrationReport, RAW_ONLY_BANNER
+from src.benchmark_report import BenchmarkCalibrationReport
 from src.db import create_engine_and_schema
 from src.models import DataDefinitionClass, RawObservation, SourceType
-from src.observations import PeerObservations
 from src.registry import BenchmarkRegistry
 
 
@@ -16,229 +15,131 @@ from src.registry import BenchmarkRegistry
 def populated_registry() -> BenchmarkRegistry:
     engine = create_engine_and_schema(":memory:")
     reg = BenchmarkRegistry(engine, actor="test")
-    today = date(2026, 4, 27)
     reg.add_observations([
         RawObservation(
-            source_id="cba", source_type=SourceType.BANK_PILLAR3,
-            segment="commercial_property", parameter="pd",
+            source_id="cba",
+            source_type=SourceType.BANK_PILLAR3,
+            segment="commercial_property",
+            parameter="pd",
             data_definition_class=DataDefinitionClass.BASEL_PD_ONE_YEAR,
-            value=0.025, as_of_date=today - timedelta(days=30),
-            reporting_basis="Pillar 3 trailing 4-quarter average",
+            value=0.025,
+            as_of_date=date(2025, 12, 31),
+            reporting_basis="Pillar 3",
             methodology_note="CR6 EAD-weighted Average PD",
-            page_or_table_ref="CR6 row 4",
         ),
         RawObservation(
-            source_id="cba", source_type=SourceType.BANK_PILLAR3,
-            segment="commercial_property", parameter="pd",
-            data_definition_class=DataDefinitionClass.BASEL_PD_ONE_YEAR,
-            value=0.023, as_of_date=today - timedelta(days=210),
-            reporting_basis="Pillar 3 trailing 4-quarter average",
-            methodology_note="CR6 EAD-weighted Average PD",
-            page_or_table_ref="CR6 row 4",
+            source_id="aps113_cre_lgd",
+            source_type=SourceType.REGULATORY,
+            segment="commercial_property",
+            parameter="lgd",
+            data_definition_class=DataDefinitionClass.REGULATORY_FLOOR_LGD,
+            value=0.175,
+            as_of_date=date(2025, 12, 31),
+            reporting_basis="APS 113",
+            methodology_note="Commercial-property LGD floor",
         ),
         RawObservation(
-            source_id="judo", source_type=SourceType.NON_BANK_LISTED,
-            segment="commercial_property", parameter="pd",
-            data_definition_class=DataDefinitionClass.BASEL_PD_ONE_YEAR,
-            value=0.045, as_of_date=today - timedelta(days=90),
-            reporting_basis="Half-yearly disclosure",
-            methodology_note="Average PD on commercial real estate book",
+            source_id="apra_qpex_cre_npl",
+            source_type=SourceType.APRA_QPEX,
+            segment="commercial_property",
+            parameter="npl",
+            data_definition_class=DataDefinitionClass.NPL_RATIO,
+            value=0.018,
+            as_of_date=date(2025, 12, 31),
+            reporting_basis="APRA QPEX",
+            methodology_note="Commercial-property NPL ratio",
         ),
     ])
     return reg
 
 
-def test_generate_returns_raw_only_sections(populated_registry):
+def test_generate_returns_only_model_input_sections(populated_registry) -> None:
     report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
     data = report.generate()
-    expected_keys = {
-        "meta", "banner", "executive_summary", "per_source_observations",
-        "validation_summary", "big4_vs_nonbank_spread", "provenance",
+    assert set(data) == {
+        "meta",
+        "pd_inputs",
+        "lgd_inputs",
+        "expected_loss_inputs",
+        "stress_testing_inputs",
+        "portfolio_monitor_inputs",
+        "bank_industry_inputs",
     }
-    assert expected_keys.issubset(data.keys())
-
-
-def test_generate_does_not_include_adjusted_or_triangulated_sections(populated_registry):
-    report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
-    data = report.generate()
-    forbidden = {
-        "adjustment_audit_trail", "triangulated_values", "calibration_outputs",
-        "downturn_lgd", "bank_vs_pc_comparison", "data_governance",
-    }
-    assert not (forbidden & data.keys()), (
-        "Brief 1 requires raw-only output — no adjustment / triangulation sections."
+    assert data["expected_loss_inputs"][0]["expected_loss_rate_decimal"] == pytest.approx(
+        0.004375
     )
+    assert data["bank_industry_inputs"] == []
 
 
-def test_per_source_observations_carry_full_attribution(populated_registry):
-    """Section 2 is metric-first: per_source_observations[].by_segment[].rows[]."""
-    report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
-    data = report.generate()
-    blocks = data["per_source_observations"]
-    pd_metric = next(m for m in blocks if m["parameter"] == "pd")
-    cre = next(s for s in pd_metric["by_segment"] if s["segment"] == "commercial_property")
-    cba = next(r for r in cre["rows"] if r["source_id"] == "cba")
-    assert cba["latest_as_of"]
-    assert cba["reporting_basis"]
-    assert cba["methodology_note"]
-    assert cba["page_or_table_ref"] == "CR6 row 4"
-    assert cba["friendly_name"] == "Commonwealth Bank"
-    cohorts = {m["cohort"] for m in cre["cohort_medians"]}
-    assert "peer_big4" in cohorts
-
-
-def test_markdown_contains_raw_only_banner(populated_registry):
+def test_markdown_contains_direct_inputs_and_excludes_audit_sections(
+    populated_registry,
+) -> None:
     report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
     md = report.to_markdown()
-    assert RAW_ONLY_BANNER in md
-    assert "Data as-of:" in md
-    assert "## 0a. Glossary of terms" in md
-    assert "## 0b. Segment definitions" in md
-    assert "## 2. Latest figures by metric and segment" in md
-    assert "### Probability of default (PD)" in md
-    assert "Cohort medians" in md
-    assert "## 3. Cross-source validation summary" in md
-    assert "## 4. Big 4 vs non-bank disclosure spread (informational only)" in md
-    assert "## 7. Trend vs prior cycle" in md
+    assert "# Australian Credit Risk Benchmarks - Q1 2026" in md
+    assert "## 1. PD Inputs" in md
+    assert "## 2. LGD Inputs" in md
+    assert "## 3. Expected Loss Inputs" in md
+    assert "## 4. Stress Testing Inputs" in md
+    assert "## 5. Portfolio Monitor Inputs" in md
+    assert "## 6. Per-Bank Industry Inputs" in md
+    assert "PD decimal" in md
+    assert "%" not in md
+    assert "0.025000" not in md
+    assert "0.03" in md
+    assert "Methodology" not in md
+    assert "Provenance" not in md
+    assert "Raw data inventory" not in md
+    assert "Glossary" not in md
 
 
-def test_generate_includes_segment_trend(populated_registry):
+def test_markdown_includes_bank_industry_rows(
+    populated_registry,
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from src import model_inputs
+
+    monkeypatch.setattr(
+        model_inputs,
+        "build_bank_industry_input_rows",
+        lambda raw_data_dir: [{
+            "bank_code": "cba",
+            "bank": "CBA",
+            "industry": "Construction",
+            "exposure_aud_m": 12345.678,
+            "npe_aud_m": 234.567,
+            "npe_rate_decimal": 0.018999,
+            "provision_aud_m": 45.678,
+            "write_offs_aud_m": 12.345,
+            "write_off_rate_decimal": 0.000999,
+            "as_of_date": "2025-06-30",
+        }],
+    )
+
+    report = BenchmarkCalibrationReport(
+        populated_registry,
+        period_label="Q1 2026",
+        raw_data_dir=tmp_path,
+    )
+    md = report.to_markdown()
+
+    assert "| CBA | Construction | 12345.68 | 234.57 | 0.02 | 45.68 | 12.35 | 0.00 | 2025-06-30 |" in md
+    assert "12345.678" not in md
+
+
+def test_stress_inputs_are_model_ready_numbers(populated_registry) -> None:
     report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
-    trends = report.generate()["segment_trend"]
-    assert len(trends) == 1
-    assert trends[0]["segment"] == "commercial_property"
-    assert trends[0]["source_id"] == "cba"
-    assert trends[0]["delta"] == pytest.approx(0.002)
+    stress = report.generate()["stress_testing_inputs"][0]
+    assert stress["base_expected_loss_rate_decimal"] == pytest.approx(0.004375)
+    assert stress["stressed_pd_decimal"] == pytest.approx(0.05)
+    assert stress["stressed_lgd_decimal"] == pytest.approx(0.21)
+    assert stress["stressed_expected_loss_rate_decimal"] == pytest.approx(0.0105)
 
 
-def test_html_renders_with_banner(populated_registry):
+def test_html_renders_lean_report(populated_registry) -> None:
     report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
     html = report.to_html()
-    assert "<title>External Benchmark Report" in html
-    assert "raw, source-attributable observations only" in html
-
-
-def test_raw_data_inventory_section_only_when_dir_provided(
-    populated_registry, tmp_path,
-):
-    """`raw_data_dir=None` (default) skips section 6 entirely."""
-    bare = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
-    assert "raw_data_inventory" not in bare.generate()
-    assert "## 6. Raw data inventory" not in bare.to_markdown()
-
-
-def test_raw_data_inventory_section_walks_directory(populated_registry, tmp_path):
-    """`raw_data_dir` populates section 6 with files grouped by family."""
-    raw = tmp_path / "raw"
-    (raw / "pillar3").mkdir(parents=True)
-    (raw / "pillar3" / "CBA_FY25.pdf").write_bytes(b"%PDF stub")
-    (raw / "non_bank" / "qualitas").mkdir(parents=True)
-    (raw / "non_bank" / "qualitas" / "_MANUAL.md").write_text("hint")
-
-    report = BenchmarkCalibrationReport(
-        populated_registry, period_label="Q1 2026", raw_data_dir=raw,
-    )
-    data = report.generate()
-    inv = data["raw_data_inventory"]
-    assert inv["n_files"] == 2
-    families = {b["family"] for b in inv["by_family"]}
-    assert families == {"pillar3", "non_bank"}
-
-    md = report.to_markdown()
-    assert "## 6. Raw data inventory" in md
-    assert "### pillar3" in md
-    assert "### non_bank" in md
-    assert "CBA_FY25.pdf" in md
-    assert "_MANUAL.md" in md
-
-
-def test_supporting_documentation_reads_rba_metadata(populated_registry, tmp_path):
-    raw = tmp_path / "raw"
-    rba = raw / "rba"
-    rba.mkdir(parents=True)
-    (rba / "RBA_FSR_March_2026.pdf").write_bytes(b"%PDF")
-    (rba / "RBA_FSR_March_2026.pdf.metadata.json").write_text(
-        """{
-          "source_key": "rba_fsr",
-          "source": "RBA Financial Stability Review",
-          "publisher": "Reserve Bank of Australia",
-          "url": "https://www.rba.gov.au/publications/fsr/",
-          "local_cached_file": "data/raw/rba/RBA_FSR_March_2026.pdf",
-          "period": "March 2026",
-          "retrieval_date": "2026-04-29"
-        }""",
-        encoding="utf-8",
-    )
-
-    report = BenchmarkCalibrationReport(
-        populated_registry, period_label="Q1 2026", raw_data_dir=raw,
-    )
-    data = report.generate()
-    docs = data["supporting_documentation"]
-    assert docs["documents"][0]["source"] == "RBA Financial Stability Review"
-    assert "Forward-looking commentary draws from RBA" in docs["lead_text"]
-    assert "These are not benchmark sources" in report.to_markdown()
-
-
-def test_glossary_covers_all_rendered_segments(populated_registry):
-    report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
-    data = report.generate()
-    glossary_segments = {row["segment"] for row in data["segment_glossary"]}
-    rendered_segments = {
-        seg["segment"]
-        for metric in data["per_source_observations"]
-        for seg in metric["by_segment"]
-    }
-    assert rendered_segments.issubset(glossary_segments)
-
-
-def test_executive_narrative_contains_segment_facts(populated_registry):
-    """Section 1 prose must mention the headline segment + actual numbers."""
-    report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
-    data = report.generate()
-    narrative = data["executive_summary"]["narrative"]
-    assert narrative
-    # Headline mentions commercial_property (the only segment with peer rows
-    # in the populated_registry fixture) and a numeric Big-4 value.
-    assert "commercial property" in narrative.lower() or "no peer observations" in narrative.lower()
-
-
-def test_peer_ratio_definition_rendered_in_report(populated_registry):
-    """Both the rendered Markdown and CSV must carry PEER_RATIO_DEFINITION verbatim."""
-    from src.validation import PEER_RATIO_DEFINITION
-    report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
-    md = report.to_markdown()
-    assert PEER_RATIO_DEFINITION in md
-    # Same constant powers the CSV header — exercise once via export.
-    from pathlib import Path
-    import tempfile
-    from src.csv_exporter import export_validation_flags
-    with tempfile.TemporaryDirectory() as tmp:
-        out = export_validation_flags(populated_registry, out_dir=Path(tmp))
-        assert "peer_big4_vs_non_bank_ratio" in out.read_text(encoding="utf-8")
-
-
-def test_commentary_row_does_not_break_markdown(populated_registry):
-    """Adding a commentary row must not crash the report and must show
-    the qualitative tag instead of a percentage."""
-    from datetime import date as _date
-    from src.models import DataDefinitionClass, RawObservation, SourceType
-    populated_registry.add_observation(
-        RawObservation(
-            source_id="QUALITAS_CRE_COMMENTARY_2024H2",
-            source_type=SourceType.NON_BANK_LISTED,
-            segment="commercial_property",
-            parameter="commentary",
-            data_definition_class=DataDefinitionClass.QUALITATIVE_COMMENTARY,
-            value=None,
-            as_of_date=_date(2024, 12, 31),
-            reporting_basis="Half-yearly results commentary",
-            methodology_note="QUALITATIVE: office sector under pressure",
-        )
-    )
-    report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
-    md = report.to_markdown()
-    # Friendly name (not the raw source_id) renders in Section 2.
-    assert "Qualitas (commentary)" in md
-    # qualitative tag in the value column
-    assert "(qualitative)" in md
+    assert "<title>Australian Credit Risk Benchmarks - Q1 2026</title>" in html
+    assert "Expected Loss Inputs" in html
+    assert "raw, source-attributable observations only" not in html

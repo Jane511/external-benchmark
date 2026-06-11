@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.migrate_to_raw_observations import migrate
+from src.migrate_to_raw_observations import migrate
 from src.db import create_engine_and_schema
 from src.reality_check import (
     RealityCheckBand,

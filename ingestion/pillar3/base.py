@@ -325,15 +325,25 @@ class PdfPillar3Scraper(Pillar3BaseScraper):
                 pd_band.replace(" ", "_").replace("<", "lt")
                 .replace("(", "").replace(")", "").replace(".", "p")
             )
-            metric_column = (
-                f"{band_slug}_{metric_name}"
-                if metric_name != "risk_weight" else metric_name
-            )
+            # When the adapter pre-aggregates to portfolio level (e.g. MQG
+            # CR6 collapsed into one EAD-weighted row per segment), drop the
+            # band slug so the source_id matches the Big 4 shape:
+            #   {PUBLISHER}_{ASSET_CLASS}_{DATA_TYPE}_{PERIOD}.
+            is_aggregate = pd_band.lower() == "aggregate"
+            if is_aggregate:
+                source_name_suffix = ""
+                metric_column = ""
+            elif metric_name == "risk_weight":
+                source_name_suffix = f"_{band_slug.upper()}"
+                metric_column = metric_name
+            else:
+                source_name_suffix = f"_{band_slug.upper()}"
+                metric_column = f"{band_slug}_{metric_name}"
 
             pts.append(ScrapedDataPoint(
                 source_name=(
                     f"{self.PUBLISHER}_{asset_class.upper()}_"
-                    f"{metric_name.upper()}_{band_slug.upper()}"
+                    f"{metric_name.upper()}{source_name_suffix}"
                 ),
                 publisher=self.PUBLISHER,
                 raw_value=value,

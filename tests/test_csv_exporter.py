@@ -9,6 +9,7 @@ import pytest
 
 from src.csv_exporter import (
     export_all_csvs,
+    export_model_input_csvs,
     export_raw_data_inventory,
     export_raw_observations,
     export_reality_check_bands,
@@ -51,6 +52,28 @@ def populated_registry() -> BenchmarkRegistry:
             reporting_basis="Judo H1 FY25",
             methodology_note="Average PD on CRE book",
         ),
+        RawObservation(
+            source_id="APS113_CRE_LGD_FLOOR",
+            source_type=SourceType.REGULATORY,
+            segment="commercial_property",
+            parameter="lgd",
+            data_definition_class=DataDefinitionClass.REGULATORY_FLOOR_LGD,
+            value=0.175,
+            as_of_date=date(2024, 12, 31),
+            reporting_basis="APS 113",
+            methodology_note="Commercial property LGD floor",
+        ),
+        RawObservation(
+            source_id="APRA_QPEX_CRE_NPL",
+            source_type=SourceType.APRA_QPEX,
+            segment="commercial_property",
+            parameter="npl",
+            data_definition_class=DataDefinitionClass.NPL_RATIO,
+            value=0.018,
+            as_of_date=date(2024, 12, 31),
+            reporting_basis="APRA QPEX",
+            methodology_note="Commercial property non-performing share",
+        ),
     ])
     return reg
 
@@ -62,7 +85,7 @@ def test_export_raw_observations_writes_one_row_per_observation(
     assert path.exists()
     with path.open(encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
-    assert len(rows) == 3
+    assert len(rows) == 5
     by_id = {r["source_id"]: r for r in rows}
     assert by_id["CBA_PILLAR3_RES_2024H2"]["is_big4"] == "true"
     assert by_id["CBA_PILLAR3_RES_2024H2"]["data_definition_class"] == "basel_pd_one_year"
@@ -172,16 +195,94 @@ def test_raw_data_inventory_handles_missing_root(tmp_path) -> None:
     assert text.startswith("source_family,")
 
 
-def test_export_all_csvs_returns_six_paths(populated_registry, tmp_path) -> None:
+def test_export_all_csvs_returns_model_input_paths(populated_registry, tmp_path) -> None:
     raw = tmp_path / "data_raw"
     raw.mkdir()
     paths = export_all_csvs(
         populated_registry, out_dir=tmp_path / "csv", raw_dir=raw,
     )
     assert set(paths) == {
-        "raw_observations", "validation_flags", "validation_flag_sources",
-        "segment_trend", "reality_check_bands", "raw_data_inventory",
+        "pd_inputs",
+        "lgd_inputs",
+        "expected_loss_inputs",
+        "stress_testing_inputs",
+        "portfolio_monitor_inputs",
     }
     for p in paths.values():
         assert p.exists()
         assert p.stat().st_size > 0
+
+
+def test_model_input_csvs_emit_expected_loss_and_monitor_rows(
+    populated_registry, tmp_path
+) -> None:
+    paths = export_model_input_csvs(populated_registry, out_dir=tmp_path)
+    with paths["expected_loss_inputs"].open(encoding="utf-8") as fh:
+        el_rows = list(csv.DictReader(fh))
+    cre = next(r for r in el_rows if r["segment"] == "commercial_property")
+    assert float(cre["pd_decimal"]) == pytest.approx(0.045)
+    assert float(cre["lgd_decimal"]) == pytest.approx(0.175)
+    assert float(cre["expected_loss_rate_decimal"]) == pytest.approx(0.007875)
+
+    with paths["portfolio_monitor_inputs"].open(encoding="utf-8") as fh:
+        monitor_rows = list(csv.DictReader(fh))
+    monitor = next(r for r in monitor_rows if r["segment"] == "commercial_property")
+    assert float(monitor["npl_decimal"]) == pytest.approx(0.018)
+    assert "methodology_note" not in monitor
+    with paths["pd_inputs"].open(encoding="utf-8") as fh:
+        pd_rows = list(csv.DictReader(fh))
+    assert "pd_percent" not in pd_rows[0]
+    with paths["lgd_inputs"].open(encoding="utf-8") as fh:
+        lgd_rows = list(csv.DictReader(fh))
+    assert "lgd_percent" not in lgd_rows[0]
+
+
+def test_model_input_csvs_keep_loss_proxies_out_of_direct_lgd(tmp_path) -> None:
+    engine = create_engine_and_schema(":memory:")
+    reg = BenchmarkRegistry(engine, actor="test")
+    reg.add_observations([
+        RawObservation(
+            source_id="CBA_CRE_PD",
+            source_type=SourceType.BANK_PILLAR3,
+            segment="commercial_property",
+            parameter="pd",
+            data_definition_class=DataDefinitionClass.BASEL_PD_ONE_YEAR,
+            value=0.02,
+            as_of_date=date(2025, 12, 31),
+            reporting_basis="Pillar 3",
+            methodology_note="PD",
+        ),
+        RawObservation(
+            source_id="APS113_CRE_LGD_FLOOR",
+            source_type=SourceType.REGULATORY,
+            segment="commercial_property",
+            parameter="lgd",
+            data_definition_class=DataDefinitionClass.REGULATORY_FLOOR_LGD,
+            value=0.175,
+            as_of_date=date(2025, 12, 31),
+            reporting_basis="APS 113",
+            methodology_note="LGD floor",
+        ),
+        RawObservation(
+            source_id="LIBERTY_PORTFOLIO_ECL_FY25",
+            source_type=SourceType.NON_BANK_LISTED,
+            segment="commercial_property",
+            parameter="lgd",
+            data_definition_class=DataDefinitionClass.REALISED_LOSS_RATE,
+            value=0.0039,
+            as_of_date=date(2025, 6, 30),
+            reporting_basis="Annual report",
+            methodology_note="Expected credit loss rate, not direct LGD",
+        ),
+    ])
+    paths = export_model_input_csvs(reg, out_dir=tmp_path)
+    lgd_text = paths["lgd_inputs"].read_text(encoding="utf-8")
+    assert "LIBERTY_PORTFOLIO_ECL_FY25" not in lgd_text
+
+    with paths["expected_loss_inputs"].open(encoding="utf-8") as fh:
+        el_rows = list(csv.DictReader(fh))
+    assert float(el_rows[0]["lgd_decimal"]) == pytest.approx(0.175)
+
+    with paths["portfolio_monitor_inputs"].open(encoding="utf-8") as fh:
+        monitor_rows = list(csv.DictReader(fh))
+    assert float(monitor_rows[0]["loss_rate_decimal"]) == pytest.approx(0.0039)

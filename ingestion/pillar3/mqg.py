@@ -92,7 +92,7 @@ class MQGScraper(PdfPillar3Scraper):
         if self._path is not None:
             return self._path
 
-        from scripts.download_sources.pillar3_downloader import Pillar3Downloader
+        from src.download_sources.pillar3_downloader import Pillar3Downloader
 
         cache_dir = self._cache_base / "pillar3"
         path = Pillar3Downloader(cache_dir=cache_dir).download_bank(

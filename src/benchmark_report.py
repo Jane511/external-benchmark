@@ -1,25 +1,10 @@
-"""Report 1 — External Benchmark RAW Observation Summary.
+"""Private-credit model input report.
 
-After the Brief 1 refactor the engine publishes raw, source-attributable
-observations only. No definition alignment, institution adjustments, LGD
-overlays, or cross-source triangulation. This report reflects that.
-
-Section structure:
-    1. Executive summary (count of sources, segments, vintages)
-    2. Per-source raw observations by segment
-    3. Cross-source validation summary (spread, outliers, vintage)
-    4. Big 4 vs non-bank disclosure spread (informational only)
-    5. Provenance & methodology footnotes
-
-A prominent banner near the top makes the contract explicit: this is a
-RAW report. Adjustments — definition alignment, selection bias, downturn
-overlays — are applied by the consuming project (PD workbook for PD,
-LGD project for LGD, etc.).
-
-Three output formats:
-    to_markdown   committee-friendly; git-reviewable (default)
-    to_html       single self-contained file, inline CSS, no JS
-    to_docx       optional, requires python-docx (extras: reports)
+The rendered report is intentionally lean: PD, LGD, expected-loss rate,
+stress-testing inputs, portfolio-monitor metrics, and per-bank industry
+monitor rows. Audit-heavy content such as methodology prose, source
+inventories, raw-data manifests, caveat logs, and provenance appendices
+belongs in engineering/governance outputs, not in the model input report.
 """
 from __future__ import annotations
 
@@ -32,6 +17,11 @@ from typing import Any, Optional
 
 from src.observations import ObservationSet, PeerObservations
 from src.registry import BenchmarkRegistry
+from src.model_inputs import (
+    build_report_summary,
+    PD_STRESS_MULTIPLIER,
+    LGD_STRESS_MULTIPLIER,
+)
 from src.segment_glossary import SEGMENT_GLOSSARY
 from src.source_naming import (
     ACRONYM_GLOSSARY,
@@ -50,12 +40,8 @@ from src.validation import (
 
 
 RAW_ONLY_BANNER = (
-    "**The engine publishes raw, source-attributable observations only.** "
-    "No adjustments — definition alignment, selection bias, downturn overlays — "
-    "are applied. These have moved to consuming projects (PD workbook for PD, "
-    "LGD project for LGD, etc.) so each use case can manage its own complete "
-    "adjustment chain. Consumers of this report apply their own adjustments per "
-    "their model documentation."
+    "Direct model inputs only: PD, LGD, expected-loss rate, stress-testing "
+    "rates, portfolio-monitor metrics, and per-bank industry monitor rows."
 )
 
 
@@ -64,12 +50,10 @@ RAW_ONLY_BANNER = (
 # ---------------------------------------------------------------------------
 
 class BenchmarkCalibrationReport:
-    """Compose the raw-only sections from a registry + observations API.
+    """Compose direct model-input sections from a registry.
 
-    Constructor signature is intentionally narrow — the report depends on
-    the registry and the PeerObservations facade, nothing else. The
-    engine publishes raw observations only; downstream consumers own
-    every adjustment / triangulation / calibration decision.
+    Constructor arguments are retained for backwards-compatible call sites;
+    the current renderer uses the registry-backed model-input bundle.
     """
 
     def __init__(
@@ -89,9 +73,8 @@ class BenchmarkCalibrationReport:
             refresh_pipeline_quiet=refresh_pipeline_quiet,
         )
         self._period = period_label or self._default_period_label()
-        # Section 6 (raw-data inventory) walks this directory. ``None``
-        # disables the section entirely (used by unit-test fixtures that
-        # don't stage any raw files).
+        # Section 6 reads Big 4 Pillar 3 industry tables from this raw-data
+        # directory. ``None`` leaves that report table empty.
         self._raw_data_dir: Optional[Path] = (
             Path(raw_data_dir) if raw_data_dir is not None else None
         )
@@ -103,332 +86,255 @@ class BenchmarkCalibrationReport:
     # ------------------------------------------------------------------
 
     def generate(self) -> dict[str, Any]:
-        """Return a structured dict with all sections — used by tests + renderers."""
-        observation_sets = self._collect_observation_sets()
-        segment_trend = self._build_segment_trend()
-        out: dict[str, Any] = {
-            "meta":                    self._build_meta(observation_sets),
-            "banner":                  RAW_ONLY_BANNER,
-            "acronym_glossary":        self._build_acronym_glossary(),
-            "segment_glossary":        self._build_segment_glossary(
-                observation_sets, segment_trend,
-            ),
-            "executive_summary":       self._build_executive_summary(observation_sets),
-            "pd_overview":             self._build_pd_overview(observation_sets),
-            "per_source_observations": self._build_per_source_observations(observation_sets),
-            "validation_summary":      self._build_validation_summary(observation_sets),
-            "big4_vs_nonbank_spread":  self._build_big4_vs_nonbank_spread(observation_sets),
-            "provenance":              self._build_provenance(observation_sets),
-            "segment_trend":           segment_trend,
-        }
-        if self._raw_data_dir is not None:
-            out["supporting_documentation"] = self._build_source_documentation()
-            out["raw_data_inventory"] = self._build_raw_data_inventory()
-        return out
+        """Return the lean model-input report payload."""
+        return build_report_summary(self._registry, raw_data_dir=self._raw_data_dir)
+
+    def _executive_summary_blocks(
+        self, data: dict[str, Any],
+    ) -> list[tuple[str, str]]:
+        """Plain-English summary block list shared by the markdown and DOCX renders.
+
+        Each tuple is ``(kind, text)`` where kind is ``h2`` / ``h3`` / ``p`` /
+        ``bullet``. Headline figures are pulled from ``data`` so the summary
+        stays accurate as the underlying disclosures change. Markdown bold
+        (``**term**``) is stripped for the DOCX bullets.
+        """
+        meta = data["meta"]
+        n_obs = meta.get("n_observations", 0)
+        n_seg = meta.get("n_segments", 0)
+        banks = sorted({
+            str(row["bank"]) for row in data.get("bank_industry_inputs", [])
+            if row.get("bank")
+        })
+        window = _fmt_data_as_of(
+            meta.get("data_as_of_min", ""), meta.get("data_as_of_max", ""),
+        )
+        return [
+            ("h2", "Executive summary"),
+            ("p",
+             "This report consolidates externally-disclosed credit-risk "
+             "parameters for Australian bank and non-bank lenders into a "
+             "single set of model-ready benchmarks. It is built from public "
+             "Basel Pillar 3 disclosures, APRA and RBA statistics, and "
+             "non-bank lender reports, and is aligned to the APRA APS 113 / "
+             "Basel IRB framework."),
+            ("p",
+             "Every figure is a source-published value — no adjustment, "
+             "triangulation, or modelling overlay — so each number traces back "
+             "to a named disclosure and reporting date."),
+            ("h3", "What this report covers"),
+            ("bullet",
+             "**Probability of default (PD)** — likelihood a borrower defaults "
+             "within 12 months, by credit segment (Section 1)."),
+            ("bullet",
+             "**Loss given default (LGD)** — share of exposure not recovered "
+             "after default (Section 2)."),
+            ("bullet",
+             "**Expected loss (EL = PD × LGD)** — the headline credit-loss "
+             "rate per segment (Section 3)."),
+            ("bullet",
+             "**Stress testing** — PD and LGD under a downturn, using stress "
+             "multipliers floored at APS 113 regulatory bands (Section 4)."),
+            ("bullet",
+             "**Portfolio monitoring** — arrears, non-performing, impaired and "
+             "loss-rate metrics for early-warning tracking (Section 5)."),
+            ("bullet",
+             "**Per-bank industry exposures** — Big 4 exposure, "
+             "non-performing, provision and write-off by industry sector "
+             "(Section 6)."),
+            ("h3", "Coverage at a glance"),
+            ("bullet", f"{n_obs} source observations across {n_seg} credit segments."),
+            ("bullet",
+             f"{len(banks)} banks in the industry-exposure view"
+             + (f" ({', '.join(banks)})" if banks else "")
+             + ", plus non-bank lenders and regulatory references."),
+            ("bullet", f"Data as-of window: {window}."),
+            ("h3", "How to read the numbers"),
+            ("bullet",
+             "Rates are decimals in [0, 1]; for example, 0.03 represents "
+             "three percent."),
+            ("bullet", "Expected-loss rate = PD × LGD."),
+            ("bullet",
+             f"Stressed PD/LGD apply {PD_STRESS_MULTIPLIER}× / "
+             f"{LGD_STRESS_MULTIPLIER}× multipliers, floored at APS 113 bands."),
+            ("bullet", '"As-of" is the disclosure date of the most recent source.'),
+        ]
 
     def to_markdown(self) -> str:
-        """Render committee-friendly Markdown."""
+        """Render a concise private-credit model-input report."""
         data = self.generate()
         lines: list[str] = []
         meta = data["meta"]
 
-        lines.append(f"# External Benchmark Report — {self._period}")
+        lines.append(f"# Australian Credit Risk Benchmarks - {self._period}")
         lines.append(
-            f"_Generated: {meta['generated_at']} · Data as-of: "
+            f"_Generated: {meta['generated_at']} | Data as-of: "
             f"{_fmt_data_as_of(meta['data_as_of_min'], meta['data_as_of_max'])}_"
         )
         lines.append("")
-        lines.append(f"> {data['banner']}")
-        lines.append("")
 
-        # 0a. Acronym glossary — short, always rendered.
-        acronym_glossary = data.get("acronym_glossary") or []
-        if acronym_glossary:
-            lines.append("## 0a. Glossary of terms")
+        prev_bullet = False
+        for kind, text in self._executive_summary_blocks(data):
+            if kind == "bullet":
+                lines.append(f"- {text}")
+                prev_bullet = True
+                continue
+            if prev_bullet:
+                lines.append("")
+                prev_bullet = False
+            if kind == "h2":
+                lines.append(f"## {text}")
+            elif kind == "h3":
+                lines.append(f"### {text}")
+            else:  # paragraph
+                lines.append(text)
             lines.append("")
-            lines.append("| Term | Meaning |")
-            lines.append("| --- | --- |")
-            for row in acronym_glossary:
-                lines.append(f"| {row['term']} | {row['definition']} |")
-            lines.append("")
-
-        glossary = data["segment_glossary"]
-        if glossary:
-            lines.append("## 0b. Segment definitions")
-            lines.append("")
-            lines.append("| Segment | Definition |")
-            lines.append("| --- | --- |")
-            for row in glossary:
-                lines.append(f"| {row['segment']} | {row['definition']} |")
+        if prev_bullet:
             lines.append("")
 
-        # 1
-        lines.append("## 1. Executive Summary")
-        narrative = data["executive_summary"].get("narrative", "")
-        if narrative:
-            lines.append(narrative)
+        def append_table(
+            title: str,
+            headers: list[str],
+            rows: list[list[object]],
+        ) -> None:
+            lines.append(f"## {title}")
             lines.append("")
-        for bullet in data["executive_summary"]["lines"]:
-            lines.append(f"- {bullet}")
-        lines.append("")
-
-        # 2 — restructured: per metric, per segment, then cohort.
-        lines.append("## 2. Latest figures by metric and segment")
-        lines.append("")
-
-        # 2a — PD overview at a glance. One row per segment with the
-        # peer median PD or "—" if no peer has published a PD for it,
-        # plus a list of what *other* metrics that segment has so the
-        # reader doesn't think the data is missing — it just isn't a PD.
-        pd_overview = data.get("pd_overview") or []
-        if pd_overview:
-            lines.append("### 2a. PD overview by segment")
-            lines.append("")
-            lines.append(
-                "_Quick guide to where peer PDs exist. Segments with "
-                "\"—\" in both PD columns are not published as a PD by "
-                "any peer — typically because the segment is a "
-                "system-wide aggregate (regulator NPL / arrears) or a "
-                "specialist book where peers publish loss expense / "
-                "realised loss instead. The full breakout is in the "
-                "per-metric tables below._"
-            )
-            lines.append("")
-            lines.append("| Segment | Big 4 median PD | Big 4 N | Non-bank peer median PD | Non-bank N | Other metrics in this segment |")
-            lines.append("| --- | ---:| ---:| ---:| ---:| --- |")
-            for row in pd_overview:
-                lines.append(
-                    f"| {row['segment_label']} "
-                    f"| {_fmt_pct_value(row['big4_median_pd'])} "
-                    f"| {row['big4_count']} "
-                    f"| {_fmt_pct_value(row['nonbank_median_pd'])} "
-                    f"| {row['nonbank_count']} "
-                    f"| {', '.join(row['other_metrics']) or '—'} |"
-                )
+            if not rows:
+                lines.append("_No numeric inputs available._")
+                lines.append("")
+                return
+            lines.append("| " + " | ".join(headers) + " |")
+            lines.append("| " + " | ".join("---" for _ in headers) + " |")
+            for row in rows:
+                lines.append("| " + " | ".join(str(cell) for cell in row) + " |")
             lines.append("")
 
-        lines.append(
-            "_Below is one section per metric (PD first, then LGD, "
-            "Arrears, NPL, Impaired loans, Loss rate, Qualitative "
-            "commentary). Within each metric you'll find one sub-table "
-            "per segment that has data for that metric, and a list of "
-            "segments with no published value at the top of the metric "
-            "section. Inside every sub-table, peer banks come first, "
-            "then non-bank peers, then references (regulators, rating "
-            "agencies, regulatory floors)._"
+        append_table(
+            "1. PD Inputs",
+            ["Segment", "Product", "PD decimal", "Source", "As-of"],
+            [
+                [
+                    row["segment_label"],
+                    row["product"],
+                    _fmt_decimal(row["pd_decimal"]),
+                    row["source_id"],
+                    row["as_of_date"],
+                ]
+                for row in data["pd_inputs"]
+            ],
         )
-        lines.append("")
-        if not data["per_source_observations"]:
-            lines.append("_No observations recorded._")
-        for metric_block in data["per_source_observations"]:
-            lines.append(f"### {metric_block['label']}")
-            lines.append("")
-            if metric_block["segments_without_data"]:
-                lines.append(
-                    f"_No published {metric_block['label']} for: "
-                    + ", ".join(metric_block["segments_without_data"])
-                    + "._"
-                )
-                lines.append("")
-            for seg_block in metric_block["by_segment"]:
-                lines.append(f"#### {seg_block['segment_label']}")
-                lines.append("")
-                lines.append("| Cohort | Source | Latest | As-of | Median (all vintages) | # Vintages |")
-                lines.append("| --- | --- | ---:| --- | ---:| ---:|")
-                last_cohort: str | None = None
-                for r in seg_block["rows"]:
-                    cohort_cell = (
-                        r["cohort_label"] if r["cohort"] != last_cohort else ""
-                    )
-                    last_cohort = r["cohort"]
-                    lines.append(
-                        f"| {cohort_cell} "
-                        f"| {r['friendly_name']} "
-                        f"| {_fmt_observation_value(r['latest_value'])} "
-                        f"| {r['latest_as_of']} "
-                        f"| {_fmt_observation_value(r['median_value'])} "
-                        f"| {r['n_vintages']} |"
-                    )
-                lines.append("")
-                medians = seg_block["cohort_medians"]
-                if medians:
-                    lines.append("_Cohort medians (across the latest value of every source):_")
-                    lines.append("")
-                    lines.append("| Cohort | N sources | Median of latest |")
-                    lines.append("| --- | ---:| ---:|")
-                    for m in medians:
-                        lines.append(
-                            f"| {m['cohort_label']} | {m['n']} | "
-                            f"{_fmt_observation_value(m['median'])} |"
-                        )
-                    lines.append("")
-        lines.append("")
-
-        # 3
-        lines.append("## 3. Cross-source validation summary")
-        lines.append("")
-        # If any segment carries a frozen-dataset banner, surface it once
-        # at the top of the table and suppress the per-row stale list
-        # (already blank by contract when the banner is set).
-        banner_text = next(
-            (v.get("frozen_dataset_banner") for v in data["validation_summary"]
-             if v.get("frozen_dataset_banner")),
-            "",
+        append_table(
+            "2. LGD Inputs",
+            ["Segment", "Product", "LGD decimal", "Source", "As-of"],
+            [
+                [
+                    row["segment_label"],
+                    row["product"],
+                    _fmt_decimal(row["lgd_decimal"]),
+                    row["source_id"],
+                    row["as_of_date"],
+                ]
+                for row in data["lgd_inputs"]
+            ],
         )
-        if banner_text:
-            lines.append(f"_{banner_text}_")
-            lines.append("")
-        lines.append("| Segment | N | Spread % | Big 4 spread % | Peer Big 4/Non-bank ratio | Outliers | Stale sources |")
-        lines.append("| --- | ---:| ---:| ---:| ---:| --- | --- |")
-        for vrow in data["validation_summary"]:
-            outliers = ", ".join(friendly_name(s) for s in vrow["outlier_sources"]) or "-"
-            stales = ", ".join(friendly_name(s) for s in vrow["stale_sources"]) or "-"
-            lines.append(
-                f"| {segment_label(vrow['segment'])} "
-                f"| {vrow['n_sources']} "
-                f"| {_fmt_pct(vrow['spread_pct'])} "
-                f"| {_fmt_pct(vrow['big4_spread_pct'])} "
-                f"| {_fmt_ratio(vrow['peer_big4_vs_non_bank_ratio'])} "
-                f"| {outliers} "
-                f"| {stales} |"
-            )
-        lines.append("")
-
-        # 4
-        lines.append("## 4. Big 4 vs non-bank disclosure spread (informational only)")
-        lines.append("")
-        lines.append(
-            "_The values below are raw published figures from the two peer "
-            "cohorts. The engine does NOT recommend any uplift or adjustment "
-            "from this spread. Consuming projects decide how (or whether) to "
-            "use it._"
+        append_table(
+            "3. Expected Loss Inputs",
+            [
+                "Segment", "Product", "PD decimal", "LGD decimal",
+                "EL rate decimal", "PD N", "LGD N", "As-of",
+            ],
+            [
+                [
+                    row["segment_label"],
+                    row["product"],
+                    _fmt_decimal(row["pd_decimal"]),
+                    _fmt_decimal(row["lgd_decimal"]),
+                    _fmt_decimal(row["expected_loss_rate_decimal"]),
+                    row["pd_source_count"],
+                    row["lgd_source_count"],
+                    row["as_of_date"],
+                ]
+                for row in data["expected_loss_inputs"]
+            ],
         )
-        lines.append("")
-        lines.append(f"_{PEER_RATIO_DEFINITION}_")
-        lines.append("")
-        lines.append("| Segment | Big 4 median | Non-bank median | Ratio | Big 4 N | Non-bank N |")
-        lines.append("| --- | ---:| ---:| ---:| ---:| ---:|")
-        for srow in data["big4_vs_nonbank_spread"]:
-            lines.append(
-                f"| {segment_label(srow['segment'])} "
-                f"| {_fmt_pct_value(srow['big4_median'])} "
-                f"| {_fmt_pct_value(srow['nonbank_median'])} "
-                f"| {_fmt_ratio(srow['ratio'])} "
-                f"| {srow['big4_count']} "
-                f"| {srow['nonbank_count']} |"
-            )
-        lines.append("")
-        # (Reference anchors are surfaced inside Section 2 already, under
-        # the regulator / rating-agency / regulatory-floor cohort rows.
-        # The duplicate "4a. Reference anchors" table has been dropped.)
-
-        # 5
-        lines.append("## 5. Provenance & methodology footnotes")
-        for prov in data["provenance"]:
-            lines.append(
-                f"- **{friendly_name(prov['source_id'])}** "
-                f"({prov['source_type']}): {prov['reporting_basis']} — "
-                f"{prov['source_url'] or 'n/a'}"
-            )
-        lines.append("")
-
-        if data.get("supporting_documentation"):
-            docs = data["supporting_documentation"]
-            lines.append("## Supporting documentation")
-            lines.append("")
-            if docs["lead_text"]:
-                lines.append(docs["lead_text"])
-                lines.append("")
-            lines.append("| Source | Publisher | Period | Cached file | Retrieved | URL |")
-            lines.append("| --- | --- | --- | --- | --- | --- |")
-            for row in docs["documents"]:
-                lines.append(
-                    f"| {row['source']} "
-                    f"| {row['publisher']} "
-                    f"| {row['period']} "
-                    f"| {row['local_cached_file']} "
-                    f"| {row['retrieval_date']} "
-                    f"| {row['url']} |"
-                )
-            lines.append("")
-
-            commentary = docs.get("recent_regulator_commentary") or _empty_regulator_commentary()
-            lines.append("### Recent regulator commentary")
-            lines.append("")
-            if commentary.get("empty_message"):
-                lines.append(commentary["empty_message"])
-                lines.append("")
-            else:
-                for label, key in (
-                    ("APRA Insight", "apra_insight"),
-                    ("CFR publications", "cfr_publications"),
-                ):
-                    items = commentary.get(key) or []
-                    lines.append(f"**{label}**")
-                    lines.append("")
-                    if not items:
-                        lines.append("- _none captured_")
-                    else:
-                        for item in items:
-                            stamp = item.get("published_date") or "????-??-??"
-                            title = item.get("title") or "(untitled)"
-                            lines.append(f"- {stamp} — {title}")
-                    lines.append("")
-
-        # 6 — Raw-data inventory (only when raw_data_dir was provided)
-        if "raw_data_inventory" in data:
-            inv = data["raw_data_inventory"]
-            lines.append("## 6. Raw data inventory")
-            lines.append("")
-            lines.append(
-                f"_Walk of `{inv['root']}` — {inv['n_files']} file(s) staged "
-                f"across {len(inv['by_family'])} source families. Includes "
-                "`_MANUAL.md` / `*_GATE.md` notes for sources that require "
-                "manual download._"
-            )
-            lines.append("")
-            if not inv["by_family"]:
-                lines.append("_No raw data files staged on disk._")
-            for family_block in inv["by_family"]:
-                lines.append(f"### {family_block['family']}")
-                lines.append("")
-                lines.append("| File | Subfolder | Kind | Size | Modified (UTC) |")
-                lines.append("| --- | --- | --- | ---:| --- |")
-                for f in family_block["files"]:
-                    lines.append(
-                        f"| {f['filename']} "
-                        f"| {f['subfamily'] or '-'} "
-                        f"| {f['kind']} "
-                        f"| {f['size_bytes']:,} "
-                        f"| {f['modified_utc']} |"
-                    )
-                lines.append("")
-            lines.append("")
-
-        # 7 — Trend vs prior cycle
-        if data["segment_trend"]:
-            lines.append("## 7. Trend vs prior cycle")
-            lines.append("")
-            lines.append(
-                "_Rows appear only where the same source has at least two "
-                "raw-observation vintages for the same segment and parameter._"
-            )
-            lines.append("")
-            lines.append("| Segment | Metric | Source | Current | Current as-of | Prior | Prior as-of | Delta | % change |")
-            lines.append("| --- | --- | --- | ---:| --- | ---:| --- | ---:| ---:|")
-            for row in data["segment_trend"]:
-                lines.append(
-                    f"| {segment_label(row['segment'])} "
-                    f"| {parameter_label(row['parameter'])} "
-                    f"| {friendly_name(row['source_id'])} "
-                    f"| {_fmt_pct_value(row['current_value'])} "
-                    f"| {row['current_as_of']} "
-                    f"| {_fmt_pct_value(row['prior_value'])} "
-                    f"| {row['prior_as_of']} "
-                    f"| {_fmt_signed_pct_value(row['delta'])} "
-                    f"| {_fmt_pct(row['pct_change'])} |"
-                )
-            lines.append("")
+        append_table(
+            "4. Stress Testing Inputs",
+            [
+                "Segment",
+                "Product",
+                "Base EL decimal",
+                "Stressed PD decimal",
+                "Stressed LGD decimal",
+                "Stressed EL decimal",
+                "As-of",
+            ],
+            [
+                [
+                    row["segment_label"],
+                    row["product"],
+                    _fmt_decimal(row["base_expected_loss_rate_decimal"]),
+                    _fmt_decimal(row["stressed_pd_decimal"]),
+                    _fmt_decimal(row["stressed_lgd_decimal"]),
+                    _fmt_decimal(row["stressed_expected_loss_rate_decimal"]),
+                    row["as_of_date"],
+                ]
+                for row in data["stress_testing_inputs"]
+            ],
+        )
+        append_table(
+            "5. Portfolio Monitor Inputs",
+            [
+                "Segment",
+                "Product",
+                "Arrears decimal",
+                "NPL decimal",
+                "Impaired decimal",
+                "Loss rate decimal",
+                "Sources",
+                "As-of",
+            ],
+            [
+                [
+                    row["segment_label"],
+                    row["product"],
+                    _fmt_decimal_or_blank(row["arrears_decimal"]),
+                    _fmt_decimal_or_blank(row["npl_decimal"]),
+                    _fmt_decimal_or_blank(row["impaired_decimal"]),
+                    _fmt_decimal_or_blank(row["loss_rate_decimal"]),
+                    row["monitor_source_count"],
+                    row["as_of_date"],
+                ]
+                for row in data["portfolio_monitor_inputs"]
+            ],
+        )
+        append_table(
+            "6. Per-Bank Industry Inputs",
+            [
+                "Bank",
+                "Industry",
+                "Exposure AUDm",
+                "NPE AUDm",
+                "NPE decimal",
+                "Provision AUDm",
+                "Write-offs AUDm",
+                "Write-off decimal",
+                "As-of",
+            ],
+            [
+                [
+                    row["bank"],
+                    row["industry"],
+                    _fmt_decimal_or_blank(row["exposure_aud_m"]),
+                    _fmt_decimal_or_blank(row["npe_aud_m"]),
+                    _fmt_decimal_or_blank(row["npe_rate_decimal"]),
+                    _fmt_decimal_or_blank(row["provision_aud_m"]),
+                    _fmt_decimal_or_blank(row["write_offs_aud_m"]),
+                    _fmt_decimal_or_blank(row["write_off_rate_decimal"]),
+                    row["as_of_date"],
+                ]
+                for row in data["bank_industry_inputs"]
+            ],
+        )
 
         return "\n".join(lines)
 
@@ -438,7 +344,7 @@ class BenchmarkCalibrationReport:
         body = _markdown_to_basic_html(md)
         return (
             "<!doctype html><html><head><meta charset='utf-8'>"
-            f"<title>External Benchmark Report — {html.escape(self._period)}</title>"
+            f"<title>Australian Credit Risk Benchmarks - {html.escape(self._period)}</title>"
             "<style>"
             "body{font-family:-apple-system,Segoe UI,Helvetica,sans-serif;"
             "max-width:1100px;margin:2em auto;padding:0 1em;color:#222;}"
@@ -465,264 +371,138 @@ class BenchmarkCalibrationReport:
             ) from exc
 
         data = self.generate()
-        title = f"External Benchmark Report — {self._period}"
+        title = f"Australian Credit Risk Benchmarks - {self._period}"
         subtitle = (
             f"Generated {data['meta']['generated_at']} | Data as-of "
             f"{_fmt_data_as_of(data['meta']['data_as_of_min'], data['meta']['data_as_of_max'])}"
         )
         doc = new_document(title, subtitle=subtitle)
 
-        add_paragraph(doc, data["banner"], italic=True)
+        for kind, text in self._executive_summary_blocks(data):
+            clean = text.replace("**", "")
+            if kind == "h2":
+                add_heading(doc, clean, level=2)
+            elif kind == "h3":
+                add_heading(doc, clean, level=3)
+            elif kind == "bullet":
+                add_bullet(doc, clean)
+            else:  # paragraph
+                add_paragraph(doc, clean)
 
-        acronym_glossary = data.get("acronym_glossary") or []
-        if acronym_glossary:
-            add_heading(doc, "0a. Glossary of terms", level=2)
-            add_table(
-                doc,
-                headers=["term", "meaning"],
-                rows=[[row["term"], row["definition"]] for row in acronym_glossary],
-            )
+        def add_input_table(
+            title: str,
+            headers: list[str],
+            rows: list[list[object]],
+        ) -> None:
+            add_heading(doc, title, level=2)
+            if not rows:
+                add_paragraph(doc, "No numeric inputs available.", italic=True)
+                return
+            add_table(doc, headers=headers, rows=rows)
 
-        glossary = data["segment_glossary"]
-        if glossary:
-            add_heading(doc, "0b. Segment definitions", level=2)
-            add_table(
-                doc,
-                headers=["segment", "definition"],
-                rows=[[row["segment"], row["definition"]] for row in glossary],
-            )
-
-        add_heading(doc, "1. Executive Summary", level=2)
-        narrative = data["executive_summary"].get("narrative", "")
-        if narrative:
-            add_paragraph(doc, narrative)
-        for line in data["executive_summary"]["lines"]:
-            add_bullet(doc, line)
-
-        add_heading(doc, "2. Latest figures by metric and segment", level=2)
-
-        pd_overview = data.get("pd_overview") or []
-        if pd_overview:
-            add_heading(doc, "2a. PD overview by segment", level=3)
-            add_paragraph(
-                doc,
-                "Quick guide to where peer PDs exist. Segments with em-"
-                "dash in both PD columns are not published as a PD by any "
-                "peer — typically because the segment is a system-wide "
-                "aggregate or a specialist book where peers publish loss "
-                "expense / realised loss instead.",
-                italic=True,
-            )
-            add_table(
-                doc,
-                headers=["segment", "big4_median_pd", "big4_n",
-                         "nonbank_median_pd", "nonbank_n", "other_metrics"],
-                rows=[
-                    [row["segment_label"],
-                     _fmt_pct_value(row["big4_median_pd"]),
-                     str(row["big4_count"]),
-                     _fmt_pct_value(row["nonbank_median_pd"]),
-                     str(row["nonbank_count"]),
-                     ", ".join(row["other_metrics"]) or "—"]
-                    for row in pd_overview
-                ],
-            )
-
-        add_paragraph(
-            doc,
-            "Below is one section per metric (PD first, then LGD, "
-            "Arrears, NPL, etc.). Within each metric you'll find one "
-            "sub-table per segment that has data, and a list of "
-            "segments with no published value. Inside every sub-table, "
-            "peer banks come first, then non-bank peers, then references.",
-            italic=True,
-        )
-        for metric_block in data["per_source_observations"]:
-            add_heading(doc, metric_block["label"], level=3)
-            if metric_block["segments_without_data"]:
-                add_paragraph(
-                    doc,
-                    "No published "
-                    + metric_block["label"]
-                    + " for: "
-                    + ", ".join(metric_block["segments_without_data"])
-                    + ".",
-                    italic=True,
-                )
-            for seg_block in metric_block["by_segment"]:
-                add_heading(doc, seg_block["segment_label"], level=4)
-                add_table(
-                    doc,
-                    headers=["cohort", "source", "latest", "as_of",
-                             "median", "n_vintages"],
-                    rows=[
-                        [r["cohort_label"], r["friendly_name"],
-                         _fmt_observation_value(r["latest_value"]),
-                         r["latest_as_of"],
-                         _fmt_observation_value(r["median_value"]),
-                         str(r["n_vintages"])]
-                        for r in seg_block["rows"]
-                    ],
-                )
-                medians = seg_block["cohort_medians"]
-                if medians:
-                    add_paragraph(doc, "Cohort medians (across latest values):", italic=True)
-                    add_table(
-                        doc,
-                        headers=["cohort", "n_sources", "median_of_latest"],
-                        rows=[
-                            [m["cohort_label"], str(m["n"]),
-                             _fmt_observation_value(m["median"])]
-                            for m in medians
-                        ],
-                    )
-
-        add_heading(doc, "3. Cross-source validation summary", level=2)
-        banner_text = next(
-            (v.get("frozen_dataset_banner") for v in data["validation_summary"]
-             if v.get("frozen_dataset_banner")),
-            "",
-        )
-        if banner_text:
-            add_paragraph(doc, banner_text, italic=True)
-        add_table(
-            doc,
-            headers=["segment", "n_sources", "spread_pct", "big4_spread_pct",
-                     "peer_big4_vs_non_bank_ratio", "outliers", "stale"],
-            rows=[
-                [segment_label(v["segment"]), str(v["n_sources"]),
-                 _fmt_pct(v["spread_pct"]),
-                 _fmt_pct(v["big4_spread_pct"]),
-                 _fmt_ratio(v["peer_big4_vs_non_bank_ratio"]),
-                 ", ".join(friendly_name(s) for s in v["outlier_sources"]) or "-",
-                 ", ".join(friendly_name(s) for s in v["stale_sources"]) or "-"]
-                for v in data["validation_summary"]
+        add_input_table(
+            "1. PD Inputs",
+            ["segment", "product", "pd_decimal", "source", "as_of"],
+            [
+                [
+                    row["segment_label"],
+                    row["product"],
+                    _fmt_decimal(row["pd_decimal"]),
+                    row["source_id"],
+                    row["as_of_date"],
+                ]
+                for row in data["pd_inputs"]
             ],
         )
-
-        add_heading(doc, "4. Big 4 vs non-bank disclosure spread (informational only)", level=2)
-        add_paragraph(
-            doc,
-            "Values are raw published figures from each peer cohort. The "
-            "engine does NOT recommend any uplift or adjustment from this "
-            "spread.",
-            italic=True,
-        )
-        add_paragraph(doc, PEER_RATIO_DEFINITION, italic=True)
-        add_table(
-            doc,
-            headers=["segment", "big4_median", "nonbank_median", "ratio",
-                     "big4_count", "nonbank_count"],
-            rows=[
-                [segment_label(s["segment"]),
-                 _fmt_pct_value(s["big4_median"]),
-                 _fmt_pct_value(s["nonbank_median"]),
-                 _fmt_ratio(s["ratio"]),
-                 str(s["big4_count"]), str(s["nonbank_count"])]
-                for s in data["big4_vs_nonbank_spread"]
+        add_input_table(
+            "2. LGD Inputs",
+            ["segment", "product", "lgd_decimal", "source", "as_of"],
+            [
+                [
+                    row["segment_label"],
+                    row["product"],
+                    _fmt_decimal(row["lgd_decimal"]),
+                    row["source_id"],
+                    row["as_of_date"],
+                ]
+                for row in data["lgd_inputs"]
             ],
         )
-
-        # Section 4a (reference anchors) intentionally not rendered in
-        # docx for the same reason as the markdown: regulator / rating-
-        # agency / regulatory-floor rows already appear in Section 2.
-
-        add_heading(doc, "5. Provenance & methodology footnotes", level=2)
-        for p in data["provenance"]:
-            add_bullet(
-                doc,
-                f"{friendly_name(p['source_id'])} ({p['source_type']}): "
-                f"{p['reporting_basis']} — {p['source_url'] or 'n/a'}",
-            )
-
-        if data.get("supporting_documentation"):
-            docs = data["supporting_documentation"]
-            add_heading(doc, "Supporting documentation", level=2)
-            if docs["lead_text"]:
-                add_paragraph(doc, docs["lead_text"])
-            add_table(
-                doc,
-                headers=["source", "publisher", "period", "cached_file", "retrieved", "url"],
-                rows=[
-                    [
-                        r["source"], r["publisher"], r["period"],
-                        r["local_cached_file"], r["retrieval_date"], r["url"],
-                    ]
-                    for r in docs["documents"]
-                ],
-            )
-            commentary = docs.get("recent_regulator_commentary") or _empty_regulator_commentary()
-            add_heading(doc, "Recent regulator commentary", level=3)
-            if commentary.get("empty_message"):
-                add_paragraph(doc, commentary["empty_message"], italic=True)
-            else:
-                for label, key in (
-                    ("APRA Insight", "apra_insight"),
-                    ("CFR publications", "cfr_publications"),
-                ):
-                    items = commentary.get(key) or []
-                    add_paragraph(doc, label, italic=True)
-                    if not items:
-                        add_bullet(doc, "(none captured)")
-                    else:
-                        for item in items:
-                            stamp = item.get("published_date") or "????-??-??"
-                            title = item.get("title") or "(untitled)"
-                            add_bullet(doc, f"{stamp} — {title}")
-
-        if "raw_data_inventory" in data:
-            inv = data["raw_data_inventory"]
-            add_heading(doc, "6. Raw data inventory", level=2)
-            add_paragraph(
-                doc,
-                f"Walk of {inv['root']} — {inv['n_files']} file(s) staged "
-                f"across {len(inv['by_family'])} source families. Includes "
-                "_MANUAL.md / *_GATE.md notes for sources that require "
-                "manual download.",
-                italic=True,
-            )
-            for family_block in inv["by_family"]:
-                add_heading(doc, family_block["family"], level=3)
-                add_table(
-                    doc,
-                    headers=["filename", "subfolder", "kind",
-                             "size_bytes", "modified_utc"],
-                    rows=[
-                        [f["filename"], f["subfamily"] or "-", f["kind"],
-                         f"{f['size_bytes']:,}", f["modified_utc"]]
-                        for f in family_block["files"]
-                    ],
-                )
-
-        if data["segment_trend"]:
-            add_heading(doc, "7. Trend vs prior cycle", level=2)
-            add_paragraph(
-                doc,
-                "Rows appear only where the same source has at least two "
-                "raw-observation vintages for the same segment and parameter.",
-                italic=True,
-            )
-            add_table(
-                doc,
-                headers=[
-                    "segment", "metric", "source", "current", "current_as_of",
-                    "prior", "prior_as_of", "delta", "pct_change",
-                ],
-                rows=[
-                    [
-                        segment_label(row["segment"]),
-                        parameter_label(row["parameter"]),
-                        friendly_name(row["source_id"]),
-                        _fmt_pct_value(row["current_value"]),
-                        row["current_as_of"],
-                        _fmt_pct_value(row["prior_value"]),
-                        row["prior_as_of"],
-                        _fmt_signed_pct_value(row["delta"]),
-                        _fmt_pct(row["pct_change"]),
-                    ]
-                    for row in data["segment_trend"]
-                ],
-            )
+        add_input_table(
+            "3. Expected Loss Inputs",
+            [
+                "segment", "product", "pd_decimal", "lgd_decimal",
+                "el_rate_decimal", "pd_n", "lgd_n", "as_of",
+            ],
+            [
+                [
+                    row["segment_label"],
+                    row["product"],
+                    _fmt_decimal(row["pd_decimal"]),
+                    _fmt_decimal(row["lgd_decimal"]),
+                    _fmt_decimal(row["expected_loss_rate_decimal"]),
+                    str(row["pd_source_count"]),
+                    str(row["lgd_source_count"]),
+                    row["as_of_date"],
+                ]
+                for row in data["expected_loss_inputs"]
+            ],
+        )
+        add_input_table(
+            "4. Stress Testing Inputs",
+            ["segment", "product", "base_el_decimal", "stressed_pd_decimal",
+             "stressed_lgd_decimal", "stressed_el_decimal", "as_of"],
+            [
+                [
+                    row["segment_label"],
+                    row["product"],
+                    _fmt_decimal(row["base_expected_loss_rate_decimal"]),
+                    _fmt_decimal(row["stressed_pd_decimal"]),
+                    _fmt_decimal(row["stressed_lgd_decimal"]),
+                    _fmt_decimal(row["stressed_expected_loss_rate_decimal"]),
+                    row["as_of_date"],
+                ]
+                for row in data["stress_testing_inputs"]
+            ],
+        )
+        add_input_table(
+            "5. Portfolio Monitor Inputs",
+            ["segment", "product", "arrears_decimal", "npl_decimal",
+             "impaired_decimal", "loss_rate_decimal", "sources", "as_of"],
+            [
+                [
+                    row["segment_label"],
+                    row["product"],
+                    _fmt_decimal_or_blank(row["arrears_decimal"]),
+                    _fmt_decimal_or_blank(row["npl_decimal"]),
+                    _fmt_decimal_or_blank(row["impaired_decimal"]),
+                    _fmt_decimal_or_blank(row["loss_rate_decimal"]),
+                    str(row["monitor_source_count"]),
+                    row["as_of_date"],
+                ]
+                for row in data["portfolio_monitor_inputs"]
+            ],
+        )
+        add_input_table(
+            "6. Per-Bank Industry Inputs",
+            ["bank", "industry", "exposure_aud_m", "npe_aud_m",
+             "npe_decimal", "provision_aud_m", "write_offs_aud_m",
+             "write_off_decimal", "as_of"],
+            [
+                [
+                    row["bank"],
+                    row["industry"],
+                    _fmt_decimal_or_blank(row["exposure_aud_m"]),
+                    _fmt_decimal_or_blank(row["npe_aud_m"]),
+                    _fmt_decimal_or_blank(row["npe_rate_decimal"]),
+                    _fmt_decimal_or_blank(row["provision_aud_m"]),
+                    _fmt_decimal_or_blank(row["write_offs_aud_m"]),
+                    _fmt_decimal_or_blank(row["write_off_rate_decimal"]),
+                    row["as_of_date"],
+                ]
+                for row in data["bank_industry_inputs"]
+            ],
+        )
 
         out = Path(path)
         doc.save(str(out))
@@ -1346,6 +1126,22 @@ def _fmt_pct_value(v: float | None) -> str:
     if v is None:
         return "-"
     return f"{v:.4%}"
+
+
+def _fmt_pct_or_blank(v: object) -> str:
+    if v in ("", None):
+        return "-"
+    return _fmt_pct_value(float(v))
+
+
+def _fmt_decimal(v: object) -> str:
+    return f"{float(v):.2f}"
+
+
+def _fmt_decimal_or_blank(v: object) -> str:
+    if v in ("", None):
+        return "-"
+    return _fmt_decimal(v)
 
 
 def _fmt_signed_pct_value(v: float | None) -> str:

@@ -169,7 +169,7 @@ brief for the EBA MoC formulas and category boundaries.
   new ingest path. `BenchmarkRegistry.add_observation()`,
   `add_observations()`, `query_observations()`, `list_segments()` are
   the Brief-1 read/write methods.
-- Run `python scripts/migrate_to_raw_observations.py --db <path>` once
+- Run `python src/migrate_to_raw_observations.py --db <path>` once
   to back-fill `raw_observations` from `benchmarks`.
 - After Brief 2 ships and the PD workbook has migrated, the legacy
   `CentralTendencyOutput` / `BayesianBlendingOutput` / etc. classes can

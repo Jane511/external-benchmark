@@ -101,16 +101,17 @@ _BANK_NAMES: Mapping[str, str] = {
 
 # Non-bank lender heads (lower-case head of source_id).
 _NON_BANK_NAMES: Mapping[str, str] = {
-    "judo": "Judo Bank",
     "liberty": "Liberty Financial",
     "pepper": "Pepper Money",
     "resimac": "Resimac",
     "moneyme": "MoneyMe",
     "plenti": "Plenti",
-    "wisr": "Wisr",
     "qualitas": "Qualitas",
     "metrics": "Metrics Credit Partners",
     "latrobe": "La Trobe Financial",
+    "latitude": "Latitude Financial",
+    "humm": "humm Group",
+    "zip": "Zip Co",
 }
 
 # APS 113 slotting grade map (regulatory floor cohort).

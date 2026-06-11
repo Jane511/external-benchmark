@@ -6,9 +6,9 @@ captures only entries the manifest doesn't already record. Each captured
 file gets one ``audit_log`` row and one new manifest entry.
 
 Usage:
-    python scripts/download_sources/governance_publications_downloader.py
-    python scripts/download_sources/governance_publications_downloader.py --target apra_insight
-    python scripts/download_sources/governance_publications_downloader.py --target cfr_publications
+    python src/download_sources/governance_publications_downloader.py
+    python src/download_sources/governance_publications_downloader.py --target apra_insight
+    python src/download_sources/governance_publications_downloader.py --target cfr_publications
 """
 
 from __future__ import annotations

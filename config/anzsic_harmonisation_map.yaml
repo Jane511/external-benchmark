@@ -1,0 +1,245 @@
+# ANZSIC harmonisation map — Big 4 Pillar 3 ↔ canonical 13-bucket schema
+#
+# Authority: Phase 2 recon §1.6, ruled in Phase 2 Issue 6.
+# Recon evidence: docs/recon/anzsic_industry_sources_recon.md.
+# Audit log: docs/governance_log.md (2026-05-04 Phase 2 addendum).
+#
+# Purpose: declarative mapping from each bank's published industry
+# bucket (as it appears in Pillar 3 PDFs) to a canonical 13-bucket
+# schema that supports cross-bank summing. Per the ruling:
+#
+#   1. Mapping is reversible — given any canonical bucket, the engine
+#      can answer "which per-bank buckets fed this?" by inverting.
+#   2. Per-bank rows remain emitted at the bank's published granularity
+#      in the per-bank adapter output. Only the aggregation step
+#      collapses to the 13 canonical buckets.
+#   3. The "other" bucket is a parity-driven catch-all. CBA's "Health
+#      & Community Services" and "Entertainment, Leisure & Tourism"
+#      lose distinguishability when summed across banks; the per-bank
+#      finer rows remain available for any analysis that doesn't
+#      require cross-bank summing.
+#
+# Match semantics: case-insensitive exact match on the published label
+# (after whitespace normalisation). Adapters MUST NOT silently drop a
+# published bucket that is absent from this map — they must raise so
+# the map can be updated explicitly.
+
+schema_version: 1
+
+# ANZSIC division letter associated with the canonical bucket. Stored as
+# a separate field per plan §6 metadata requirement — do not parse it
+# back out of the bucket name. "mixed" indicates a cross-division
+# harmonisation bucket where multiple ANZSIC divisions are pooled (e.g.
+# Agri+Mining combined to align with NAB/ANZ; Trade combining wholesale
+# + retail to align with CBA/NAB/WBC; Business & Property Services
+# combining L+M to align with NAB/ANZ).
+canonical_buckets:
+
+  agriculture_mining:
+    description: "Agriculture, forestry, fishing combined with mining (NAB/ANZ pool these; CBA/WBC publish separately and sum to this canonical bucket)."
+    anzsic_divisions: ["A", "B"]
+    pool_reason: "NAB and ANZ publish agri and mining as a single bucket; cannot disaggregate from those banks. Lowest common denominator is the pool."
+
+  manufacturing:
+    description: "Manufacturing (ANZSIC division C)."
+    anzsic_divisions: ["C"]
+
+  utilities:
+    description: "Electricity, gas, water; bank-specific inclusion of communications (NAB) noted in metadata. ANZSIC division D plus a partial overlap with J."
+    anzsic_divisions: ["D"]
+    note: "NAB's 'Utilities' bucket includes communications services. Other banks scope to electricity/gas/water only. Coverage diagnostic must surface the definitional asymmetry, not silently equate."
+
+  construction:
+    description: "Construction (ANZSIC division E)."
+    anzsic_divisions: ["E"]
+
+  trade:
+    description: "Wholesale + retail trade combined (CBA/NAB/WBC pool these; ANZ publishes separately and sums to this canonical bucket)."
+    anzsic_divisions: ["F", "G"]
+    pool_reason: "CBA, NAB, and WBC publish wholesale and retail as a single bucket; cannot disaggregate from those banks."
+
+  accommodation_food:
+    description: "Accommodation, cafes, restaurants, food services (ANZSIC division H, partial)."
+    anzsic_divisions: ["H"]
+
+  transport_storage:
+    description: "Transport, postal, warehousing (ANZSIC division I)."
+    anzsic_divisions: ["I"]
+
+  finance_insurance:
+    description: "Financial and insurance services (ANZSIC division K). Excludes selected financial businesses where banks scope this way."
+    anzsic_divisions: ["K"]
+
+  commercial_property:
+    description: "Income-producing commercial real estate (subset of ANZSIC division L)."
+    anzsic_divisions: ["L"]
+    note: "Banks publish 'Commercial Property' separately from 'Property/Business Services' bucket. Both subset division L; the engine retains both as distinct canonical buckets."
+
+  business_property_services:
+    description: "Property services and professional/scientific/technical services combined (NAB/ANZ pool these; WBC publishes finer split that aggregates back; CBA folds part into 'Business Services'). ANZSIC divisions L (ex commercial property) + M."
+    anzsic_divisions: ["L", "M"]
+    pool_reason: "NAB and ANZ pool L+M as a single bucket; cannot disaggregate from those banks. Plan §4.1 explicitly flagged this boundary."
+
+  government_public:
+    description: "Government, public administration, defence (ANZSIC division O)."
+    anzsic_divisions: ["O"]
+
+  # Phase 3.B.2 §5.2 consumer-routing decision: NAB and ANZ split
+  # personal vs residential mortgage; CBA and WBC publish a single
+  # combined "Consumer" / "Retail lending" bucket. The harmonisation map
+  # therefore carries THREE consumer buckets:
+  #
+  #   - consumer_lending_personal           (NAB, ANZ)
+  #   - consumer_lending_residential_mortgage (NAB, ANZ)
+  #   - consumer_combined                   (CBA, WBC — bank-imposed pooling)
+  #
+  # These are NOT business-lending segments and MUST NOT route to any
+  # business_lending_anzsic_* canonical bucket. Aggregation modules that
+  # want a "Big-4 consumer" view need to decide whether to sum the two
+  # split buckets from NAB+ANZ alongside consumer_combined from CBA+WBC,
+  # or to treat the populations as definitionally distinct. That decision
+  # is documented in the methodology section (plan §6) — not flattened
+  # inside the harmonisation map.
+
+  consumer_lending_personal:
+    description: "Personal lending — credit cards, personal loans, other unsecured retail credit. Published as a separate row by NAB ('Personal') and ANZ ('Personal Lending'). Not published separately by CBA or WBC."
+    anzsic_divisions: []
+    business_lending: false
+    pool_reason: "Not an ANZSIC division — household/consumer lending. Bank-disclosure-driven."
+
+  consumer_lending_residential_mortgage:
+    description: "Residential mortgages. Published as a separate row by NAB ('Residential mortgages') and ANZ ('Residential Mortgage'). Not published separately by CBA or WBC."
+    anzsic_divisions: []
+    business_lending: false
+    pool_reason: "Not an ANZSIC division — household/consumer lending. Bank-disclosure-driven."
+
+  consumer_combined:
+    description: "Combined personal + residential mortgage exposure as published by CBA ('Consumer') and WBC ('Retail lending'). Cannot be disaggregated without bank-internal data. Aggregation against NAB/ANZ split buckets requires explicit handling — not summed silently."
+    anzsic_divisions: []
+    business_lending: false
+    pool_reason: "Bank-imposed pooling. CBA and WBC do not split personal vs residential mortgage at industry level."
+
+  other:
+    description: "Parity-driven catch-all. Includes everything not mapped to the 12 buckets above: arts/recreation, entertainment-leisure-tourism, health & community services, education, other services, and any bank-specific 'Other' rollups. CBA finer rows (Health & Community Services, Entertainment, Leisure & Tourism) and ANZ Entertainment/Leisure/Tourism remain available in per-bank output."
+    anzsic_divisions: ["N", "P", "Q", "R", "S"]
+    pool_reason: "Heterogeneous coverage across banks; no defensible cross-bank fine split. Aggregation parity requires pooling."
+
+# Per-bank source-to-canonical maps. Adapters look up here using
+# whitespace-normalised, case-insensitive match on the published label.
+# Every published label observed in the FY2025 Pillar 3 industry table
+# must appear below; an unknown label MUST raise (not silently drop).
+
+per_bank_mapping:
+
+  cba:
+    source: "CBA Pillar 3 CRB(e)(ii) (portfolio × industry matrix) and CRB(f)(i) (NPE / specific provision / actual losses by industry). Provision basis: APS 220 specific (CBA-only)."
+    as_at_convention: "30 June (full year) / 31 December (half year). CBA publishes both periods in the same FY release."
+    labels:
+      "Consumer":                          consumer_combined
+      "Government Administration & Defence": government_public
+      "Finance & Insurance":               finance_insurance
+      "Business Services":                 business_property_services
+      "Agriculture & Forestry":            agriculture_mining
+      "Mining, Oil & Gas":                 agriculture_mining
+      "Manufacturing":                     manufacturing
+      "Electricity, Gas & Water":          utilities
+      "Construction":                      construction
+      "Wholesale & Retail Trade":          trade
+      "Transport & Storage":               transport_storage
+      "Commercial Property":               commercial_property
+      "Entertainment, Leisure & Tourism":  other
+      "Health & Community Services":       other
+      "Other":                             other
+
+  nab:
+    source: "NAB Pillar 3 'Exposure at default, non-performing exposures and related provisions by industry' (ANZSIC Level 1)"
+    as_at_convention: "30 September (full year) / 31 March (half year)"
+    labels:
+      "Accommodation and hospitality":            accommodation_food
+      "Agriculture, forestry, fishing and mining": agriculture_mining
+      "Business services and property services":  business_property_services
+      "Commercial property":                       commercial_property
+      "Construction":                              construction
+      "Finance and insurance":                     finance_insurance
+      "Government and public authorities":         government_public
+      "Manufacturing":                             manufacturing
+      "Personal":                                  consumer_lending_personal
+      "Residential mortgages":                     consumer_lending_residential_mortgage
+      "Retail and wholesale trade":                trade
+      "Transport and storage":                     transport_storage
+      "Utilities":                                 utilities
+      "Other":                                     other
+
+  wbc:
+    source: "WBC Pillar 3 CRB(e) and CRB(f) — geog × industry"
+    as_at_convention: "30 September (full year) / 31 March (half year)"
+    labels:
+      "Accommodation, cafes and restaurants":  accommodation_food
+      "Agriculture, forestry and fishing":     agriculture_mining
+      "Construction":                          construction
+      "Finance and insurance":                 finance_insurance
+      "Government, administration and defence": government_public
+      "Manufacturing":                         manufacturing
+      "Mining":                                agriculture_mining
+      "Property":                              commercial_property
+      "Property services and business services": business_property_services
+      "Services":                              business_property_services
+      "Trade":                                 trade
+      "Transport and storage":                 transport_storage
+      "Utilities":                             utilities
+      "Retail lending":                        consumer_combined
+      "Other":                                 other
+
+  anz:
+    source: "ANZ Pillar 3 'Breakdown of exposures, NPE and accounting provisions, by industry'"
+    as_at_convention: "30 September (full year) / 31 March (half year)"
+    labels:
+      "Agriculture, Forestry, Fishing & Mining": agriculture_mining
+      "Business & Property Services":             business_property_services
+      "Commercial Property":                      commercial_property
+      "Construction":                             construction
+      "Electricity, Gas & Water Supply":          utilities
+      "Entertainment, Leisure & Tourism":         other
+      "Financial, Investment & Insurance":        finance_insurance
+      "Government & Official Institutions":       government_public
+      "Manufacturing":                            manufacturing
+      "Personal Lending":                         consumer_lending_personal
+      "Residential Mortgage":                     consumer_lending_residential_mortgage
+      "Retail Trade":                             trade
+      "Transport & Storage":                      transport_storage
+      "Wholesale Trade":                          trade
+      "Other":                                    other
+
+# RBA D14.1 division → canonical mapping. Used by the aggregation
+# layer to compute per-canonical-bucket coverage ratios (Big-4
+# aggregated EAD ÷ D14.1 system stock for the same canonical bucket).
+# Construction sub-rows are summed to a synthetic 'Construction
+# (total)' before mapping per Phase 2 Issue 7 ruling.
+
+rba_d14_1_mapping:
+  source: "RBA D14.1 — Lending to Business by Business Size and Industry. Sourced from APRA EFS via ARS 742.0 (NOT independent of QPS — see governance log Addition A)."
+  labels:
+    "Agriculture, forestry and fishing":              agriculture_mining
+    "Mining":                                         agriculture_mining
+    "Manufacturing":                                  manufacturing
+    "Electricity, gas, water and waste services":    utilities
+    "Information media and telecommunications":      other
+    "Residential building construction":             construction   # one of three D14.1 sub-rows
+    "Non-residential building construction":         construction   # one of three D14.1 sub-rows
+    "Other construction":                            construction   # one of three D14.1 sub-rows
+    "Construction (total)":                          construction   # synthesised total emitted by the D14.1 adapter; preferred for cross-source comparison per Phase 2 Issue 7
+    "Wholesale trade":                                trade
+    "Retail trade":                                   trade
+    "Accommodation and food services":               accommodation_food
+    "Transport, postal and warehousing":             transport_storage
+    "Financial and insurance, excluding selected financial businesses": finance_insurance
+    "Rental, hiring and real estate services":       business_property_services
+    "Professional, scientific and technical services": business_property_services
+    "Administrative and support services":           business_property_services
+    "Public administration and safety":              government_public
+    "Education and training":                         other
+    "Health care and social assistance":             other
+    "Arts and recreation services":                   other
+    "Other services":                                 other
+  # The 'Total, excluding selected financial businesses' series is the
+  # universe denominator and not mapped to a canonical bucket.

@@ -1,38 +1,16 @@
-"""CSV exporters — one row per observation / band / file, no aggregation.
+"""CSV exporters for private-credit model inputs.
 
-Downstream consumers (PD project, LGD project, dashboard tools) read these
-CSVs as the engine's machine-readable contract. They mirror exactly what
-the Markdown / HTML / DOCX report renders, with no editorial layer.
+The default bundle is deliberately small and model-ready:
 
-Six CSVs are produced into ``outputs/csv/`` (or any directory the caller
-chooses):
+* ``pd_inputs.csv``
+* ``lgd_inputs.csv``
+* ``expected_loss_inputs.csv``
+* ``stress_testing_inputs.csv``
+* ``portfolio_monitor_inputs.csv``
 
-* ``raw_observations.csv``         — every row in the ``raw_observations``
-                                      table. One row per observation.
-                                      Commentary rows carry an empty
-                                      ``value`` cell (parameter='commentary'
-                                      stores no numeric value).
-* ``validation_flags.csv``         — per-segment cross-source flags
-                                      (spread, outliers, vintage,
-                                      peer-Big4-vs-non-bank ratio).
-                                      Header row carries unit and
-                                      definition annotations.
-* ``validation_flag_sources.csv``  — long-form companion: one row per
-                                      (segment, flag_type, source_id)
-                                      so spreadsheet tools don't have
-                                      to parse pipe-delimited cells.
-* ``reality_check_bands.csv``      — per-product upper / lower band table
-                                      flattened from
-                                      ``config/reality_check_bands.yaml``.
-* ``raw_data_inventory.csv``       — every file currently staged in
-                                      ``data/raw/`` with size and modified
-                                      timestamp.
-* ``segment_trend.csv``            — latest-vs-prior raw observation
-                                      trend rows where at least two
-                                      vintages exist.
-
-Each function returns the ``Path`` of the CSV it wrote, so callers can
-build manifests / report-summaries from the return values.
+Legacy raw/audit CSV functions remain available in this module for
+debugging, but ``export_all_csvs`` now emits only the five direct-input
+files above.
 """
 from __future__ import annotations
 
@@ -42,6 +20,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from src.models import cohort_for
+from src.model_inputs import build_model_input_bundle
 from src.observations import PeerObservations
 from src.reality_check import RealityCheckBandLibrary, load_reality_check_bands
 from src.registry import BenchmarkRegistry
@@ -49,8 +28,102 @@ from src.trend import build_segment_trends
 from src.validation import PEER_RATIO_DEFINITION, is_big4_source_id
 
 
-DEFAULT_OUTPUT_DIR = Path("outputs/csv")
+DEFAULT_OUTPUT_DIR = Path("output/data")
 DEFAULT_RAW_DATA_DIR = Path("data/raw")
+
+
+_MODEL_INPUT_COLUMNS: dict[str, list[str]] = {
+    "pd_inputs": [
+        "segment",
+        "segment_label",
+        "product",
+        "source_id",
+        "source_type",
+        "pd_decimal",
+        "as_of_date",
+    ],
+    "lgd_inputs": [
+        "segment",
+        "segment_label",
+        "product",
+        "source_id",
+        "source_type",
+        "lgd_decimal",
+        "as_of_date",
+    ],
+    "expected_loss_inputs": [
+        "segment",
+        "segment_label",
+        "product",
+        "pd_decimal",
+        "lgd_decimal",
+        "expected_loss_rate_decimal",
+        "pd_source_count",
+        "lgd_source_count",
+        "as_of_date",
+    ],
+    "stress_testing_inputs": [
+        "segment",
+        "segment_label",
+        "product",
+        "base_pd_decimal",
+        "base_lgd_decimal",
+        "base_expected_loss_rate_decimal",
+        "pd_stress_multiplier",
+        "pd_upper_band_decimal",
+        "stressed_pd_decimal",
+        "lgd_stress_multiplier",
+        "stressed_lgd_decimal",
+        "stressed_expected_loss_rate_decimal",
+        "as_of_date",
+    ],
+    "portfolio_monitor_inputs": [
+        "segment",
+        "segment_label",
+        "product",
+        "arrears_decimal",
+        "arrears_source_count",
+        "npl_decimal",
+        "npl_source_count",
+        "impaired_decimal",
+        "impaired_source_count",
+        "loss_rate_decimal",
+        "loss_rate_source_count",
+        "monitor_source_count",
+        "as_of_date",
+    ],
+}
+
+
+def export_model_input_csvs(
+    registry: BenchmarkRegistry,
+    *,
+    out_dir: Path = DEFAULT_OUTPUT_DIR,
+    library: RealityCheckBandLibrary | None = None,
+) -> dict[str, Path]:
+    """Emit the five direct input CSVs for credit models."""
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    bundle = build_model_input_bundle(registry, library=library)
+    paths: dict[str, Path] = {}
+    for name, rows in bundle.items():
+        columns = _MODEL_INPUT_COLUMNS[name]
+        path = out_dir / f"{name}.csv"
+        _write_rows(path, columns, rows)
+        paths[name] = path
+    return paths
+
+
+def _write_rows(
+    path: Path,
+    columns: list[str],
+    rows: list[dict[str, object]],
+) -> None:
+    with path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=columns, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
 
 
 # ---------------------------------------------------------------------------
@@ -409,7 +482,7 @@ def _classify_file(fp: Path) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Convenience: emit all four CSVs in one call
+# Convenience: emit the default model-input CSVs in one call
 # ---------------------------------------------------------------------------
 
 def export_all_csvs(
@@ -421,20 +494,11 @@ def export_all_csvs(
     refresh_schedules: Optional[dict[str, int]] = None,
     refresh_pipeline_quiet: bool = False,
 ) -> dict[str, Path]:
-    """Emit every CSV; return a dict keyed by short name."""
-    return {
-        "raw_observations": export_raw_observations(registry, out_dir),
-        "validation_flags": export_validation_flags(
-            registry, out_dir,
-            refresh_schedules=refresh_schedules,
-            refresh_pipeline_quiet=refresh_pipeline_quiet,
-        ),
-        "validation_flag_sources": export_validation_flag_sources(
-            registry, out_dir,
-            refresh_schedules=refresh_schedules,
-            refresh_pipeline_quiet=refresh_pipeline_quiet,
-        ),
-        "segment_trend": export_segment_trend(registry, out_dir),
-        "reality_check_bands": export_reality_check_bands(library, out_dir),
-        "raw_data_inventory": export_raw_data_inventory(raw_dir, out_dir),
-    }
+    """Emit the five model-input CSVs; return a dict keyed by short name.
+
+    ``raw_dir``, ``refresh_schedules``, and ``refresh_pipeline_quiet`` are
+    retained for backwards-compatible call sites. They are not used by the
+    lean model-input bundle.
+    """
+    _ = (raw_dir, refresh_schedules, refresh_pipeline_quiet)
+    return export_model_input_csvs(registry, out_dir=out_dir, library=library)

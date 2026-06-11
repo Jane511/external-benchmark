@@ -151,7 +151,7 @@ def history(ctx: click.Context, source_id: str) -> None:
 @cli.group(
     "report",
     help="Governance reports (stale / quality / coverage / peer / annual) + "
-         "the raw-only benchmark report.",
+         "the private-credit model input report.",
 )
 def report() -> None:
     pass
@@ -224,8 +224,13 @@ def report_annual(ctx: click.Context, segment: tuple[str, ...]) -> None:
 
 # --- committee reports -----------------------------------------------------
 
-@report.command("benchmark",
-                help="Report 1 — External Benchmark RAW Observation Summary.")
+@report.command(
+    "benchmark",
+    help=(
+        "Private-credit model input report (PD, LGD, EL, stress, monitor, "
+        "bank industry)."
+    ),
+)
 @click.option("--format", "fmt",
               type=click.Choice(["docx", "html", "markdown"]),
               required=True)
@@ -235,7 +240,7 @@ def report_annual(ctx: click.Context, segment: tuple[str, ...]) -> None:
               help="[DEPRECATED — Brief 1] Reports are now institution-agnostic. "
                    "Accepted for backward compatibility but ignored.")
 @click.option("--output", type=click.Path(), default=None,
-              help="Output path. Defaults to outputs/reports/Report_{period}.{ext}.")
+              help="Output path. Defaults to output/Credit_Risk_Report_{period}.{ext}.")
 @click.option("--period-label", default=None,
               help="Period label (e.g. 'Q3 2025'). Derived from today if omitted.")
 @click.option("--source-type", default=None,
@@ -256,8 +261,8 @@ def report_benchmark(
     if institution_type is not None:
         click.echo(
             "NOTE: --institution-type is deprecated. The engine now publishes "
-            "raw observations only; the report is the same regardless of "
-            "consumer institution. Adjustments live in the consuming project.",
+            "private-credit model input tables directly; the report is the "
+            "same regardless of consumer institution.",
             err=True,
         )
 
@@ -275,7 +280,7 @@ def report_benchmark(
 
     ext = {"docx": "docx", "html": "html", "markdown": "md"}[fmt]
     period_slug = (period_label or report_obj._period).replace(" ", "_")
-    default_path = Path("outputs/reports") / f"Report_{period_slug}.{ext}"
+    default_path = Path("output") / f"Credit_Risk_Report_{period_slug}.{ext}"
     out_path = Path(output) if output else default_path
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -416,17 +421,15 @@ def export(ctx: click.Context, fmt: str, output: str | None) -> None:
 
 @cli.command(
     "export-csvs",
-    help="Emit the CSV bundle (raw_observations + validation_flags + "
-         "segment_trend + reality_check_bands + raw_data_inventory) into outputs/csv/. "
-         "These are the engine's machine-readable contract for downstream "
-         "projects (PD workbook, LGD project, dashboards).",
+    help="Emit direct model input CSVs (PD, LGD, expected loss, stress, "
+         "portfolio monitor) into output/data/.",
 )
-@click.option("--out-dir", type=click.Path(), default="outputs/csv",
+@click.option("--out-dir", type=click.Path(), default="output/data",
               show_default=True,
-              help="Directory to write the four CSVs into.")
+              help="Directory to write the five model-input CSVs into.")
 @click.option("--raw-dir", type=click.Path(), default="data/raw",
               show_default=True,
-              help="Raw-data root scanned for the inventory CSV.")
+              help="[ignored] Retained for backward compatibility.")
 @click.pass_context
 def export_csvs(ctx: click.Context, out_dir: str, raw_dir: str) -> None:
     from src.csv_exporter import export_all_csvs
@@ -458,7 +461,7 @@ def export_csvs(ctx: click.Context, out_dir: str, raw_dir: str) -> None:
 @click.option("--cache-dir", type=click.Path(), default="data/raw/rba", show_default=True)
 @click.pass_context
 def download_source(ctx: click.Context, source: str, force_refresh: bool, cache_dir: str) -> None:
-    from scripts.download_sources.rba_downloader import RbaDownloader
+    from src.download_sources.rba_downloader import RbaDownloader
 
     downloader = RbaDownloader(cache_dir=Path(cache_dir), db_path=ctx.obj["db"])
     result = downloader.download_source(source, force_refresh=force_refresh)
@@ -538,6 +541,21 @@ _PILLAR3_BANKS: dict[str, str] = {
 }
 
 
+def _bridge_to_raw_observations(ctx: click.Context) -> None:
+    """Mirror the latest `benchmarks` rows into `raw_observations`.
+
+    The reporting layer reads from raw_observations, so every Pillar 3
+    ingest finishes by running the bridge. Idempotent — rows that already
+    exist for (source_id, segment, parameter, as_of_date) are skipped.
+    """
+    from src.migrate_to_raw_observations import migrate
+    scanned, migrated, skipped = migrate(ctx.obj["db"])
+    click.echo(
+        f"raw_observations bridge: scanned={scanned} migrated={migrated} "
+        f"skipped={skipped}"
+    )
+
+
 def _run_pillar3(
     ctx: click.Context,
     source_key: str,
@@ -594,6 +612,8 @@ def _run_pillar3(
             f"  {a.action:<25}  {a.source_id}   value={a.value}  "
             f"value_date={a.value_date}   ({a.reason})"
         )
+    if not dry_run and any(a.action in ("add", "supersede") for a in report.actions):
+        _bridge_to_raw_observations(ctx)
     return 1 if report.errors else 0
 
 

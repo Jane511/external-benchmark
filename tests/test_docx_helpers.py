@@ -1,16 +1,4 @@
-"""Smoke test for the docx renderer (P2.5).
-
-Renders a populated ``BenchmarkCalibrationReport`` to a ``tmp_path``
-``.docx`` file, then re-reads it with python-docx and asserts the
-shape: title, banner, every section heading, and at least one row
-in each section's table. Skips cleanly when ``python-docx`` is not
-installed.
-
-The committee consumes the docx; HTML/MD test parity isn't enough on
-its own — Section 0 (glossary), Section 4a (reference anchors), and
-Section 7 (trend) all touch the docx renderer through dedicated
-branches that no other test exercises.
-"""
+"""Smoke test for the lean docx model-input renderer."""
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -72,6 +60,17 @@ def populated_registry() -> BenchmarkRegistry:
             methodology_note="Judo Bank Pillar 3 commercial book",
         ),
         RawObservation(
+            source_id="aps113_cre_lgd",
+            source_type=SourceType.REGULATORY,
+            segment="commercial_property",
+            parameter="lgd",
+            data_definition_class=DataDefinitionClass.REGULATORY_FLOOR_LGD,
+            value=0.175,
+            as_of_date=today - timedelta(days=120),
+            reporting_basis="APS 113",
+            methodology_note="Commercial-property LGD floor",
+        ),
+        RawObservation(
             source_id="QUALITAS_CRE_COMMENTARY",
             source_type=SourceType.NON_BANK_LISTED,
             segment="commercial_property",
@@ -106,25 +105,15 @@ def test_to_docx_round_trip(populated_registry, tmp_path: Path) -> None:
     doc = Document(str(out))
     text = _all_text(doc)
 
-    assert "External Benchmark Report" in text
-    # Raw-only banner
-    assert "raw, source-attributable" in text
-    # Section headings (rendered as paragraphs in docx_helpers)
-    assert "1. Executive Summary" in text
-    assert "2. Latest figures by metric and segment" in text
-    assert "3. Cross-source validation summary" in text
-    assert "4. Big 4 vs non-bank disclosure spread" in text
-    assert "5. Provenance" in text
-    # Glossaries: acronyms + segment definitions.
-    assert "0a. Glossary of terms" in text
-    assert "0b. Segment definitions" in text
-    # Friendly publisher names — the raw source_id "cba" should be
-    # rendered as "Commonwealth Bank" in the per-source table.
-    assert "Commonwealth Bank" in text
-    # Commentary observation must show up as the qualitative tag, NOT 0.0%.
-    assert "(qualitative)" in text or "qualitative" in text.lower()
-    # The peer-ratio definition sentence is rendered verbatim under Sec 4.
-    assert "peer_big4_vs_non_bank_ratio" in text
+    assert "Australian Credit Risk Benchmarks - Q1 2026" in text
+    assert "1. PD Inputs" in text
+    assert "2. LGD Inputs" in text
+    assert "3. Expected Loss Inputs" in text
+    assert "4. Stress Testing Inputs" in text
+    assert "5. Portfolio Monitor Inputs" in text
+    assert "6. Per-Bank Industry Inputs" in text
+    assert "Provenance" not in text
+    assert "Glossary" not in text
 
 
 def test_to_docx_includes_trend_when_two_vintages_present(
@@ -138,5 +127,5 @@ def test_to_docx_includes_trend_when_two_vintages_present(
 
     doc = Document(str(out))
     text = _all_text(doc)
-    # CBA has two vintages so Section 7 (trend) must render.
-    assert "7. Trend vs prior cycle" in text
+    assert "7. Trend vs prior cycle" not in text
+    assert "Expected Loss Inputs" in text

@@ -82,8 +82,10 @@ canonical_segments:
     aliases:
       moneyme:  ["Personal loan book"]
       plenti:   ["Personal loans", "Green loans", "Renewable energy loans"]
-      wisr:     ["Personal loans", "Loan book"]
       pepper:   ["Consumer loans"]
+      latitude: ["Personal loans", "Consumer finance"]
+      humm:     ["Consumer loans", "BNPL"]
+      zip:      ["Consumer loans", "BNPL", "Receivables"]
 
   consumer_secured:
     description: "Consumer secured (automotive / asset finance) lending."

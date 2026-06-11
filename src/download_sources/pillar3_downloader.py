@@ -1,9 +1,9 @@
 """Download bank Pillar 3 disclosures (CBA XLSX, NAB/WBC/ANZ/MQG PDFs).
 
 Usage:
-    python scripts/download_sources/pillar3_downloader.py
-    python scripts/download_sources/pillar3_downloader.py --bank cba
-    python scripts/download_sources/pillar3_downloader.py --bank nab --force-refresh
+    python src/download_sources/pillar3_downloader.py
+    python src/download_sources/pillar3_downloader.py --bank cba
+    python src/download_sources/pillar3_downloader.py --bank nab --force-refresh
 
 URL change log
 --------------
