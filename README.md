@@ -18,6 +18,31 @@ stress-test rates, and portfolio-monitoring metrics.**
 
 ---
 
+## Key charts
+
+*All charts are regenerated from the committed model-input CSVs in [output/data/](output/data/)
+by [reports/make_figures.py](reports/make_figures.py) — source-published benchmark values only.*
+
+### 1. Expected-loss rate by segment
+![Expected-loss rate in basis points for each lending segment](reports/figures/el_rate_by_segment_bps.png)
+
+**What this shows:** the benchmark expected-loss rate (PD × LGD, in basis points) for each lending segment, built from disclosed bank and regulator figures.
+**Why it matters:** it is the one-glance risk ranking of segments — residential mortgages cost ~14bp of expected loss a year, unsecured SME lending an order of magnitude more.
+
+### 2. Base vs stressed expected loss
+![Base versus stressed expected-loss rate per segment](reports/figures/base_vs_stressed_el_by_segment.png)
+
+**What this shows:** each segment's expected-loss rate today versus after the PD/LGD stress multipliers are applied.
+**Why it matters:** it sizes how much more capital each segment consumes in a downturn — the core output a stress-testing or ICAAP process needs.
+
+### 3. The numbers are anchored to real disclosures
+![Residential-mortgage PD disclosed by each major bank around the benchmark median](reports/figures/residential_pd_by_bank.png)
+
+**What this shows:** the residential-mortgage PD each major bank actually disclosed in its Pillar 3 report, with the median the engine uses as the benchmark.
+**Why it matters:** every benchmark traces back to named, dated, source-published values across five banks — not an invented or single-source number.
+
+---
+
 Every quarter, the Big 4 banks, Macquarie, APRA, the RBA, S&P, and a long
 list of ASX-listed non-bank lenders publish credit-risk numbers — but they
 publish them in PDFs, spreadsheets, and HTML pages, each using its own
