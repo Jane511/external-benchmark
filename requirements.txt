@@ -1,0 +1,19 @@
+# Runtime + test dependencies (mirrors pyproject.toml: base + ingestion + reports + viz).
+# Used by CI and by `pip install -r requirements.txt`; the package itself is
+# importable from the repo root (tests run via `python -m pytest`).
+pydantic>=2.0
+sqlalchemy>=2.0
+click>=8.0
+pandas>=2.0
+numpy>=1.24
+pyyaml>=6.0
+pytest>=7.0
+# ingestion (APRA/CBA Excel + NAB/WBC/ANZ Pillar 3 PDF parsing)
+openpyxl>=3.1
+pdfplumber>=0.10
+beautifulsoup4>=4.12
+lxml>=5.0
+requests>=2.31
+# reports + viz
+python-docx>=1.0
+matplotlib>=3.7

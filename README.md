@@ -1,3 +1,5 @@
+![CI](https://github.com/Jane511/external-benchmark/actions/workflows/ci.yml/badge.svg)
+
 # External Benchmark Engine
 
 **A reproducible Python pipeline that turns Australian bank and regulator
