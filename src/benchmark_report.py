@@ -19,9 +19,9 @@ from src.observations import ObservationSet, PeerObservations
 from src.registry import BenchmarkRegistry
 from src.model_inputs import (
     build_report_summary,
-    PD_STRESS_MULTIPLIER,
-    LGD_STRESS_MULTIPLIER,
+    build_reverse_stress_rows,
 )
+from src.stress_scenarios import load_stress_scenarios
 from src.segment_glossary import SEGMENT_GLOSSARY
 from src.source_naming import (
     ACRONYM_GLOSSARY,
@@ -133,8 +133,10 @@ class BenchmarkCalibrationReport:
              "**Expected loss (EL = PD × LGD)** — the headline credit-loss "
              "rate per segment (Section 3)."),
             ("bullet",
-             "**Stress testing** — PD and LGD under a downturn, using stress "
-             "multipliers floored at APS 113 regulatory bands (Section 4)."),
+             "**Stress testing** — PD, LGD and EAD under a base / mild / "
+             "severe scenario set (mild = Basel CRE36.51 two-quarters-zero-"
+             "growth), stressed PD floored at APS 113 regulatory bands "
+             "(Section 4)."),
             ("bullet",
              "**Portfolio monitoring** — arrears, non-performing, impaired and "
              "loss-rate metrics for early-warning tracking (Section 5)."),
@@ -157,10 +159,50 @@ class BenchmarkCalibrationReport:
              "Expected-loss rate = PD × LGD, shown in basis points (bps); "
              "1 bp = 0.01%, so 14 bps = 0.14%."),
             ("bullet",
-             f"Stressed PD/LGD apply {PD_STRESS_MULTIPLIER}× / "
-             f"{LGD_STRESS_MULTIPLIER}× multipliers, floored at APS 113 bands."),
+             "Stressed PD/LGD/EAD apply per-scenario multipliers "
+             "(config/stress_scenarios.yaml); stressed PD is floored at the "
+             "APS 113 reality-check bands. Multipliers are illustrative, not "
+             "calibrated regulatory parameters."),
             ("bullet", '"As-of" is the disclosure date of the most recent source.'),
         ]
+
+    def _stress_supplement(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Stress governance pack rendered after the Section 4 table.
+
+        Bundles the per-scenario macro-path definitions, the reverse-stress
+        view, and the no-diversification / feeds-limits / validation notes so
+        the markdown and DOCX renderers stay in sync (ST-EB-3).
+        """
+        scen_lib = load_stress_scenarios()
+        seen: dict[str, str] = {}
+        for row in data["stress_testing_inputs"]:
+            seen.setdefault(str(row["scenario"]), str(row.get("macro_path", "")))
+        scenario_defs = [
+            (scen.label, seen.get(scen.name, scen.macro_path))
+            for scen in scen_lib.ordered()
+        ]
+        reverse_rows = build_reverse_stress_rows(data["expected_loss_inputs"])
+        return {
+            "scenario_defs": scenario_defs,
+            "reverse_rows": reverse_rows,
+            "no_diversification_text": (
+                "No diversification benefit is assumed (APG 113 para 92): each "
+                "scenario is applied per segment with no offsetting correlation "
+                "or portfolio-diversification relief."
+                if scen_lib.no_diversification else ""
+            ),
+            "feeds_limits_text": (
+                "Feeds limits / capital (APS 220 para 73, APG 110): the stressed "
+                "EL rate is read against the consuming book's risk-appetite "
+                "limits and ICAAP capital-vs-buffer assessment; a breach triggers "
+                "an origination / pricing / limit-tightening review."
+            ),
+            "validation_text": (
+                f"{scen_lib.validation_note} Last reviewed "
+                f"{scen_lib.last_review_date}; next review due "
+                f"{scen_lib.next_review_due}."
+            ),
+        }
 
     def to_markdown(self) -> str:
         """Render a concise private-credit model-input report."""
@@ -264,25 +306,62 @@ class BenchmarkCalibrationReport:
             [
                 "Segment",
                 "Product",
+                "Scenario",
                 "Base EL (bps)",
                 "Stressed PD decimal",
                 "Stressed LGD decimal",
                 "Stressed EL (bps)",
+                "Stressed EL incl EAD (bps)",
                 "As-of",
             ],
             [
                 [
                     row["segment_label"],
                     row["product"],
+                    row["scenario"],
                     _fmt_bps(row["base_expected_loss_rate_decimal"]),
                     _fmt_decimal(row["stressed_pd_decimal"]),
                     _fmt_decimal(row["stressed_lgd_decimal"]),
                     _fmt_bps(row["stressed_expected_loss_rate_decimal"]),
+                    _fmt_bps(row["stressed_el_rate_incl_ead_decimal"]),
                     row["as_of_date"],
                 ]
                 for row in data["stress_testing_inputs"]
             ],
         )
+
+        # 4a. Stress governance (ST-EB-3): scenario macro paths, reverse
+        # stress, no-diversification, feeds-limits and validation notes.
+        supp = self._stress_supplement(data)
+        lines.append("## 4a. Stress Scenarios & Governance")
+        lines.append("")
+        lines.append("**Scenario macro paths** — shocks map from a stated path:")
+        lines.append("")
+        for label, macro in supp["scenario_defs"]:
+            lines.append(f"- **{label}** — {macro}")
+        lines.append("")
+        append_table(
+            "Reverse stress — multiplier that breaches the reality-check band",
+            ["Segment", "Product", "Base PD", "Upper band", "Breach PD ×"],
+            [
+                [
+                    row["segment_label"],
+                    row["product"],
+                    _fmt_decimal(row["base_pd_decimal"]),
+                    _fmt_decimal(row["reality_check_upper_band_decimal"]),
+                    f"{row['breach_pd_multiplier']:.2f}x",
+                ]
+                for row in supp["reverse_rows"]
+            ],
+        )
+        for note in (
+            supp["no_diversification_text"],
+            supp["feeds_limits_text"],
+            supp["validation_text"],
+        ):
+            if note:
+                lines.append(f"- {note}")
+        lines.append("")
         append_table(
             "5. Portfolio Monitor Inputs",
             [
@@ -452,21 +531,51 @@ class BenchmarkCalibrationReport:
         )
         add_input_table(
             "4. Stress Testing Inputs",
-            ["segment", "product", "base_el_bps", "stressed_pd_decimal",
-             "stressed_lgd_decimal", "stressed_el_bps", "as_of"],
+            ["segment", "product", "scenario", "base_el_bps",
+             "stressed_pd_decimal", "stressed_lgd_decimal", "stressed_el_bps",
+             "stressed_el_incl_ead_bps", "as_of"],
             [
                 [
                     row["segment_label"],
                     row["product"],
+                    row["scenario"],
                     _fmt_bps(row["base_expected_loss_rate_decimal"]),
                     _fmt_decimal(row["stressed_pd_decimal"]),
                     _fmt_decimal(row["stressed_lgd_decimal"]),
                     _fmt_bps(row["stressed_expected_loss_rate_decimal"]),
+                    _fmt_bps(row["stressed_el_rate_incl_ead_decimal"]),
                     row["as_of_date"],
                 ]
                 for row in data["stress_testing_inputs"]
             ],
         )
+
+        supp = self._stress_supplement(data)
+        add_heading(doc, "4a. Stress Scenarios & Governance", level=2)
+        add_paragraph(doc, "Scenario macro paths — shocks map from a stated path:")
+        for label, macro in supp["scenario_defs"]:
+            add_bullet(doc, f"{label} — {macro}")
+        add_input_table(
+            "Reverse stress — multiplier that breaches the reality-check band",
+            ["segment", "product", "base_pd", "upper_band", "breach_pd_x"],
+            [
+                [
+                    row["segment_label"],
+                    row["product"],
+                    _fmt_decimal(row["base_pd_decimal"]),
+                    _fmt_decimal(row["reality_check_upper_band_decimal"]),
+                    f"{row['breach_pd_multiplier']:.2f}x",
+                ]
+                for row in supp["reverse_rows"]
+            ],
+        )
+        for note in (
+            supp["no_diversification_text"],
+            supp["feeds_limits_text"],
+            supp["validation_text"],
+        ):
+            if note:
+                add_bullet(doc, note)
         add_input_table(
             "5. Portfolio Monitor Inputs",
             ["segment", "product", "arrears_decimal", "npl_decimal",

@@ -48,18 +48,20 @@ ax.set_title("Expected-loss rate by segment (from disclosed PD × LGD)")
 ax.grid(axis="y", alpha=0)
 save(fig, "el_rate_by_segment_bps.png")
 
-# 2. Base vs stressed EL rate by segment -------------------------------------
-st = pd.read_csv(DATA / "stress_testing_inputs.csv").sort_values("stressed_expected_loss_rate_decimal")
+# 2. Base vs stressed EL rate by segment (severe scenario) -------------------
+st = pd.read_csv(DATA / "stress_testing_inputs.csv")
+# One row per segment x scenario now; show the headline severe scenario.
+st = st[st.scenario == "severe"].sort_values("stressed_expected_loss_rate_decimal")
 fig, ax = plt.subplots(figsize=(8.4, 5.0))
 y = range(len(st))
 ax.barh([i + 0.2 for i in y], st.base_expected_loss_rate_decimal * 1e4, height=0.4,
         label="base", color=BASE)
 ax.barh([i - 0.2 for i in y], st.stressed_expected_loss_rate_decimal * 1e4, height=0.4,
-        label="stressed", color=STRESS)
+        label="stressed (severe)", color=STRESS)
 ax.set_yticks(list(y))
 ax.set_yticklabels(st.segment_label)
 ax.set_xlabel("expected-loss rate (basis points)")
-ax.set_title("Base vs stressed expected loss by segment")
+ax.set_title("Base vs severe-stressed expected loss by segment")
 ax.legend(frameon=False, loc="lower right")
 ax.grid(axis="y", alpha=0)
 save(fig, "base_vs_stressed_el_by_segment.png")

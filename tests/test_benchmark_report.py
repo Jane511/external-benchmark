@@ -128,13 +128,31 @@ def test_markdown_includes_bank_industry_rows(
     assert "12345.678" not in md
 
 
-def test_stress_inputs_are_model_ready_numbers(populated_registry) -> None:
+def test_stress_inputs_are_scenario_based(populated_registry) -> None:
     report = BenchmarkCalibrationReport(populated_registry, period_label="Q1 2026")
-    stress = report.generate()["stress_testing_inputs"][0]
-    assert stress["base_expected_loss_rate_decimal"] == pytest.approx(0.004375)
-    assert stress["stressed_pd_decimal"] == pytest.approx(0.05)
-    assert stress["stressed_lgd_decimal"] == pytest.approx(0.21)
-    assert stress["stressed_expected_loss_rate_decimal"] == pytest.approx(0.0105)
+    rows = report.generate()["stress_testing_inputs"]
+
+    first_segment = rows[0]["segment"]
+    by_scenario = {
+        r["scenario"]: r for r in rows if r["segment"] == first_segment
+    }
+    # base / mild / severe scenario set; mild = Basel CRE36.51 minimum.
+    assert set(by_scenario) == {"base", "mild", "severe"}
+
+    base = by_scenario["base"]
+    mild = by_scenario["mild"]
+    assert base["base_expected_loss_rate_decimal"] == pytest.approx(0.004375)
+    # Base scenario applies no shock.
+    assert base["stressed_pd_decimal"] == pytest.approx(0.025)
+    assert base["stressed_lgd_decimal"] == pytest.approx(0.175)
+
+    # Mild: PD x1.5 floored at the 0.05 reality-check upper band, LGD x1.2.
+    assert mild["stressed_pd_decimal"] == pytest.approx(0.05)
+    assert mild["stressed_lgd_decimal"] == pytest.approx(0.21)
+    assert mild["stressed_expected_loss_rate_decimal"] == pytest.approx(0.0105)
+    # CCF/EAD stress lifts the EAD-inclusive EL above the PDxLGD EL.
+    assert mild["ccf_stress_multiplier"] == pytest.approx(1.1)
+    assert mild["stressed_el_rate_incl_ead_decimal"] == pytest.approx(0.01155)
 
 
 def test_html_renders_lean_report(populated_registry) -> None:

@@ -1,0 +1,72 @@
+# Stress scenario parameter set for the stress-testing model inputs.
+#
+# These are ILLUSTRATIVE scenario parameters, NOT calibrated regulatory
+# stress parameters. Each scenario applies a multiplier to the base
+# (current-environment) PD, LGD and EAD/CCF, mapped *from* a stated macro
+# path. The reality-check upper PD band (config/reality_check_bands.yaml)
+# is retained as a per-scenario floor on stressed PD for the stress
+# scenarios, so a stressed PD is never less conservative than the APS 113
+# worst-slotting / QPEX-anchored band.
+#
+# Scenario coverage follows:
+#   * Basel CRE36.51 — a mild recession is the mandatory minimum; the
+#     worked example is two consecutive quarters of zero GDP growth, and
+#     the effect must be assessed on PD, LGD and EAD.
+#   * APS 220 para 72 — at least one severe-but-plausible scenario.
+#
+# Governance (APG 113 para 92 / APS 220 paras 73-76):
+#   * No diversification benefit is assumed in any scenario.
+#   * Stressed results feed the consuming book's risk-appetite limits and
+#     ICAAP capital-vs-buffer assessment.
+#   * Scenarios, assumptions and limitations are documented here and would
+#     be independently validated at least annually.
+
+scenarios:
+
+  base:
+    label: Base (current environment)
+    pd_multiplier: 1.0
+    lgd_multiplier: 1.0
+    ccf_multiplier: 1.0
+    apply_reality_check_floor: false
+    macro_path: >-
+      Current conditions, no recession overlay. GDP growth around trend,
+      unemployment broadly stable, cash rate and property prices at the
+      latest observed levels (RBA SMP / FSR baseline).
+
+  mild:
+    label: Mild recession (Basel CRE36.51 minimum)
+    pd_multiplier: 1.5
+    lgd_multiplier: 1.2
+    ccf_multiplier: 1.1
+    apply_reality_check_floor: true
+    macro_path: >-
+      Basel CRE36.51 mandatory minimum — two consecutive quarters of zero
+      GDP growth. Unemployment rises ~1.0-1.5pp, modest property-price
+      softening (~5-10%), and some drawdown of undrawn limits as borrowers
+      seek liquidity (PD/LGD/EAD all stressed).
+
+  severe:
+    label: Severe recession (GFC-like)
+    pd_multiplier: 2.5
+    lgd_multiplier: 1.4
+    ccf_multiplier: 1.25
+    apply_reality_check_floor: true
+    macro_path: >-
+      GFC-like severe-but-plausible downturn (APS 220 para 72). Multi-quarter
+      contraction, unemployment +3-4pp, property prices -20% to -30%, and a
+      sharp utilisation spike on revolving facilities into default.
+
+# No-diversification statement (APG 113 para 92): stressed losses are applied
+# per segment with no offsetting diversification benefit assumed.
+no_diversification: true
+
+# Independent-validation / documentation note (APS 220 para 76).
+last_review:
+  date: "2026-04-28"
+  next_review_due: "2026-10-31"
+  validation_note: >-
+    Scenario multipliers are illustrative reality-check overlays, not
+    calibrated regulatory parameters. In production they would be derived
+    from a full macroeconomic scenario model and independently validated at
+    least annually, with scenarios, assumptions and limitations documented.

@@ -30,10 +30,7 @@ from src.models import DataDefinitionClass, RawObservation
 from src.reality_check import RealityCheckBandLibrary, load_reality_check_bands
 from src.registry import BenchmarkRegistry
 from src.source_naming import segment_label
-
-
-PD_STRESS_MULTIPLIER = 1.5
-LGD_STRESS_MULTIPLIER = 1.2
+from src.stress_scenarios import StressScenarioLibrary, load_stress_scenarios
 
 
 SEGMENT_TO_PRODUCT: dict[str, str] = {
@@ -174,15 +171,27 @@ def build_stress_testing_rows(
     expected_loss_rows: Iterable[dict[str, Any]],
     *,
     library: RealityCheckBandLibrary | None = None,
+    scenarios: StressScenarioLibrary | None = None,
 ) -> list[dict[str, Any]]:
-    """Apply simple stress factors to model-ready PD/LGD rates.
+    """Apply a base/mild/severe scenario set to model-ready PD/LGD/EAD rates.
 
-    If a product has a configured PD upper band, stressed PD is at least
-    that upper band. Otherwise it is the base PD multiplied by the stress
-    factor. LGD is stressed by a fixed multiplier and capped at 100%.
+    One row is emitted per segment x scenario. For each scenario, PD and LGD
+    are multiplied by the scenario factors; a scenario flagged
+    ``apply_reality_check_floor`` floors stressed PD at the product's
+    reality-check upper band (config/reality_check_bands.yaml) so a stressed
+    PD is never less conservative than the APS 113 / QPEX-anchored band.
+
+    The CCF/EAD multiplier scales exposure-into-default: the EL rate is
+    PD x LGD, and ``stressed_el_rate_incl_ead_decimal`` additionally applies
+    the CCF multiplier so the loss reflects drawdown of undrawn limits in the
+    stress (Basel CRE36.51 requires PD, LGD and EAD to be assessed).
+
+    The mild scenario is the Basel CRE36.51 mandatory minimum (two
+    consecutive quarters of zero growth); severe is a GFC-like path.
     """
 
     lib = library or load_reality_check_bands()
+    scen_lib = scenarios or load_stress_scenarios()
     out: list[dict[str, Any]] = []
     for row in expected_loss_rows:
         base_pd = float(row["pd_decimal"])
@@ -190,25 +199,69 @@ def build_stress_testing_rows(
         product = str(row["product"])
         band = lib.for_product(product)
         pd_upper = band.upper_band_pd if band is not None else None
-        stressed_pd = max(base_pd * PD_STRESS_MULTIPLIER, pd_upper or 0.0)
-        stressed_lgd = min(1.0, base_lgd * LGD_STRESS_MULTIPLIER)
+        for scen in scen_lib.ordered():
+            stressed_pd = base_pd * scen.pd_multiplier
+            if scen.apply_reality_check_floor and pd_upper is not None:
+                stressed_pd = max(stressed_pd, pd_upper)
+            stressed_lgd = min(1.0, base_lgd * scen.lgd_multiplier)
+            stressed_el = stressed_pd * stressed_lgd
+            out.append({
+                "segment": row["segment"],
+                "segment_label": row["segment_label"],
+                "product": product,
+                "scenario": scen.name,
+                "scenario_label": scen.label,
+                "base_pd_decimal": _round_rate(base_pd),
+                "base_lgd_decimal": _round_rate(base_lgd),
+                "base_expected_loss_rate_decimal": _round_rate(
+                    base_pd * base_lgd,
+                ),
+                "pd_stress_multiplier": scen.pd_multiplier,
+                "lgd_stress_multiplier": scen.lgd_multiplier,
+                "ccf_stress_multiplier": scen.ccf_multiplier,
+                "pd_upper_band_decimal": "" if pd_upper is None else _round_rate(pd_upper),
+                "stressed_pd_decimal": _round_rate(stressed_pd),
+                "stressed_lgd_decimal": _round_rate(stressed_lgd),
+                "stressed_expected_loss_rate_decimal": _round_rate(stressed_el),
+                "stressed_el_rate_incl_ead_decimal": _round_rate(
+                    stressed_el * scen.ccf_multiplier,
+                ),
+                "macro_path": scen.macro_path,
+                "as_of_date": row["as_of_date"],
+            })
+    return out
+
+
+def build_reverse_stress_rows(
+    expected_loss_rows: Iterable[dict[str, Any]],
+    *,
+    library: RealityCheckBandLibrary | None = None,
+) -> list[dict[str, Any]]:
+    """Reverse stress: the PD multiplier that breaches each reality-check band.
+
+    For every segment with a configured reality-check upper PD band, report
+    the multiplier ``breach_pd_multiplier = upper_band / base_pd`` — i.e. the
+    factor on base PD at which the segment's stressed PD (and hence stressed
+    EL) would reach its reality-check upper band. This answers "what shock
+    breaks the metric?" (APS 220 reverse-stress).
+    """
+
+    lib = library or load_reality_check_bands()
+    out: list[dict[str, Any]] = []
+    for row in expected_loss_rows:
+        base_pd = float(row["pd_decimal"])
+        product = str(row["product"])
+        band = lib.for_product(product)
+        if band is None or base_pd <= 0:
+            continue
+        pd_upper = band.upper_band_pd
         out.append({
             "segment": row["segment"],
             "segment_label": row["segment_label"],
             "product": product,
             "base_pd_decimal": _round_rate(base_pd),
-            "base_lgd_decimal": _round_rate(base_lgd),
-            "base_expected_loss_rate_decimal": _round_rate(
-                base_pd * base_lgd,
-            ),
-            "pd_stress_multiplier": PD_STRESS_MULTIPLIER,
-            "pd_upper_band_decimal": "" if pd_upper is None else _round_rate(pd_upper),
-            "stressed_pd_decimal": _round_rate(stressed_pd),
-            "lgd_stress_multiplier": LGD_STRESS_MULTIPLIER,
-            "stressed_lgd_decimal": _round_rate(stressed_lgd),
-            "stressed_expected_loss_rate_decimal": _round_rate(
-                stressed_pd * stressed_lgd,
-            ),
+            "reality_check_upper_band_decimal": _round_rate(pd_upper),
+            "breach_pd_multiplier": round(pd_upper / base_pd, 2),
             "as_of_date": row["as_of_date"],
         })
     return out

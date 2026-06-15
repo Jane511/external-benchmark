@@ -1,5 +1,5 @@
 # Australian Credit Risk Benchmarks - Q2 2026
-_Generated: 2026-06-11T08:24:40+00:00 | Data as-of: 2024-12-31–2026-02-28_
+_Generated: 2026-06-15T04:37:15+00:00 | Data as-of: 2024-12-31–2026-02-28_
 
 ## Executive summary
 
@@ -12,7 +12,7 @@ Every figure is a source-published value — no adjustment, triangulation, or mo
 - **Probability of default (PD)** — likelihood a borrower defaults within 12 months, by credit segment (Section 1).
 - **Loss given default (LGD)** — share of exposure not recovered after default (Section 2).
 - **Expected loss (EL = PD × LGD)** — the headline credit-loss rate per segment (Section 3).
-- **Stress testing** — PD and LGD under a downturn, using stress multipliers floored at APS 113 regulatory bands (Section 4).
+- **Stress testing** — PD, LGD and EAD under a base / mild / severe scenario set (mild = Basel CRE36.51 two-quarters-zero-growth), stressed PD floored at APS 113 regulatory bands (Section 4).
 - **Portfolio monitoring** — arrears, non-performing, impaired and loss-rate metrics for early-warning tracking (Section 5).
 - **Per-bank industry exposures** — Big 4 exposure, non-performing, provision and write-off by industry sector (Section 6).
 
@@ -26,7 +26,7 @@ Every figure is a source-published value — no adjustment, triangulation, or mo
 
 - Rates are decimals in [0, 1]; for example, 0.03 represents three percent.
 - Expected-loss rate = PD × LGD, shown in basis points (bps); 1 bp = 0.01%, so 14 bps = 0.14%.
-- Stressed PD/LGD apply 1.5× / 1.2× multipliers, floored at APS 113 bands.
+- Stressed PD/LGD/EAD apply per-scenario multipliers (config/stress_scenarios.yaml); stressed PD is floored at the APS 113 reality-check bands. Multipliers are illustrative, not calibrated regulatory parameters.
 - "As-of" is the disclosure date of the most recent source.
 
 ## 1. PD Inputs
@@ -98,17 +98,55 @@ Every figure is a source-published value — no adjustment, triangulation, or mo
 
 ## 4. Stress Testing Inputs
 
-| Segment | Product | Base EL (bps) | Stressed PD decimal | Stressed LGD decimal | Stressed EL (bps) | As-of |
-| --- | --- | --- | --- | --- | --- | --- |
-| Commercial Property | commercial_property | 46 bps | 0.05 | 0.25 | 125 bps | 2025-09-30 |
-| Corporate General | corporate_general | 77 bps | 0.03 | 0.55 | 139 bps | 2025-09-30 |
-| Corporate SME | term_loan | 117 bps | 0.06 | 0.50 | 301 bps | 2025-09-30 |
-| Development | development | 63 bps | 0.05 | 0.42 | 210 bps | 2024-12-31 |
-| Financial Institution | financial_institution | 24 bps | 0.01 | 0.59 | 43 bps | 2025-09-30 |
-| Residential Mortgage | residential_mortgage | 14 bps | 0.01 | 0.21 | 25 bps | 2025-09-30 |
-| Retail Other | retail_other | 57 bps | 0.02 | 0.44 | 102 bps | 2025-09-30 |
-| Retail SME | retail_sme | 120 bps | 0.04 | 0.50 | 215 bps | 2025-09-30 |
-| Sovereign | sovereign | 5 bps | 0.01 | 0.06 | 8 bps | 2025-09-30 |
+| Segment | Product | Scenario | Base EL (bps) | Stressed PD decimal | Stressed LGD decimal | Stressed EL (bps) | Stressed EL incl EAD (bps) | As-of |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Commercial Property | commercial_property | base | 46 bps | 0.02 | 0.21 | 46 bps | 46 bps | 2025-09-30 |
+| Commercial Property | commercial_property | mild | 46 bps | 0.05 | 0.25 | 125 bps | 138 bps | 2025-09-30 |
+| Commercial Property | commercial_property | severe | 46 bps | 0.06 | 0.29 | 161 bps | 201 bps | 2025-09-30 |
+| Corporate General | corporate_general | base | 77 bps | 0.02 | 0.45 | 77 bps | 77 bps | 2025-09-30 |
+| Corporate General | corporate_general | mild | 77 bps | 0.03 | 0.55 | 139 bps | 153 bps | 2025-09-30 |
+| Corporate General | corporate_general | severe | 77 bps | 0.04 | 0.64 | 270 bps | 337 bps | 2025-09-30 |
+| Corporate SME | term_loan | base | 117 bps | 0.03 | 0.42 | 117 bps | 117 bps | 2025-09-30 |
+| Corporate SME | term_loan | mild | 117 bps | 0.06 | 0.50 | 301 bps | 331 bps | 2025-09-30 |
+| Corporate SME | term_loan | severe | 117 bps | 0.07 | 0.59 | 410 bps | 512 bps | 2025-09-30 |
+| Development | development | base | 63 bps | 0.02 | 0.35 | 63 bps | 63 bps | 2024-12-31 |
+| Development | development | mild | 63 bps | 0.05 | 0.42 | 210 bps | 231 bps | 2024-12-31 |
+| Development | development | severe | 63 bps | 0.05 | 0.49 | 245 bps | 306 bps | 2024-12-31 |
+| Financial Institution | financial_institution | base | 24 bps | 0.00 | 0.49 | 24 bps | 24 bps | 2025-09-30 |
+| Financial Institution | financial_institution | mild | 24 bps | 0.01 | 0.59 | 43 bps | 48 bps | 2025-09-30 |
+| Financial Institution | financial_institution | severe | 24 bps | 0.01 | 0.69 | 85 bps | 106 bps | 2025-09-30 |
+| Residential Mortgage | residential_mortgage | base | 14 bps | 0.01 | 0.17 | 14 bps | 14 bps | 2025-09-30 |
+| Residential Mortgage | residential_mortgage | mild | 14 bps | 0.01 | 0.21 | 25 bps | 28 bps | 2025-09-30 |
+| Residential Mortgage | residential_mortgage | severe | 14 bps | 0.02 | 0.24 | 49 bps | 61 bps | 2025-09-30 |
+| Retail Other | retail_other | base | 57 bps | 0.02 | 0.36 | 57 bps | 57 bps | 2025-09-30 |
+| Retail Other | retail_other | mild | 57 bps | 0.02 | 0.44 | 102 bps | 112 bps | 2025-09-30 |
+| Retail Other | retail_other | severe | 57 bps | 0.04 | 0.51 | 198 bps | 247 bps | 2025-09-30 |
+| Retail SME | retail_sme | base | 120 bps | 0.03 | 0.41 | 120 bps | 120 bps | 2025-09-30 |
+| Retail SME | retail_sme | mild | 120 bps | 0.04 | 0.50 | 215 bps | 237 bps | 2025-09-30 |
+| Retail SME | retail_sme | severe | 120 bps | 0.07 | 0.58 | 419 bps | 523 bps | 2025-09-30 |
+| Sovereign | sovereign | base | 5 bps | 0.01 | 0.05 | 5 bps | 5 bps | 2025-09-30 |
+| Sovereign | sovereign | mild | 5 bps | 0.01 | 0.06 | 8 bps | 9 bps | 2025-09-30 |
+| Sovereign | sovereign | severe | 5 bps | 0.02 | 0.07 | 16 bps | 21 bps | 2025-09-30 |
+
+## 4a. Stress Scenarios & Governance
+
+**Scenario macro paths** — shocks map from a stated path:
+
+- **Base (current environment)** — Current conditions, no recession overlay. GDP growth around trend, unemployment broadly stable, cash rate and property prices at the latest observed levels (RBA SMP / FSR baseline).
+- **Mild recession (Basel CRE36.51 minimum)** — Basel CRE36.51 mandatory minimum — two consecutive quarters of zero GDP growth. Unemployment rises ~1.0-1.5pp, modest property-price softening (~5-10%), and some drawdown of undrawn limits as borrowers seek liquidity (PD/LGD/EAD all stressed).
+- **Severe recession (GFC-like)** — GFC-like severe-but-plausible downturn (APS 220 para 72). Multi-quarter contraction, unemployment +3-4pp, property prices -20% to -30%, and a sharp utilisation spike on revolving facilities into default.
+
+## Reverse stress — multiplier that breaches the reality-check band
+
+| Segment | Product | Base PD | Upper band | Breach PD × |
+| --- | --- | --- | --- | --- |
+| Commercial Property | commercial_property | 0.02 | 0.05 | 2.27x |
+| Corporate SME | term_loan | 0.03 | 0.06 | 2.14x |
+| Development | development | 0.02 | 0.05 | 2.78x |
+
+- No diversification benefit is assumed (APG 113 para 92): each scenario is applied per segment with no offsetting correlation or portfolio-diversification relief.
+- Feeds limits / capital (APS 220 para 73, APG 110): the stressed EL rate is read against the consuming book's risk-appetite limits and ICAAP capital-vs-buffer assessment; a breach triggers an origination / pricing / limit-tightening review.
+- Scenario multipliers are illustrative reality-check overlays, not calibrated regulatory parameters. In production they would be derived from a full macroeconomic scenario model and independently validated at least annually, with scenarios, assumptions and limitations documented. Last reviewed 2026-04-28; next review due 2026-10-31.
 
 ## 5. Portfolio Monitor Inputs
 
