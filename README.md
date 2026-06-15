@@ -259,3 +259,7 @@ trustworthy as a benchmark.
 *Built by Jane Wu. Licensed MIT. For operational detail (downloaders,
 migrations, troubleshooting) see [`docs/operations.md`](docs/operations.md).*
 </content>
+
+## License
+
+Released under the MIT License — free to read, run, and reuse with attribution.
