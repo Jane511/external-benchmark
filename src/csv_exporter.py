@@ -28,7 +28,7 @@ from src.trend import build_segment_trends
 from src.validation import PEER_RATIO_DEFINITION, is_big4_source_id
 
 
-DEFAULT_OUTPUT_DIR = Path("output/data")
+DEFAULT_OUTPUT_DIR = Path("outputs/data")
 DEFAULT_RAW_DATA_DIR = Path("data/raw")
 
 

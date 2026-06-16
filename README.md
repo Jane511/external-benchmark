@@ -8,8 +8,8 @@ stress-test rates, and portfolio-monitoring metrics.**
 
 ## See it in 30 seconds
 
-- 📄 **Sample report** — [`output/Credit_Risk_Report_Q2_2026.md`](output/Credit_Risk_Report_Q2_2026.md): executive summary followed by PD, LGD, expected-loss, stress-test, portfolio-monitor and per-bank industry tables (also available as [`.docx`](output/Credit_Risk_Report_Q2_2026.docx)).
-- 📊 **Model-input data** — [`output/data/expected_loss_inputs.csv`](output/data/expected_loss_inputs.csv): median PD, median LGD and the expected-loss rate (in basis points) per segment.
+- 📄 **Sample report** — [`outputs/reports/Credit_Risk_Report_Q2_2026.md`](outputs/reports/Credit_Risk_Report_Q2_2026.md): executive summary followed by PD, LGD, expected-loss, stress-test, portfolio-monitor and per-bank industry tables (also available as [`.docx`](outputs/reports/Credit_Risk_Report_Q2_2026.docx)).
+- 📊 **Model-input data** — [`outputs/data/expected_loss_inputs.csv`](outputs/data/expected_loss_inputs.csv): median PD, median LGD and the expected-loss rate (in basis points) per segment.
 
 > *From the report's executive summary:* "This report consolidates
 > externally-disclosed credit-risk parameters for Australian bank and
@@ -22,23 +22,23 @@ stress-test rates, and portfolio-monitoring metrics.**
 
 ## Key charts
 
-*All charts are regenerated from the committed model-input CSVs in [output/data/](output/data/)
-by [reports/make_figures.py](reports/make_figures.py) — source-published benchmark values only.*
+*All charts are regenerated from the committed model-input CSVs in [outputs/data/](outputs/data/)
+by [tools/make_figures.py](tools/make_figures.py) — source-published benchmark values only.*
 
 ### 1. Expected-loss rate by segment
-![Expected-loss rate in basis points for each lending segment](reports/figures/el_rate_by_segment_bps.png)
+![Expected-loss rate in basis points for each lending segment](outputs/charts/el_rate_by_segment_bps.png)
 
 **What this shows:** the benchmark expected-loss rate (PD × LGD, in basis points) for each lending segment, built from disclosed bank and regulator figures.
 **Why it matters:** it is the one-glance risk ranking of segments — residential mortgages cost ~14bp of expected loss a year, unsecured SME lending an order of magnitude more.
 
 ### 2. Base vs stressed expected loss
-![Base versus stressed expected-loss rate per segment](reports/figures/base_vs_stressed_el_by_segment.png)
+![Base versus stressed expected-loss rate per segment](outputs/charts/base_vs_stressed_el_by_segment.png)
 
 **What this shows:** each segment's expected-loss rate today versus after the PD/LGD stress multipliers are applied.
 **Why it matters:** it sizes how much more capital each segment consumes in a downturn — the core output a stress-testing or ICAAP process needs.
 
 ### 3. The numbers are anchored to real disclosures
-![Residential-mortgage PD disclosed by each major bank around the benchmark median](reports/figures/residential_pd_by_bank.png)
+![Residential-mortgage PD disclosed by each major bank around the benchmark median](outputs/charts/residential_pd_by_bank.png)
 
 **What this shows:** the residential-mortgage PD each major bank actually disclosed in its Pillar 3 report, with the median the engine uses as the benchmark.
 **Why it matters:** every benchmark traces back to named, dated, source-published values across five banks — not an invented or single-source number.
@@ -108,7 +108,7 @@ capability — *data & benchmarks → model development → validation*:
 
 Each cycle the engine emits two things.
 
-**Five model-input CSVs** in `output/data/` — the stable contract for any
+**Five model-input CSVs** in `outputs/data/` — the stable contract for any
 downstream PD/LGD/ECL model:
 
 | File | Contents |
@@ -119,11 +119,11 @@ downstream PD/LGD/ECL model:
 | `stress_testing_inputs.csv` | Base and stressed PD / LGD / EL rates |
 | `portfolio_monitor_inputs.csv` | Arrears, NPL, impaired, and loss-rate metrics |
 
-**A credit-risk report** at the top of [`output/`](output/) —
+**A credit-risk report** in [`outputs/reports/`](outputs/reports/) —
 `Credit_Risk_Report_<period>.md` / `.html` / `.docx`. It opens with a
 plain-English executive summary, then the PD, LGD, expected-loss,
 stress-testing, portfolio-monitor, and per-bank industry tables. A sample
-is checked in: [`output/Credit_Risk_Report_Q2_2026.md`](output/Credit_Risk_Report_Q2_2026.md).
+is checked in: [`outputs/reports/Credit_Risk_Report_Q2_2026.md`](outputs/reports/Credit_Risk_Report_Q2_2026.md).
 
 A slice of the expected-loss table gives the flavour:
 
@@ -235,7 +235,8 @@ external_benchmark_engine/
 │   ├── csv_exporter.py         # The five model-input CSVs
 │   ├── download_sources/       # Source downloaders (APRA, RBA, Pillar 3, non-bank)
 │   └── migrate_to_raw_observations.py  # Loader into the raw-observation store
-├── output/                     # Credit-risk report (md/html/docx) + data/ CSVs
+├── outputs/                    # reports/ (md/html/docx) + data/ CSVs + charts/
+├── tools/make_figures.py       # regenerate charts into outputs/charts/
 ├── tests/                      # 595 tests (unit + integration), all passing
 └── docs/                       # Operations guide
 ```

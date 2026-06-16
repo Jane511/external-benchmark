@@ -280,7 +280,7 @@ def report_benchmark(
 
     ext = {"docx": "docx", "html": "html", "markdown": "md"}[fmt]
     period_slug = (period_label or report_obj._period).replace(" ", "_")
-    default_path = Path("output") / f"Credit_Risk_Report_{period_slug}.{ext}"
+    default_path = Path("outputs") / "reports" / f"Credit_Risk_Report_{period_slug}.{ext}"
     out_path = Path(output) if output else default_path
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -422,9 +422,9 @@ def export(ctx: click.Context, fmt: str, output: str | None) -> None:
 @cli.command(
     "export-csvs",
     help="Emit direct model input CSVs (PD, LGD, expected loss, stress, "
-         "portfolio monitor) into output/data/.",
+         "portfolio monitor) into outputs/data/.",
 )
-@click.option("--out-dir", type=click.Path(), default="output/data",
+@click.option("--out-dir", type=click.Path(), default="outputs/data",
               show_default=True,
               help="Directory to write the five model-input CSVs into.")
 @click.option("--raw-dir", type=click.Path(), default="data/raw",

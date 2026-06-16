@@ -1,13 +1,13 @@
 """
-reports/make_figures.py — regenerate the README charts for this repo.
+tools/make_figures.py — regenerate the README charts for this repo.
 
-Every figure is built from the committed model-input CSVs in output/data/
+Every figure is built from the committed model-input CSVs in outputs/data/
 (source-published, aggregated benchmark values only), so the charts regenerate
 reproducibly with:
 
-    python reports/make_figures.py
+    python tools/make_figures.py
 
-Outputs PNGs into reports/figures/.
+Outputs PNGs into outputs/charts/.
 """
 from pathlib import Path
 
@@ -17,8 +17,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "output" / "data"
-FIG = ROOT / "reports" / "figures"
+DATA = ROOT / "outputs" / "data"
+FIG = ROOT / "outputs" / "charts"
 FIG.mkdir(parents=True, exist_ok=True)
 
 plt.rcParams.update({

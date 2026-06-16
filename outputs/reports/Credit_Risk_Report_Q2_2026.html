@@ -1,0 +1,210 @@
+<!doctype html><html><head><meta charset='utf-8'><title>Australian Credit Risk Benchmarks - Q2 2026</title><style>body{font-family:-apple-system,Segoe UI,Helvetica,sans-serif;max-width:1100px;margin:2em auto;padding:0 1em;color:#222;}table{border-collapse:collapse;margin:1em 0;}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;}th{background:#f5f5f5;}.banner{background:#fff7d6;border-left:4px solid #d4a900;padding:12px;margin:1em 0;}</style></head><body><h1>Australian Credit Risk Benchmarks - Q2 2026</h1>
+<p>_Generated: 2026-06-16T01:50:18+00:00 | Data as-of: 2024-12-31–2026-02-28_</p>
+<h2>Executive summary</h2>
+<p>This report consolidates externally-disclosed credit-risk parameters for Australian bank and non-bank lenders into a single set of model-ready benchmarks. It is built from public Basel Pillar 3 disclosures, APRA and RBA statistics, and non-bank lender reports, and is aligned to the APRA APS 113 / Basel IRB framework.</p>
+<p>Every figure is a source-published value — no adjustment, triangulation, or modelling overlay — so each number traces back to a named disclosure and reporting date.</p>
+<h3>What this report covers</h3>
+<ul>
+<li>**Probability of default (PD)** — likelihood a borrower defaults within 12 months, by credit segment (Section 1).</li>
+<li>**Loss given default (LGD)** — share of exposure not recovered after default (Section 2).</li>
+<li>**Expected loss (EL = PD × LGD)** — the headline credit-loss rate per segment (Section 3).</li>
+<li>**Stress testing** — PD, LGD and EAD under a base / mild / severe scenario set (mild = Basel CRE36.51 two-quarters-zero-growth), stressed PD floored at APS 113 regulatory bands (Section 4).</li>
+<li>**Portfolio monitoring** — arrears, non-performing, impaired and loss-rate metrics for early-warning tracking (Section 5).</li>
+<li>**Per-bank industry exposures** — Big 4 exposure, non-performing, provision and write-off by industry sector (Section 6).</li>
+</ul>
+<h3>Coverage at a glance</h3>
+<ul>
+<li>295 source observations across 16 credit segments.</li>
+<li>4 banks in the industry-exposure view (ANZ, CBA, NAB, WBC), plus non-bank lenders and regulatory references.</li>
+<li>Data as-of window: 2024-12-31–2026-02-28.</li>
+</ul>
+<h3>How to read the numbers</h3>
+<ul>
+<li>Rates are decimals in [0, 1]; for example, 0.03 represents three percent.</li>
+<li>Expected-loss rate = PD × LGD, shown in basis points (bps); 1 bp = 0.01%, so 14 bps = 0.14%.</li>
+<li>Stressed PD/LGD/EAD apply per-scenario multipliers (config/stress_scenarios.yaml); stressed PD is floored at the APS 113 reality-check bands. Multipliers are illustrative, not calibrated regulatory parameters.</li>
+<li>&quot;As-of&quot; is the disclosure date of the most recent source.</li>
+</ul>
+<h2>1. PD Inputs</h2>
+<table><thead><tr><th>Segment</th><th>Product</th><th>PD decimal</th><th>Source</th><th>As-of</th></tr></thead><tbody>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>0.02</td><td>ANZ_PILLAR3_CRE_PD_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>0.03</td><td>CBA_PILLAR3_CRE_PD_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>0.01</td><td>MACQUARIE_BANK_COMMERCIAL_PROPERTY_INVESTMENT_PD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>0.02</td><td>NAB_PILLAR3_CRE_PD_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>0.03</td><td>WBC_PILLAR3_CRE_PD_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Corporate General</td><td>corporate_general</td><td>0.02</td><td>MACQUARIE_BANK_CORPORATE_GENERAL_PD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Corporate SME</td><td>term_loan</td><td>0.03</td><td>ANZ_PILLAR3_CORP_SME_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Corporate SME</td><td>term_loan</td><td>0.03</td><td>CBA_PILLAR3_CORP_SME_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Corporate SME</td><td>term_loan</td><td>0.03</td><td>MACQUARIE_BANK_CORPORATE_SME_PD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Corporate SME</td><td>term_loan</td><td>0.03</td><td>NAB_PILLAR3_CORP_SME_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Corporate SME</td><td>term_loan</td><td>0.03</td><td>WBC_PILLAR3_CORP_SME_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Development</td><td>development</td><td>0.01</td><td>APS113_SLOTTING_GOOD_PD</td><td>2024-12-31</td></tr>
+<tr><td>Development</td><td>development</td><td>0.03</td><td>APS113_SLOTTING_SATIS_PD</td><td>2024-12-31</td></tr>
+<tr><td>Development</td><td>development</td><td>0.00</td><td>APS113_SLOTTING_STRONG_PD</td><td>2024-12-31</td></tr>
+<tr><td>Development</td><td>development</td><td>0.08</td><td>APS113_SLOTTING_WEAK_PD</td><td>2024-12-31</td></tr>
+<tr><td>Financial Institution</td><td>financial_institution</td><td>0.00</td><td>MACQUARIE_BANK_FINANCIAL_INSTITUTION_PD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>0.01</td><td>ANZ_PILLAR3_RES_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>0.01</td><td>CBA_PILLAR3_RES_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>0.01</td><td>MACQUARIE_BANK_RESIDENTIAL_MORTGAGE_PD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>0.01</td><td>NAB_PILLAR3_RES_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>0.01</td><td>WBC_PILLAR3_RES_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Retail Other</td><td>retail_other</td><td>0.02</td><td>MACQUARIE_BANK_RETAIL_OTHER_PD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Retail SME</td><td>retail_sme</td><td>0.03</td><td>MACQUARIE_BANK_RETAIL_SME_PD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Sovereign</td><td>sovereign</td><td>0.01</td><td>MACQUARIE_BANK_SOVEREIGN_PD_H1FY2026</td><td>2025-09-30</td></tr>
+</tbody></table>
+<h2>2. LGD Inputs</h2>
+<table><thead><tr><th>Segment</th><th>Product</th><th>LGD decimal</th><th>Source</th><th>As-of</th></tr></thead><tbody>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>0.17</td><td>APS113_CRE_LGD_FLOOR</td><td>2024-12-31</td></tr>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>0.24</td><td>MACQUARIE_BANK_COMMERCIAL_PROPERTY_INVESTMENT_LGD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Corporate General</td><td>corporate_general</td><td>0.45</td><td>MACQUARIE_BANK_CORPORATE_GENERAL_LGD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Corporate SME</td><td>term_loan</td><td>0.42</td><td>MACQUARIE_BANK_CORPORATE_SME_LGD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Development</td><td>development</td><td>0.33</td><td>APS113_SLOTTING_GOOD_LGD</td><td>2024-12-31</td></tr>
+<tr><td>Development</td><td>development</td><td>0.38</td><td>APS113_SLOTTING_SATIS_LGD</td><td>2024-12-31</td></tr>
+<tr><td>Development</td><td>development</td><td>0.28</td><td>APS113_SLOTTING_STRONG_LGD</td><td>2024-12-31</td></tr>
+<tr><td>Development</td><td>development</td><td>0.45</td><td>APS113_SLOTTING_WEAK_LGD</td><td>2024-12-31</td></tr>
+<tr><td>Financial Institution</td><td>financial_institution</td><td>0.49</td><td>MACQUARIE_BANK_FINANCIAL_INSTITUTION_LGD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Invoice Finance</td><td>invoice_finance</td><td>0.35</td><td>APS113_INVOICE_LGD_FLOOR</td><td>2024-12-31</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>0.07</td><td>APS113_RES_LGD_FLOOR</td><td>2024-12-31</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>0.22</td><td>CBA_PILLAR3_RES_LGD_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>0.13</td><td>MACQUARIE_BANK_RESIDENTIAL_MORTGAGE_LGD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>0.24</td><td>NAB_PILLAR3_RES_LGD_2024H2</td><td>2024-12-31</td></tr>
+<tr><td>Retail Other</td><td>retail_other</td><td>0.36</td><td>MACQUARIE_BANK_RETAIL_OTHER_LGD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Retail SME</td><td>retail_sme</td><td>0.41</td><td>MACQUARIE_BANK_RETAIL_SME_LGD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Sovereign</td><td>sovereign</td><td>0.05</td><td>MACQUARIE_BANK_SOVEREIGN_LGD_H1FY2026</td><td>2025-09-30</td></tr>
+<tr><td>Working Capital Unsecured</td><td>line_of_credit</td><td>0.45</td><td>APS113_UNSECURED_LGD</td><td>2024-12-31</td></tr>
+<tr><td>Working Capital Unsecured</td><td>line_of_credit</td><td>0.48</td><td>CBA_PILLAR3_SME_UNSECURED_LGD</td><td>2024-12-31</td></tr>
+</tbody></table>
+<h2>3. Expected Loss Inputs</h2>
+<table><thead><tr><th>Segment</th><th>Product</th><th>PD decimal</th><th>LGD decimal</th><th>EL rate (bps)</th><th>PD N</th><th>LGD N</th><th>As-of</th></tr></thead><tbody>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>0.02</td><td>0.21</td><td>46 bps</td><td>5</td><td>2</td><td>2025-09-30</td></tr>
+<tr><td>Corporate General</td><td>corporate_general</td><td>0.02</td><td>0.45</td><td>77 bps</td><td>1</td><td>1</td><td>2025-09-30</td></tr>
+<tr><td>Corporate SME</td><td>term_loan</td><td>0.03</td><td>0.42</td><td>117 bps</td><td>5</td><td>1</td><td>2025-09-30</td></tr>
+<tr><td>Development</td><td>development</td><td>0.02</td><td>0.35</td><td>63 bps</td><td>4</td><td>4</td><td>2024-12-31</td></tr>
+<tr><td>Financial Institution</td><td>financial_institution</td><td>0.00</td><td>0.49</td><td>24 bps</td><td>1</td><td>1</td><td>2025-09-30</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>0.01</td><td>0.17</td><td>14 bps</td><td>5</td><td>4</td><td>2025-09-30</td></tr>
+<tr><td>Retail Other</td><td>retail_other</td><td>0.02</td><td>0.36</td><td>57 bps</td><td>1</td><td>1</td><td>2025-09-30</td></tr>
+<tr><td>Retail SME</td><td>retail_sme</td><td>0.03</td><td>0.41</td><td>120 bps</td><td>1</td><td>1</td><td>2025-09-30</td></tr>
+<tr><td>Sovereign</td><td>sovereign</td><td>0.01</td><td>0.05</td><td>5 bps</td><td>1</td><td>1</td><td>2025-09-30</td></tr>
+</tbody></table>
+<h2>4. Stress Testing Inputs</h2>
+<table><thead><tr><th>Segment</th><th>Product</th><th>Scenario</th><th>Base EL (bps)</th><th>Stressed PD decimal</th><th>Stressed LGD decimal</th><th>Stressed EL (bps)</th><th>Stressed EL incl EAD (bps)</th><th>As-of</th></tr></thead><tbody>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>base</td><td>46 bps</td><td>0.02</td><td>0.21</td><td>46 bps</td><td>46 bps</td><td>2025-09-30</td></tr>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>mild</td><td>46 bps</td><td>0.05</td><td>0.25</td><td>125 bps</td><td>138 bps</td><td>2025-09-30</td></tr>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>severe</td><td>46 bps</td><td>0.06</td><td>0.29</td><td>161 bps</td><td>201 bps</td><td>2025-09-30</td></tr>
+<tr><td>Corporate General</td><td>corporate_general</td><td>base</td><td>77 bps</td><td>0.02</td><td>0.45</td><td>77 bps</td><td>77 bps</td><td>2025-09-30</td></tr>
+<tr><td>Corporate General</td><td>corporate_general</td><td>mild</td><td>77 bps</td><td>0.03</td><td>0.55</td><td>139 bps</td><td>153 bps</td><td>2025-09-30</td></tr>
+<tr><td>Corporate General</td><td>corporate_general</td><td>severe</td><td>77 bps</td><td>0.04</td><td>0.64</td><td>270 bps</td><td>337 bps</td><td>2025-09-30</td></tr>
+<tr><td>Corporate SME</td><td>term_loan</td><td>base</td><td>117 bps</td><td>0.03</td><td>0.42</td><td>117 bps</td><td>117 bps</td><td>2025-09-30</td></tr>
+<tr><td>Corporate SME</td><td>term_loan</td><td>mild</td><td>117 bps</td><td>0.06</td><td>0.50</td><td>301 bps</td><td>331 bps</td><td>2025-09-30</td></tr>
+<tr><td>Corporate SME</td><td>term_loan</td><td>severe</td><td>117 bps</td><td>0.07</td><td>0.59</td><td>410 bps</td><td>512 bps</td><td>2025-09-30</td></tr>
+<tr><td>Development</td><td>development</td><td>base</td><td>63 bps</td><td>0.02</td><td>0.35</td><td>63 bps</td><td>63 bps</td><td>2024-12-31</td></tr>
+<tr><td>Development</td><td>development</td><td>mild</td><td>63 bps</td><td>0.05</td><td>0.42</td><td>210 bps</td><td>231 bps</td><td>2024-12-31</td></tr>
+<tr><td>Development</td><td>development</td><td>severe</td><td>63 bps</td><td>0.05</td><td>0.49</td><td>245 bps</td><td>306 bps</td><td>2024-12-31</td></tr>
+<tr><td>Financial Institution</td><td>financial_institution</td><td>base</td><td>24 bps</td><td>0.00</td><td>0.49</td><td>24 bps</td><td>24 bps</td><td>2025-09-30</td></tr>
+<tr><td>Financial Institution</td><td>financial_institution</td><td>mild</td><td>24 bps</td><td>0.01</td><td>0.59</td><td>43 bps</td><td>48 bps</td><td>2025-09-30</td></tr>
+<tr><td>Financial Institution</td><td>financial_institution</td><td>severe</td><td>24 bps</td><td>0.01</td><td>0.69</td><td>85 bps</td><td>106 bps</td><td>2025-09-30</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>base</td><td>14 bps</td><td>0.01</td><td>0.17</td><td>14 bps</td><td>14 bps</td><td>2025-09-30</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>mild</td><td>14 bps</td><td>0.01</td><td>0.21</td><td>25 bps</td><td>28 bps</td><td>2025-09-30</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>severe</td><td>14 bps</td><td>0.02</td><td>0.24</td><td>49 bps</td><td>61 bps</td><td>2025-09-30</td></tr>
+<tr><td>Retail Other</td><td>retail_other</td><td>base</td><td>57 bps</td><td>0.02</td><td>0.36</td><td>57 bps</td><td>57 bps</td><td>2025-09-30</td></tr>
+<tr><td>Retail Other</td><td>retail_other</td><td>mild</td><td>57 bps</td><td>0.02</td><td>0.44</td><td>102 bps</td><td>112 bps</td><td>2025-09-30</td></tr>
+<tr><td>Retail Other</td><td>retail_other</td><td>severe</td><td>57 bps</td><td>0.04</td><td>0.51</td><td>198 bps</td><td>247 bps</td><td>2025-09-30</td></tr>
+<tr><td>Retail SME</td><td>retail_sme</td><td>base</td><td>120 bps</td><td>0.03</td><td>0.41</td><td>120 bps</td><td>120 bps</td><td>2025-09-30</td></tr>
+<tr><td>Retail SME</td><td>retail_sme</td><td>mild</td><td>120 bps</td><td>0.04</td><td>0.50</td><td>215 bps</td><td>237 bps</td><td>2025-09-30</td></tr>
+<tr><td>Retail SME</td><td>retail_sme</td><td>severe</td><td>120 bps</td><td>0.07</td><td>0.58</td><td>419 bps</td><td>523 bps</td><td>2025-09-30</td></tr>
+<tr><td>Sovereign</td><td>sovereign</td><td>base</td><td>5 bps</td><td>0.01</td><td>0.05</td><td>5 bps</td><td>5 bps</td><td>2025-09-30</td></tr>
+<tr><td>Sovereign</td><td>sovereign</td><td>mild</td><td>5 bps</td><td>0.01</td><td>0.06</td><td>8 bps</td><td>9 bps</td><td>2025-09-30</td></tr>
+<tr><td>Sovereign</td><td>sovereign</td><td>severe</td><td>5 bps</td><td>0.02</td><td>0.07</td><td>16 bps</td><td>21 bps</td><td>2025-09-30</td></tr>
+</tbody></table>
+<h2>4a. Stress Scenarios &amp; Governance</h2>
+<p>**Scenario macro paths** — shocks map from a stated path:</p>
+<ul>
+<li>**Base (current environment)** — Current conditions, no recession overlay. GDP growth around trend, unemployment broadly stable, cash rate and property prices at the latest observed levels (RBA SMP / FSR baseline).</li>
+<li>**Mild recession (Basel CRE36.51 minimum)** — Basel CRE36.51 mandatory minimum — two consecutive quarters of zero GDP growth. Unemployment rises ~1.0-1.5pp, modest property-price softening (~5-10%), and some drawdown of undrawn limits as borrowers seek liquidity (PD/LGD/EAD all stressed).</li>
+<li>**Severe recession (GFC-like)** — GFC-like severe-but-plausible downturn (APS 220 para 72). Multi-quarter contraction, unemployment +3-4pp, property prices -20% to -30%, and a sharp utilisation spike on revolving facilities into default.</li>
+</ul>
+<h2>Reverse stress — multiplier that breaches the reality-check band</h2>
+<table><thead><tr><th>Segment</th><th>Product</th><th>Base PD</th><th>Upper band</th><th>Breach PD ×</th></tr></thead><tbody>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>0.02</td><td>0.05</td><td>2.27x</td></tr>
+<tr><td>Corporate SME</td><td>term_loan</td><td>0.03</td><td>0.06</td><td>2.14x</td></tr>
+<tr><td>Development</td><td>development</td><td>0.02</td><td>0.05</td><td>2.78x</td></tr>
+</tbody></table>
+<ul>
+<li>No diversification benefit is assumed (APG 113 para 92): each scenario is applied per segment with no offsetting correlation or portfolio-diversification relief.</li>
+<li>Feeds limits / capital (APS 220 para 73, APG 110): the stressed EL rate is read against the consuming book&#x27;s risk-appetite limits and ICAAP capital-vs-buffer assessment; a breach triggers an origination / pricing / limit-tightening review.</li>
+<li>Scenario multipliers are illustrative reality-check overlays, not calibrated regulatory parameters. In production they would be derived from a full macroeconomic scenario model and independently validated at least annually, with scenarios, assumptions and limitations documented. Last reviewed 2026-04-28; next review due 2026-10-31.</li>
+</ul>
+<h2>5. Portfolio Monitor Inputs</h2>
+<table><thead><tr><th>Segment</th><th>Product</th><th>Arrears decimal</th><th>NPL decimal</th><th>Impaired decimal</th><th>Loss rate decimal</th><th>Sources</th><th>As-of</th></tr></thead><tbody>
+<tr><td>ADI Sector Total</td><td>adi_sector_total</td><td>0.01</td><td>0.01</td><td>-</td><td>-</td><td>6</td><td>2025-12-31</td></tr>
+<tr><td>Bridging Residential</td><td>bridging</td><td>-</td><td>-</td><td>-</td><td>0.08</td><td>1</td><td>2024-12-31</td></tr>
+<tr><td>Commercial Property</td><td>commercial_property</td><td>-</td><td>0.01</td><td>0.01</td><td>-</td><td>4</td><td>2025-12-31</td></tr>
+<tr><td>Consumer Secured</td><td>consumer_secured</td><td>-</td><td>-</td><td>0.00</td><td>-</td><td>1</td><td>2025-12-31</td></tr>
+<tr><td>Corporate SME</td><td>term_loan</td><td>0.02</td><td>-</td><td>0.03</td><td>0.01</td><td>4</td><td>2025-12-31</td></tr>
+<tr><td>Invoice Finance</td><td>invoice_finance</td><td>0.01</td><td>-</td><td>-</td><td>-</td><td>1</td><td>2024-12-31</td></tr>
+<tr><td>Residential Mortgage</td><td>residential_mortgage</td><td>0.01</td><td>0.01</td><td>-</td><td>0.00</td><td>8</td><td>2026-02-28</td></tr>
+<tr><td>Residential Mortgage Specialist</td><td>residential_mortgage_specialist</td><td>0.03</td><td>-</td><td>0.01</td><td>0.00</td><td>7</td><td>2026-02-28</td></tr>
+<tr><td>SME Corporate</td><td>term_loan</td><td>0.01</td><td>0.01</td><td>-</td><td>-</td><td>2</td><td>2024-12-31</td></tr>
+</tbody></table>
+<h2>6. Per-Bank Industry Inputs</h2>
+<table><thead><tr><th>Bank</th><th>Industry</th><th>Exposure AUDm</th><th>NPE AUDm</th><th>NPE decimal</th><th>Provision AUDm</th><th>Write-offs AUDm</th><th>Write-off decimal</th><th>As-of</th></tr></thead><tbody>
+<tr><td>CBA</td><td>Agriculture &amp; Forestry</td><td>33156.00</td><td>343.00</td><td>0.01</td><td>35.00</td><td>8.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Business Services</td><td>15143.00</td><td>177.00</td><td>0.01</td><td>59.00</td><td>20.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Commercial Property</td><td>97549.00</td><td>353.00</td><td>0.00</td><td>30.00</td><td>2.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Construction</td><td>11623.00</td><td>329.00</td><td>0.03</td><td>117.00</td><td>55.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Consumer</td><td>828841.00</td><td>8205.00</td><td>0.01</td><td>592.00</td><td>408.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Electricity, Gas &amp; Water</td><td>14049.00</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Entertainment, Leisure &amp; Tourism</td><td>19340.00</td><td>217.00</td><td>0.01</td><td>121.00</td><td>13.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Finance &amp; Insurance</td><td>40764.00</td><td>23.00</td><td>0.00</td><td>12.00</td><td>6.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Government Administration &amp; Defence</td><td>153882.00</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Health &amp; Community Services</td><td>15212.00</td><td>361.00</td><td>0.02</td><td>115.00</td><td>1.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Manufacturing</td><td>16717.00</td><td>236.00</td><td>0.01</td><td>93.00</td><td>38.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Mining, Oil &amp; Gas</td><td>3434.00</td><td>9.00</td><td>0.00</td><td>2.00</td><td>1.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Other</td><td>29667.00</td><td>144.00</td><td>0.00</td><td>37.00</td><td>23.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Transport &amp; Storage</td><td>22708.00</td><td>217.00</td><td>0.01</td><td>88.00</td><td>9.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>CBA</td><td>Wholesale &amp; Retail Trade</td><td>29785.00</td><td>365.00</td><td>0.01</td><td>216.00</td><td>29.00</td><td>0.00</td><td>2025-06-30</td></tr>
+<tr><td>NAB</td><td>Accommodation and hospitality</td><td>14704.00</td><td>265.00</td><td>0.02</td><td>25.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Agriculture, forestry, fishing and mining</td><td>69428.00</td><td>1809.00</td><td>0.03</td><td>132.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Business services and property services</td><td>23174.00</td><td>544.00</td><td>0.02</td><td>141.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Commercial property</td><td>94697.00</td><td>1125.00</td><td>0.01</td><td>32.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Construction</td><td>15140.00</td><td>393.00</td><td>0.03</td><td>82.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Finance and insurance</td><td>170647.00</td><td>103.00</td><td>0.00</td><td>24.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Government and public authorities</td><td>75817.00</td><td>0.00</td><td>0.00</td><td>0.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Manufacturing</td><td>21932.00</td><td>659.00</td><td>0.03</td><td>239.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Other</td><td>31383.00</td><td>326.00</td><td>0.01</td><td>62.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Personal</td><td>20790.00</td><td>176.00</td><td>0.01</td><td>2.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Residential mortgages</td><td>496085.00</td><td>5401.00</td><td>0.01</td><td>71.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Retail and wholesale trade</td><td>36531.00</td><td>647.00</td><td>0.02</td><td>168.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Transport and storage</td><td>22584.00</td><td>376.00</td><td>0.02</td><td>76.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>NAB</td><td>Utilities</td><td>25787.00</td><td>270.00</td><td>0.01</td><td>109.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Accommodation, cafes and restaurants</td><td>12977.00</td><td>210.00</td><td>0.02</td><td>44.00</td><td>8.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Agriculture, forestry and fishing</td><td>26642.00</td><td>459.00</td><td>0.02</td><td>83.00</td><td>4.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Construction</td><td>12718.00</td><td>303.00</td><td>0.02</td><td>68.00</td><td>24.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Finance and insurance</td><td>81032.00</td><td>78.00</td><td>0.00</td><td>14.00</td><td>4.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Government, administration and defence</td><td>117150.00</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Manufacturing</td><td>20002.00</td><td>365.00</td><td>0.02</td><td>132.00</td><td>10.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Mining</td><td>5929.00</td><td>33.00</td><td>0.01</td><td>9.00</td><td>1.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Other</td><td>11456.00</td><td>40.00</td><td>0.00</td><td>12.00</td><td>5.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Property</td><td>86453.00</td><td>965.00</td><td>0.01</td><td>171.00</td><td>4.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Property services and business services</td><td>22400.00</td><td>432.00</td><td>0.02</td><td>109.00</td><td>15.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Retail lending</td><td>673155.00</td><td>6146.00</td><td>0.01</td><td>693.00</td><td>324.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Services</td><td>22989.00</td><td>362.00</td><td>0.02</td><td>154.00</td><td>14.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Trade</td><td>29138.00</td><td>582.00</td><td>0.02</td><td>161.00</td><td>101.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Transport and storage</td><td>17931.00</td><td>138.00</td><td>0.01</td><td>53.00</td><td>9.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>WBC</td><td>Utilities</td><td>20014.00</td><td>14.00</td><td>0.00</td><td>3.00</td><td>1.00</td><td>0.00</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Agriculture, Forestry, Fishing &amp; Mining</td><td>55628.00</td><td>671.00</td><td>0.01</td><td>33.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Business &amp; Property Services</td><td>23532.00</td><td>111.00</td><td>0.00</td><td>21.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Commercial Property</td><td>80758.00</td><td>462.00</td><td>0.01</td><td>36.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Construction</td><td>13211.00</td><td>148.00</td><td>0.01</td><td>19.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Electricity, Gas &amp; Water Supply</td><td>23658.00</td><td>4.00</td><td>0.00</td><td>1.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Entertainment, Leisure &amp; Tourism</td><td>17670.00</td><td>151.00</td><td>0.01</td><td>16.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Financial, Investment &amp; Insurance</td><td>402472.00</td><td>23.00</td><td>0.00</td><td>6.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Government &amp; Official Institutions</td><td>146648.00</td><td>0.00</td><td>0.00</td><td>0.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Manufacturing</td><td>50831.00</td><td>216.00</td><td>0.00</td><td>28.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Other</td><td>32415.00</td><td>202.00</td><td>0.01</td><td>61.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Personal Lending</td><td>20788.00</td><td>99.00</td><td>0.00</td><td>15.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Residential Mortgage</td><td>554118.00</td><td>5987.00</td><td>0.01</td><td>57.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Retail Trade</td><td>17969.00</td><td>219.00</td><td>0.01</td><td>83.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Transport &amp; Storage</td><td>21170.00</td><td>62.00</td><td>0.00</td><td>12.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+<tr><td>ANZ</td><td>Wholesale Trade</td><td>25252.00</td><td>55.00</td><td>0.00</td><td>11.00</td><td>-</td><td>-</td><td>2025-09-30</td></tr>
+</tbody></table></body></html>

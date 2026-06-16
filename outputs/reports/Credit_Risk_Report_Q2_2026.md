@@ -1,5 +1,5 @@
 # Australian Credit Risk Benchmarks - Q2 2026
-_Generated: 2026-06-15T04:37:15+00:00 | Data as-of: 2024-12-31–2026-02-28_
+_Generated: 2026-06-16T01:50:10+00:00 | Data as-of: 2024-12-31–2026-02-28_
 
 ## Executive summary
 

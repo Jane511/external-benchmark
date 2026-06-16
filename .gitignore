@@ -115,9 +115,12 @@ benchmarks.db
 # committed so visitors and HR can see example output without running the
 # pipeline. The glob auto-tracks future periods; the regenerable HTML stays
 # ignored.
-output/*
-!output/README.md
-!output/data/
-!output/data/*.csv
-!output/Credit_Risk_Report_*.md
-!output/Credit_Risk_Report_*.docx
+outputs/*
+!outputs/README.md
+!outputs/data/
+!outputs/data/*.csv
+!outputs/charts/
+!outputs/charts/*.png
+!outputs/reports/
+!outputs/reports/Credit_Risk_Report_*.md
+!outputs/reports/Credit_Risk_Report_*.docx
