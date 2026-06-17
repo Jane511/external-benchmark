@@ -78,39 +78,10 @@ capability — *data & benchmarks → model development → validation*:
 
 ### 3. Expected-loss rate by segment
 
-![Expected-loss rate in basis points for each lending segment](outputs/charts/el_rate_by_segment_bps.png)
+![Expected-loss rate as a percent of exposure for each lending segment](outputs/charts/el_rate_by_segment.png)
 
-**What this shows:** the benchmark expected-loss rate (PD × LGD, in basis points) per segment.
-**Why it matters:** the one-glance risk ranking — residential mortgages cost ~14bp of expected loss a year, unsecured SME lending an order of magnitude more.
-
-### 4. The numbers are anchored to real disclosures
-
-Each benchmark is the **median of what multiple named sources actually
-disclosed** — not an invented or single-source number. Anchor charts are shown
-for the two segments the Australian disclosures publish across several sources;
-the grey bar is the APRA regulatory floor, the dashed line the median the engine
-uses.
-
-#### Residential property — PD and LGD
-
-![Residential-mortgage PD disclosed by each major bank around the benchmark median](outputs/charts/residential_pd_by_bank.png)
-![Residential-mortgage LGD disclosed by each source around the benchmark median](outputs/charts/residential_lgd_by_bank.png)
-
-#### Commercial property — PD and LGD
-
-![Commercial-property PD disclosed by each major bank around the benchmark median](outputs/charts/commercial_property_pd_by_bank.png)
-![Commercial-property LGD disclosed by each source around the benchmark median](outputs/charts/commercial_property_lgd_by_bank.png)
-
-> **Why only these two segments?** An anchor chart is only meaningful where
-> *several* sources disclose the parameter. Australian Pillar 3 / APRA
-> disclosures publish PD and LGD by **Basel asset class**, not by *working-capital*
-> or *trade-finance* product. Across the loaded sources, only residential and
-> commercial property carry a multi-bank PD spread. **SME / corporate working
-> capital** and **SME / corporate trade finance** are not separately disclosed
-> with PD across banks — they appear only as single APRA LGD floors (unsecured
-> working capital, invoice finance) with no multi-source PD — so they cannot be
-> honestly anchored here and are left to the consuming model. (Corporate SME
-> *does* have a 5-bank PD spread but single-source LGD; available on request.)
+**What this shows:** the benchmark expected-loss rate (PD × LGD, as a % of exposure) per segment.
+**Why it matters:** the one-glance risk ranking — residential mortgages cost ~0.14% of exposure in expected loss a year, unsecured SME lending an order of magnitude more (~1.2%).
 
 ---
 
@@ -119,25 +90,26 @@ uses.
 Each segment's PD and LGD are stressed under two regulator-aligned scenarios —
 a **mild** recession (Basel CRE36.51 minimum: PD ×1.5, LGD ×1.2) and a
 **severe**, GFC-like downturn (APS 220 para 72: PD ×2.5, LGD ×1.4) — with
-regulatory PD upper-band floors applied where they bind. Expected loss
-(PD × LGD) escalates accordingly ([stress_testing_inputs.csv](outputs/data/stress_testing_inputs.csv)):
+regulatory PD floors applied where they bind. Stressing **PD *and* LGD** lifts
+expected loss multiplicatively. Severe-scenario inputs below — all as a **% of
+exposure** ([stress_testing_inputs.csv](outputs/data/stress_testing_inputs.csv)):
 
-| Segment | Base EL (bp) | Mild EL (bp) | Severe EL (bp) | Severe ÷ base |
-|---|---:|---:|---:|---:|
-| Retail SME | 120 | 215 | 419 | 3.5× |
-| Corporate SME | 117 | 301 | 410 | 3.5× |
-| Corporate General | 77 | 139 | 270 | 3.5× |
-| Development | 63 | 210 | 245 | **3.9×** |
-| Retail Other | 57 | 102 | 198 | 3.5× |
-| Commercial Property | 46 | 125 | 161 | 3.5× |
-| Financial Institution | 24 | 43 | 85 | 3.5× |
-| Residential Mortgage | 14 | 25 | 49 | 3.5× |
-| Sovereign | 5 | 8 | 16 | 3.5× |
+| Segment | PD: base → severe | LGD: base → severe | EL rate: base → severe |
+|---|---|---|---|
+| Retail SME | 2.9% → 7.2% | 41.4% → 57.9% | 1.20% → 4.19% |
+| Corporate SME | 2.8% → 7.0% | 41.8% → 58.5% | 1.17% → 4.10% |
+| Corporate General | 1.7% → 4.2% | 45.5% → 63.7% | 0.77% → 2.70% |
+| Development | 1.8% → 5.0% | 35.0% → 49.0% | 0.63% → 2.45% |
+| Retail Other | 1.6% → 3.9% | 36.4% → 50.9% | 0.57% → 1.98% |
+| Commercial Property | 2.2% → 5.5% | 20.9% → 29.2% | 0.46% → 1.61% |
+| Financial Institution | 0.5% → 1.2% | 48.9% → 68.5% | 0.24% → 0.85% |
+| Residential Mortgage | 0.8% → 2.0% | 17.4% → 24.3% | 0.14% → 0.49% |
+| Sovereign | 0.9% → 2.3% | 5.2% → 7.3% | 0.05% → 0.16% |
 
-Severe stress lifts expected loss ~**3.5×** across the board (the combined
-2.5 × 1.4 multiplier); **Development** rises further (3.9×) because its
-regulatory PD floor binds even in the mild scenario. The full per-scenario PD,
-LGD, EAD multipliers and macro narratives are in the CSV and report.
+Severe stress roughly **triples** expected loss across segments (the combined
+PD ×2.5 and LGD ×1.4); **Development** rises a bit more because its regulatory PD
+floor binds. The mild scenario and the full per-scenario PD / LGD / EAD
+multipliers and macro narratives are in the CSV and report.
 
 ---
 
@@ -156,6 +128,10 @@ downstream PD/LGD/ECL model:
 | `stress_testing_inputs.csv` | Base and stressed PD / LGD / EL rates |
 | `portfolio_monitor_inputs.csv` | Arrears, NPL, impaired, and loss-rate metrics |
 
+Plus **`raw_observations.csv`** — the full cohort-tagged audit trail (every
+PD / LGD / arrears row with its source, definition and date) that every figure in
+this README traces back to.
+
 **A credit-risk report** in [`outputs/reports/`](outputs/reports/) —
 `Credit_Risk_Report_<period>.md` / `.html` / `.docx`. It opens with a
 plain-English executive summary, then the PD, LGD, expected-loss,
@@ -170,6 +146,37 @@ A slice of the expected-loss table gives the flavour:
 | Corporate SME | 0.03 | 0.42 | 0.01 | 5 | 1 |
 | Commercial Property | 0.02 | 0.21 | 0.00 | 5 | 2 |
 | Development | 0.02 | 0.35 | 0.01 | 4 | 4 |
+
+---
+
+## Bank vs non-bank — what each cohort discloses
+
+The benchmarks come from two very different cohorts. **Banks (Big 4 + Macquarie)**
+publish Basel **PD and LGD** by asset class in their Pillar 3 reports.
+**Non-bank lenders publish no Basel PD/LGD at all** — only arrears, impaired and
+realised-loss rates. The engine keeps these as separate, labelled metrics rather
+than forcing them onto one scale. Both charts trace to the committed, cohort-tagged
+[`raw_observations.csv`](outputs/data/raw_observations.csv).
+
+### Banks (Big 4 + Macquarie) — average PD and LGD by segment
+
+![Average PD and LGD by segment across the Big 4 and Macquarie](outputs/charts/bank_avg_pd_lgd_by_segment.png)
+
+**What this shows:** the average disclosed Pillar 3 PD and LGD per segment, shown
+side by side. **Why it matters:** corporate/retail SME carry the highest PD (~3%);
+financial-institution and corporate exposures the highest LGD (~45–49%); residential
+mortgages sit lowest on both — the cohort that sets most Basel benchmarks.
+
+### Non-bank lenders — disclosed arrears / impaired / loss rates
+
+![Non-bank lenders' disclosed arrears, impaired and realised-loss rates by lender and segment](outputs/charts/nonbank_arrears_loss.png)
+
+**What this shows:** what non-banks (Latrobe, Pepper, Liberty, Resimac, Judo, …)
+actually publish — arrears, impaired and realised-loss rates, by lender and segment,
+shown as-is and coloured by metric. **Why it matters:** these are *not* PD/LGD, so
+they feed portfolio monitoring rather than the Basel benchmark. A "non-bank PD/LGD"
+chart is intentionally absent: that data does not exist in the disclosures, and the
+engine never fabricates it.
 
 ---
 

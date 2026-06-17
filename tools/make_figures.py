@@ -62,68 +62,76 @@ ax.set_title("Loss given default (LGD) by segment")
 ax.grid(axis="y", alpha=0)
 save(fig, "lgd_by_segment.png")
 
-# 3. Expected-loss rate by segment (basis points) ----------------------------
-els = el.sort_values("expected_loss_rate_bps")
+# 3. Expected-loss rate by segment (%) ---------------------------------------
+els = el.sort_values("expected_loss_rate_decimal")
 fig, ax = plt.subplots(figsize=(7.8, 5.0))
-ax.barh(els.segment_label, els.expected_loss_rate_bps, color="#762a83", edgecolor="white")
-for y, v in enumerate(els.expected_loss_rate_bps):
-    ax.text(v, y, f" {v:.0f}", va="center", fontsize=10)
-ax.set_xlabel("expected-loss rate (basis points, = PD × LGD)")
-ax.set_title("Expected-loss rate by segment (from disclosed PD × LGD)")
+ax.barh(els.segment_label, els.expected_loss_rate_decimal * 100, color="#762a83", edgecolor="white")
+for y, v in enumerate(els.expected_loss_rate_decimal * 100):
+    ax.text(v, y, f" {v:.2f}%", va="center", fontsize=10)
+ax.set_xlabel("expected-loss rate (% of exposure, = PD × LGD)")
+ax.set_title("Expected-loss rate by segment")
 ax.grid(axis="y", alpha=0)
-save(fig, "el_rate_by_segment_bps.png")
+save(fig, "el_rate_by_segment.png")
 
-# 4. Per-segment PD / LGD anchored to each disclosing source -----------------
-# An "anchor" chart shows every disclosing source for a segment around the
-# median the engine uses as the benchmark. It is only meaningful where >= 2
-# sources disclose the parameter — bank Pillar 3 reports publish PD/LGD by Basel
-# asset class, so only residential and commercial property have a multi-source
-# PD spread (the rest are single-source and are NOT anchored, by design).
-pd_in = pd.read_csv(DATA / "pd_inputs.csv")
-lgd_in = pd.read_csv(DATA / "lgd_inputs.csv")
+# Cohort-tagged raw observations (audit-trail export) drive the bank/non-bank
+# charts. Banks = Big4 + Macquarie (Pillar 3); non-banks disclose no Basel
+# PD/LGD, only arrears / impaired / realised-loss rates.
+label_map = dict(zip(el.segment, el.segment_label))
+raw = pd.read_csv(DATA / "raw_observations.csv")
+raw["is_bank"] = raw.cohort.isin(["peer_big4", "peer_other_major_bank"])
 
+# 4. Big 4 + Macquarie — average PD and LGD by segment -----------------------
+bank = raw[raw.is_bank & raw.parameter.isin(["pd", "lgd"])]
+piv = bank.pivot_table(index="segment", columns="parameter", values="value", aggfunc="mean")
+piv = piv.dropna(subset=["pd", "lgd"]).sort_values("pd")
+piv["label"] = [label_map.get(s, s) for s in piv.index]
+fig, (axp, axl) = plt.subplots(1, 2, figsize=(13.5, 6.0), sharey=True)
+axp.barh(piv.label, piv.pd * 100, color=BASE, edgecolor="white")
+for y, v in enumerate(piv.pd * 100):
+    axp.text(v, y, f" {v:.2f}%", va="center", fontsize=9.5)
+axp.set_xlabel("average PD (%)")
+axp.set_title("Average PD")
+axp.grid(axis="y", alpha=0)
+axl.barh(piv.label, piv.lgd * 100, color=ACCENT, edgecolor="white")
+for y, v in enumerate(piv.lgd * 100):
+    axl.text(v, y, f" {v:.0f}%", va="center", fontsize=9.5)
+axl.set_xlabel("average LGD (%)")
+axl.set_title("Average LGD")
+axl.grid(axis="y", alpha=0)
+fig.suptitle("Big 4 + Macquarie — average PD and LGD by segment (Pillar 3)",
+             fontsize=15, fontweight="bold")
+save(fig, "bank_avg_pd_lgd_by_segment.png")
 
-def _source_label(row):
-    if row.source_type == "apra_performance":
-        return "APRA\nfloor"
-    head = row.source_id.split("_")[0]
-    return "MQG" if head == "MACQUARIE" else head
-
-
-def anchor_chart(src_df, value_col, segment, ylabel, title, fname, decimals=2):
-    sub = src_df[src_df.segment == segment].copy()
-    if sub[value_col].notna().sum() < 2:
-        print("skip", fname, "- fewer than 2 disclosing sources")
-        return
-    sub["lab"] = sub.apply(_source_label, axis=1)
-    sub = sub.sort_values(value_col)
-    median = sub[value_col].median()
-    colours = [ACCENT if t == "apra_performance" else BASE for t in sub.source_type]
-    fig, ax = plt.subplots(figsize=(7.2, 4.6))
-    bars = ax.bar(sub.lab, sub[value_col] * 100, color=colours, width=0.6, edgecolor="white")
-    for b, v in zip(bars, sub[value_col] * 100):
-        ax.text(b.get_x() + b.get_width() / 2, v, f"{v:.{decimals}f}%",
-                ha="center", va="bottom", fontsize=9.5)
-    ax.axhline(median * 100, color=STRESS, linestyle="--", linewidth=1.6,
-               label=f"median used as benchmark ({median*100:.{decimals}f}%)")
-    handles = [plt.Line2D([], [], color=STRESS, ls="--", lw=1.6,
-                          label=f"median benchmark ({median*100:.{decimals}f}%)"),
-               Patch(color=BASE, label="bank Pillar 3 disclosure")]
-    if (sub.source_type == "apra_performance").any():
-        handles.append(Patch(color=ACCENT, label="APRA regulatory floor"))
-    ax.legend(handles=handles, frameon=False, fontsize=9)
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
-    save(fig, fname)
-
-
-anchor_chart(pd_in, "pd_decimal", "residential_mortgage", "disclosed 12-month PD (%)",
-             "Residential property — PD anchored to disclosures", "residential_pd_by_bank.png", 2)
-anchor_chart(lgd_in, "lgd_decimal", "residential_mortgage", "disclosed LGD (%)",
-             "Residential property — LGD anchored to disclosures", "residential_lgd_by_bank.png", 1)
-anchor_chart(pd_in, "pd_decimal", "commercial_property", "disclosed 12-month PD (%)",
-             "Commercial property — PD anchored to disclosures", "commercial_property_pd_by_bank.png", 2)
-anchor_chart(lgd_in, "lgd_decimal", "commercial_property", "disclosed LGD (%)",
-             "Commercial property — LGD anchored to disclosures", "commercial_property_lgd_by_bank.png", 1)
+# 5. Non-bank lenders — disclosed arrears / impaired / loss rates ------------
+# Non-banks publish NO Basel PD/LGD; these are the risk indicators they do report.
+nb = raw[(raw.cohort == "peer_non_bank") & raw.value.notna()
+         & raw.parameter.isin(["arrears", "impaired", "lgd"])].copy()
+nb["lender"] = nb.source_id.str.split("_").str[0]
+nb = (nb.sort_values("as_of_date")
+        .groupby(["lender", "segment", "data_definition_class"], as_index=False).last())
+metric_name = {"arrears_90_plus_days": "90+ arrears",
+               "impaired_loans_ratio": "impaired", "realised_loss_rate": "realised loss"}
+metric_col = {"arrears_90_plus_days": "#dd8452",
+              "impaired_loans_ratio": "#c44e52", "realised_loss_rate": BASE}
+seg_short = {"residential_mortgage_specialist": "spec. resi",
+             "consumer_secured": "consumer secured", "corporate_sme": "corporate SME",
+             "bridging_residential": "bridging", "residential_mortgage": "residential"}
+nb["metric"] = nb.data_definition_class.map(metric_name)
+nb["lab"] = (nb.lender + " · " + nb.segment.map(lambda s: seg_short.get(s, s))
+             + " (" + nb.metric + ")")
+nb = nb.sort_values("value")
+colours = [metric_col[d] for d in nb.data_definition_class]
+fig, ax = plt.subplots(figsize=(8.8, 6.0))
+ax.barh(nb.lab, nb.value * 100, color=colours, edgecolor="white")
+for y, v in enumerate(nb.value * 100):
+    ax.text(v, y, f" {v:.2f}%", va="center", fontsize=9)
+ax.set_xlabel("disclosed rate (% of portfolio)")
+ax.set_title("Non-bank lenders — disclosed risk rates\n"
+             "(arrears / impaired / loss — no Basel PD/LGD)")
+ax.grid(axis="y", alpha=0)
+handles = [Patch(color=c, label=n) for n, c in
+           [("90+ arrears", "#dd8452"), ("impaired", "#c44e52"), ("realised loss", BASE)]]
+ax.legend(handles=handles, frameon=False, fontsize=9, loc="lower right")
+save(fig, "nonbank_arrears_loss.png")
 
 print("\nAll figures written to", FIG)
