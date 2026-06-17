@@ -62,16 +62,56 @@ ax.set_title("Loss given default (LGD) by segment")
 ax.grid(axis="y", alpha=0)
 save(fig, "lgd_by_segment.png")
 
-# 3. Expected-loss rate by segment (%) ---------------------------------------
-els = el.sort_values("expected_loss_rate_decimal")
-fig, ax = plt.subplots(figsize=(7.8, 5.0))
-ax.barh(els.segment_label, els.expected_loss_rate_decimal * 100, color="#762a83", edgecolor="white")
-for y, v in enumerate(els.expected_loss_rate_decimal * 100):
-    ax.text(v, y, f" {v:.2f}%", va="center", fontsize=10)
-ax.set_xlabel("expected-loss rate (% of exposure, = PD × LGD)")
-ax.set_title("Expected-loss rate by segment")
-ax.grid(axis="y", alpha=0)
-save(fig, "el_rate_by_segment.png")
+# 3. Big 4 + Macquarie PD / LGD vs the APRA floor (per-source "anchor") -------
+# Shows every disclosing source for a segment (each bank, plus the APRA floor in
+# grey) around the median the engine uses as the benchmark. Only meaningful where
+# >= 2 sources disclose the parameter — bank Pillar 3 publishes PD/LGD by Basel
+# asset class, so residential and commercial property have a multi-bank spread.
+pd_in = pd.read_csv(DATA / "pd_inputs.csv")
+lgd_in = pd.read_csv(DATA / "lgd_inputs.csv")
+
+
+def _source_label(row):
+    if row.source_type == "apra_performance":
+        return "APRA\nfloor"
+    head = row.source_id.split("_")[0]
+    return "MQG" if head == "MACQUARIE" else head
+
+
+def anchor_chart(src_df, value_col, segment, ylabel, title, fname, decimals=2):
+    sub = src_df[src_df.segment == segment].copy()
+    if sub[value_col].notna().sum() < 2:
+        print("skip", fname, "- fewer than 2 disclosing sources")
+        return
+    sub["lab"] = sub.apply(_source_label, axis=1)
+    sub = sub.sort_values(value_col)
+    median = sub[value_col].median()
+    colours = [ACCENT if t == "apra_performance" else BASE for t in sub.source_type]
+    fig, ax = plt.subplots(figsize=(7.2, 4.6))
+    bars = ax.bar(sub.lab, sub[value_col] * 100, color=colours, width=0.6, edgecolor="white")
+    for b, v in zip(bars, sub[value_col] * 100):
+        ax.text(b.get_x() + b.get_width() / 2, v, f"{v:.{decimals}f}%",
+                ha="center", va="bottom", fontsize=9.5)
+    ax.axhline(median * 100, color=STRESS, linestyle="--", linewidth=1.6)
+    handles = [plt.Line2D([], [], color=STRESS, ls="--", lw=1.6,
+                          label=f"median benchmark ({median*100:.{decimals}f}%)"),
+               Patch(color=BASE, label="bank Pillar 3 disclosure")]
+    if (sub.source_type == "apra_performance").any():
+        handles.append(Patch(color=ACCENT, label="APRA regulatory floor"))
+    ax.legend(handles=handles, frameon=False, fontsize=9)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    save(fig, fname)
+
+
+anchor_chart(pd_in, "pd_decimal", "residential_mortgage", "disclosed 12-month PD (%)",
+             "Residential property — PD: each bank vs APRA floor", "residential_pd_by_bank.png", 2)
+anchor_chart(lgd_in, "lgd_decimal", "residential_mortgage", "disclosed LGD (%)",
+             "Residential property — LGD: each bank vs APRA floor", "residential_lgd_by_bank.png", 1)
+anchor_chart(pd_in, "pd_decimal", "commercial_property", "disclosed 12-month PD (%)",
+             "Commercial property — PD: each bank vs APRA floor", "commercial_property_pd_by_bank.png", 2)
+anchor_chart(lgd_in, "lgd_decimal", "commercial_property", "disclosed LGD (%)",
+             "Commercial property — LGD: each bank vs APRA floor", "commercial_property_lgd_by_bank.png", 1)
 
 # Cohort-tagged raw observations (audit-trail export) drive the bank/non-bank
 # charts. Banks = Big4 + Macquarie (Pillar 3); non-banks disclose no Basel

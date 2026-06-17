@@ -76,12 +76,29 @@ capability — *data & benchmarks → model development → validation*:
 **What this shows:** the benchmark LGD (median across disclosing sources) for each segment — shown separately from PD so each parameter is read on its own.
 **Why it matters:** LGD is the other half of expected loss and ranks segments very differently from PD — residential mortgages have low LGD (well-secured), unsecured/financial exposures the highest.
 
-### 3. Expected-loss rate by segment
+### 3. Big 4 + Macquarie PD & LGD vs the APRA floor
 
-![Expected-loss rate as a percent of exposure for each lending segment](outputs/charts/el_rate_by_segment.png)
+Each chart shows every disclosing bank's value for a segment (blue), the **APRA
+regulatory floor** (grey), and the **median** the engine uses as the benchmark
+(dashed line) — so each number traces to named sources, not a single point.
+Shown for the two segments the banks disclose across multiple sources.
 
-**What this shows:** the benchmark expected-loss rate (PD × LGD, as a % of exposure) per segment.
-**Why it matters:** the one-glance risk ranking — residential mortgages cost ~0.14% of exposure in expected loss a year, unsecured SME lending an order of magnitude more (~1.2%).
+#### Residential property — PD and LGD
+
+![Residential-mortgage PD by bank vs the APRA floor](outputs/charts/residential_pd_by_bank.png)
+![Residential-mortgage LGD by bank vs the APRA floor](outputs/charts/residential_lgd_by_bank.png)
+
+#### Commercial property — PD and LGD
+
+![Commercial-property PD by bank vs the APRA floor](outputs/charts/commercial_property_pd_by_bank.png)
+![Commercial-property LGD by bank vs the APRA floor](outputs/charts/commercial_property_lgd_by_bank.png)
+
+> Only residential and commercial property carry a multi-bank PD spread — the
+> Australian disclosures publish PD/LGD by Basel asset class, so the remaining
+> segments are single-source and appear as cohort averages in the
+> [bank-vs-non-bank section](#bank-vs-non-bank--what-each-cohort-discloses) below.
+> (The expected-loss-rate-by-segment chart it replaces is still produced as a
+> table in the report and in `expected_loss_inputs.csv`.)
 
 ---
 
