@@ -14,6 +14,7 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,50 +38,92 @@ def save(fig, name):
     print("wrote", FIG / name)
 
 
-# 1. Expected-loss rate by segment (basis points) ----------------------------
-el = pd.read_csv(DATA / "expected_loss_inputs.csv").sort_values("expected_loss_rate_bps")
+el = pd.read_csv(DATA / "expected_loss_inputs.csv")
+
+# 1. PD by segment ------------------------------------------------------------
+pds = el.sort_values("pd_decimal")
 fig, ax = plt.subplots(figsize=(7.8, 5.0))
-bars = ax.barh(el.segment_label, el.expected_loss_rate_bps, color=BASE, edgecolor="white")
-for y, v in enumerate(el.expected_loss_rate_bps):
+ax.barh(pds.segment_label, pds.pd_decimal * 100, color=BASE, edgecolor="white")
+for y, v in enumerate(pds.pd_decimal * 100):
+    ax.text(v, y, f" {v:.2f}%", va="center", fontsize=10)
+ax.set_xlabel("benchmark PD (%, median across disclosing sources)")
+ax.set_title("Probability of default (PD) by segment")
+ax.grid(axis="y", alpha=0)
+save(fig, "pd_by_segment.png")
+
+# 2. LGD by segment -----------------------------------------------------------
+lgds = el.sort_values("lgd_decimal")
+fig, ax = plt.subplots(figsize=(7.8, 5.0))
+ax.barh(lgds.segment_label, lgds.lgd_decimal * 100, color=ACCENT, edgecolor="white")
+for y, v in enumerate(lgds.lgd_decimal * 100):
+    ax.text(v, y, f" {v:.0f}%", va="center", fontsize=10)
+ax.set_xlabel("benchmark LGD (%, median across disclosing sources)")
+ax.set_title("Loss given default (LGD) by segment")
+ax.grid(axis="y", alpha=0)
+save(fig, "lgd_by_segment.png")
+
+# 3. Expected-loss rate by segment (basis points) ----------------------------
+els = el.sort_values("expected_loss_rate_bps")
+fig, ax = plt.subplots(figsize=(7.8, 5.0))
+ax.barh(els.segment_label, els.expected_loss_rate_bps, color="#762a83", edgecolor="white")
+for y, v in enumerate(els.expected_loss_rate_bps):
     ax.text(v, y, f" {v:.0f}", va="center", fontsize=10)
-ax.set_xlabel("expected-loss rate (basis points, PD × LGD)")
+ax.set_xlabel("expected-loss rate (basis points, = PD × LGD)")
 ax.set_title("Expected-loss rate by segment (from disclosed PD × LGD)")
 ax.grid(axis="y", alpha=0)
 save(fig, "el_rate_by_segment_bps.png")
 
-# 2. Base vs stressed EL rate by segment (severe scenario) -------------------
-st = pd.read_csv(DATA / "stress_testing_inputs.csv")
-# One row per segment x scenario now; show the headline severe scenario.
-st = st[st.scenario == "severe"].sort_values("stressed_expected_loss_rate_decimal")
-fig, ax = plt.subplots(figsize=(8.4, 5.0))
-y = range(len(st))
-ax.barh([i + 0.2 for i in y], st.base_expected_loss_rate_decimal * 1e4, height=0.4,
-        label="base", color=BASE)
-ax.barh([i - 0.2 for i in y], st.stressed_expected_loss_rate_decimal * 1e4, height=0.4,
-        label="stressed (severe)", color=STRESS)
-ax.set_yticks(list(y))
-ax.set_yticklabels(st.segment_label)
-ax.set_xlabel("expected-loss rate (basis points)")
-ax.set_title("Base vs severe-stressed expected loss by segment")
-ax.legend(frameon=False, loc="lower right")
-ax.grid(axis="y", alpha=0)
-save(fig, "base_vs_stressed_el_by_segment.png")
-
-# 3. Residential-mortgage PD across disclosing banks (the anchoring story) ----
+# 4. Per-segment PD / LGD anchored to each disclosing source -----------------
+# An "anchor" chart shows every disclosing source for a segment around the
+# median the engine uses as the benchmark. It is only meaningful where >= 2
+# sources disclose the parameter — bank Pillar 3 reports publish PD/LGD by Basel
+# asset class, so only residential and commercial property have a multi-source
+# PD spread (the rest are single-source and are NOT anchored, by design).
 pd_in = pd.read_csv(DATA / "pd_inputs.csv")
-res = pd_in[pd_in.segment == "residential_mortgage"].copy()
-res["bank"] = res.source_id.str.split("_").str[0].str.replace("MACQUARIE", "MQG")
-res = res.sort_values("pd_decimal")
-median_pd = res.pd_decimal.median()
-fig, ax = plt.subplots(figsize=(7.2, 4.6))
-bars = ax.bar(res.bank, res.pd_decimal * 100, color=BASE, width=0.6, edgecolor="white")
-for b, v in zip(bars, res.pd_decimal * 100):
-    ax.text(b.get_x() + b.get_width() / 2, v, f"{v:.2f}%", ha="center", va="bottom", fontsize=10)
-ax.axhline(median_pd * 100, color=STRESS, linestyle="--", linewidth=1.6,
-           label=f"median used as benchmark ({median_pd*100:.2f}%)")
-ax.set_ylabel("disclosed 12-month PD (%)")
-ax.set_title("Residential-mortgage PD, anchored to Pillar 3 disclosures")
-ax.legend(frameon=False)
-save(fig, "residential_pd_by_bank.png")
+lgd_in = pd.read_csv(DATA / "lgd_inputs.csv")
+
+
+def _source_label(row):
+    if row.source_type == "apra_performance":
+        return "APRA\nfloor"
+    head = row.source_id.split("_")[0]
+    return "MQG" if head == "MACQUARIE" else head
+
+
+def anchor_chart(src_df, value_col, segment, ylabel, title, fname, decimals=2):
+    sub = src_df[src_df.segment == segment].copy()
+    if sub[value_col].notna().sum() < 2:
+        print("skip", fname, "- fewer than 2 disclosing sources")
+        return
+    sub["lab"] = sub.apply(_source_label, axis=1)
+    sub = sub.sort_values(value_col)
+    median = sub[value_col].median()
+    colours = [ACCENT if t == "apra_performance" else BASE for t in sub.source_type]
+    fig, ax = plt.subplots(figsize=(7.2, 4.6))
+    bars = ax.bar(sub.lab, sub[value_col] * 100, color=colours, width=0.6, edgecolor="white")
+    for b, v in zip(bars, sub[value_col] * 100):
+        ax.text(b.get_x() + b.get_width() / 2, v, f"{v:.{decimals}f}%",
+                ha="center", va="bottom", fontsize=9.5)
+    ax.axhline(median * 100, color=STRESS, linestyle="--", linewidth=1.6,
+               label=f"median used as benchmark ({median*100:.{decimals}f}%)")
+    handles = [plt.Line2D([], [], color=STRESS, ls="--", lw=1.6,
+                          label=f"median benchmark ({median*100:.{decimals}f}%)"),
+               Patch(color=BASE, label="bank Pillar 3 disclosure")]
+    if (sub.source_type == "apra_performance").any():
+        handles.append(Patch(color=ACCENT, label="APRA regulatory floor"))
+    ax.legend(handles=handles, frameon=False, fontsize=9)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    save(fig, fname)
+
+
+anchor_chart(pd_in, "pd_decimal", "residential_mortgage", "disclosed 12-month PD (%)",
+             "Residential property — PD anchored to disclosures", "residential_pd_by_bank.png", 2)
+anchor_chart(lgd_in, "lgd_decimal", "residential_mortgage", "disclosed LGD (%)",
+             "Residential property — LGD anchored to disclosures", "residential_lgd_by_bank.png", 1)
+anchor_chart(pd_in, "pd_decimal", "commercial_property", "disclosed 12-month PD (%)",
+             "Commercial property — PD anchored to disclosures", "commercial_property_pd_by_bank.png", 2)
+anchor_chart(lgd_in, "lgd_decimal", "commercial_property", "disclosed LGD (%)",
+             "Commercial property — LGD anchored to disclosures", "commercial_property_lgd_by_bank.png", 1)
 
 print("\nAll figures written to", FIG)
